@@ -1,0 +1,18 @@
+include MANIFEST.in
+include requirements.txt
+include *.json
+include *.md
+include *.py
+include *.txt
+recursive-include erpnext_ebay *.css
+recursive-include erpnext_ebay *.csv
+recursive-include erpnext_ebay *.html
+recursive-include erpnext_ebay *.ico
+recursive-include erpnext_ebay *.js
+recursive-include erpnext_ebay *.json
+recursive-include erpnext_ebay *.md
+recursive-include erpnext_ebay *.png
+recursive-include erpnext_ebay *.py
+recursive-include erpnext_ebay *.svg
+recursive-include erpnext_ebay *.txt
+recursive-exclude erpnext_ebay *.pyc
