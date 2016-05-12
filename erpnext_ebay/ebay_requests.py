@@ -21,7 +21,7 @@ from common import dump
 #sys.path.insert(0, "/Users/macmini/frappe-bench/apps/unigreenscheme/ebaysdk-python-master")
 #sys.path.append("/Users/macmini/frappe-bench/apps/unigreenscheme/ebaysdk-python-master")
 #sys.path.append("/Users/macmini/Documents/dev/ebaysdk-python-master")
-sys.path.append("/home/frappe/frappe-bench/apps/unigreenscheme/ebaysdk-python-master")
+sys.path.append("/home/frappe/frappe-bench/apps/erpnext_ebay/ebaysdk-python-master")
 sys.path.append("/Library/Python/2.7/site-packages")
 
 import ebaysdk
