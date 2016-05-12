@@ -18,13 +18,21 @@ order.BuyerUserID, order.ShippingAddress.CityName, order.ShippingAddress.Country
 '''
 
 
+
+num_days = 44
+
+
 @frappe.whitelist()
 def sync_new():
     
-    orders = get_orders()
-    for order in orders.OrderArray.Order:
-        create_customer(order)
-        
+    try:
+        orders = get_orders()
+        if int(orders.ReturnedOrderCountActual) > 0:
+            for order in orders.OrderArray.Order:
+                create_customer(order)
+                
+    except Exception, e:
+        msgprint('Problem getting orders')
         
 def create_customer(order):
 	#ebay_settings = frappe.get_doc("Shopify Settings", "Shopify Settings")
@@ -35,6 +43,8 @@ def create_customer(order):
     
     
     try:
+        #custname = order.ShippingAddress.Name
+        #if custname.len <=0: custname = "BLANK"
         msgprint(order.BuyerUserID)
         customer = frappe.get_doc({
 		    "doctype": "Customer",

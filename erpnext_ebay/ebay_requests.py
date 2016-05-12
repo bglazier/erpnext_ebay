@@ -44,6 +44,7 @@ def get_ebay_customers(ignore_filter_conditions=False):
 
 def get_orders():
     
+    orders = None
     ebay_customers = []
     
     CreateTimeFrom = str(datetime.date.today())
@@ -58,7 +59,7 @@ def get_orders():
         
         api = Trading(appid='Q20967060-98d1-42f3-8870-95ac890c9dc',devid='abc5d5bb-4394-4b2e-b587-d5f1f1aa9784', certid='3a530102-f035-4215-8c0b-6e81f54b655c',token='AgAAAA**AQAAAA**aAAAAA**2Q3WVg**nY+sHZ2PrBmdj6wVnY+sEZ2PrA2dj6wNloGkCZCDoAudj6x9nY+seQ**FegAAA**AAMAAA**wXWh4nAKbWaTigoWvCN1zxd18pMiJPNhL3eCRYKYDvJticp7UJIwcI8ruTeuyRSVAIPREd4E2f56vIvz84u9Q5mMxUYD5OKI+g8E0yPY3/onyc621vAVcMzi9GGZMvA5Yti45m+eK9NbsuZ40N6rA+AYICkYrYoH72+auU1VzuNrY95NhEkoe79hoa+MWBTXBc6OyGlRoQYPmL2LLpSILdmaYuoc14qBJyyjHIHpmBStA11G6fmrpw4pHxWNUfn434OFjvApXBbShgE7cmhV2HseaDV/jBOU7K1RkpUFXeev4RF2zPl+LSR/+sfsgHwfzRd0XK3mM4s8FIoXwlB27KkzIQCxvVIu2/rAMvasC/PUMSNo07cVYVuj3DG4tYLHywoKod0TM/TlwhqTd4k1kxvyoE7oNzde3hpo8Drhyl6ayzLPu4J97X3B+2I7SiVYVoBpFqHKxsbmGlQznZqxba1QyO/T2yEXORABQ4sOnb+neSnyQLTELEvYwWye6oKAW1Rg9PtAHxEpKuQpEvOUxkmIKEzXc0AEv5Z/lsnR8kNY5uJp9UAHv3p6whbgG3ntnGG/I7fFWETuNdwHJk1EhdOMLTCyRwT6oE630EtdjIYM86kGufeqBUEVG0VZGBUK1rJkEpmzHCaZoOm2+EtYim+HRZq964TkMc0EugLTlu3EvZPDybwSMyZdbP9f/HD+zrDm6KbuNayuzDfQ2XaVV1IplcbAddLQOC5NEo7ao5xlRjxmls7Zx5h+Nl0E5Mhu', config_file=None)
         
-        api.execute('GetOrders', {'NumberOfDays': 3})
+        api.execute('GetOrders', {'NumberOfDays': 30})
         #dump(api, full=False)
         
         dom    = api.response_dom()
@@ -82,8 +83,10 @@ def get_orders():
         print(e)
         print(e.response.dict())
     
-    
-    return orders
+    if int(orders.ReturnedOrderCountActual) > 0:
+        return orders
+    else:
+        return None
         
         
         
