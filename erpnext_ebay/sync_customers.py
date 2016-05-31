@@ -16,7 +16,7 @@ def sync_new():
     orders = get_orders()
     for order in orders:
         cust, address = extract_customer(order)
-        create_customer(cust, address, no_duplicates=True)
+        create_customer(cust, address)
 
 
 def extract_customer(order):
@@ -87,39 +87,47 @@ def extract_customer(order):
     return customer_dict, address_dict
 
 
-def create_customer(customer_dict, address_dict, no_duplicates=True):
+def create_customer(customer_dict, address_dict):
     """Process an order and add the customer; add customer address
+    Does not duplicate entries
 
     customer_dict - A dictionary ready to create a Customer doctype
-    address_dict - A dictionary ready to create an Address doctype (or None)
-    no_duplicates - Don't duplicate existing entries"""
+    address_dict - A dictionary ready to create an Address doctype (or None)"""
 
+    add_customer = False
+    updated_name = False
+    
     # First test if the customer already exists
     db_cust_name = None
-    if no_duplicates:
-        ebay_user_id = customer_dict['ebay_user_id']
+    ebay_user_id = customer_dict['ebay_user_id']
 
-        db_cust_name = frappe.db.get_value(
-            "Customer",
-            filters={"ebay_user_id": ebay_user_id},
-            fieldname="name")
-        if db_cust_name is None:
-            msgprint('Adding a user: ' + ebay_user_id + ' : ' + customer_dict['customer_name'])
-        else:
-            msgprint('Not adding a user: ' + ebay_user_id + ' : ' + db_cust_name)
+    cust_queries = frappe.db.get_all(
+        "Customer",
+        filters={"ebay_user_id": ebay_user_id},
+        fields=["name", "customer_name"])
 
-        add_customer = db_cust_name is None
+    if len(cust_queries) == 0:
+        msgprint('Adding a user: ' + ebay_user_id +
+                 ' : ' + customer_dict['customer_name'])
+    elif len(cust_queries) == 1:
+        db_cust_name = cust_queries[0]['name']
+        db_cust_customer_name = cust_queries[0]['customer_name']
+        msgprint('User already exists: ' + ebay_user_id +
+                 ' : ' + db_cust_customer_name)
     else:
-        add_customer = True
+        print cust_queries
+        frappe.throw('Multiple customer entries with same eBay ID!')
+
+    add_customer = db_cust_name is None
 
     # Add customer if required
     if add_customer:
         frappe.get_doc(customer_dict).insert()
-    
-    # Now test if the address already exists
+
     if address_dict is None:
         add_address = False
-    elif no_duplicates:
+    else:
+        # Test if the address already exists
         keys = ('address_line1', 'address_line2', 'city', 'pincode')
         filters = {}
         for key in keys:
@@ -130,15 +138,22 @@ def create_customer(customer_dict, address_dict, no_duplicates=True):
                                               filters=filters,
                                               fieldname="name")
         add_address = db_address_name is None
-    else:
-        add_address = True
+
+        # Check that customer has a name, not just an eBay user id
+        # If not, update with new name
+        if db_cust_name is not None:
+            if db_cust_customer_name == ebay_user_id:
+                msgprint('Updating name: ' + ebay_user_id + ' -> ' +
+                         address_dict["customer_name"])
+                cust = frappe.get_doc("Customer", db_cust_name)
+                cust.customer_name = address_dict["customer_name"]
+                cust.save()
+                updated_name = True
 
     # Add address if required
     if add_address:
         if db_cust_name is None:
             # Find new customer 'name' field
-            ebay_user_id = customer_dict['ebay_user_id']
-
             db_cust_name = frappe.db.get_value(
                 "Customer",
                 filters={"ebay_user_id": ebay_user_id},
@@ -147,7 +162,7 @@ def create_customer(customer_dict, address_dict, no_duplicates=True):
         frappe.get_doc(address_dict).insert()
 
     # Commit changes to database
-    if add_customer or add_address:
+    if add_customer or add_address or updated_name:
         frappe.db.commit()
 
     return None
