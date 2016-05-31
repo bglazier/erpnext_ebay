@@ -94,9 +94,8 @@ def create_customer(customer_dict, address_dict):
     customer_dict - A dictionary ready to create a Customer doctype
     address_dict - A dictionary ready to create an Address doctype (or None)"""
 
-    add_customer = False
-    updated_name = False
-    
+    updated_db = False
+
     # First test if the customer already exists
     db_cust_name = None
     ebay_user_id = customer_dict['ebay_user_id']
@@ -107,22 +106,58 @@ def create_customer(customer_dict, address_dict):
         fields=["name", "customer_name"])
 
     if len(cust_queries) == 0:
-        msgprint('Adding a user: ' + ebay_user_id +
-                 ' : ' + customer_dict['customer_name'])
+        # We don't have a customer with a matching ebay_user_id
+        matched_non_eBay = False
+
+        # If we also have an address, check if we have a
+        # matching postcode and name
+        if address_dict is not None:
+            address_queries = frappe.db.get_all(
+                "Address",
+                filters={"pincode": address_dict['pincode']},
+                fields=["name", "customer"])
+            if len(address_queries) == 1:
+                # We have a matching postcode - match the name
+                db_cust_name_test = address_queries[0]["customer"]
+                cust_queries_test = frappe.db.get_values(
+                    "Customer",
+                    filters={"name": db_cust_name_test},
+                    fieldname="customer_name")
+                if len(cust_queries_test) == 1:
+                    db_cust_customer_name_test = cust_queries_test[0][0]
+                    if (address_dict['customer_name'] ==
+                            db_cust_customer_name_test):
+                        # We have matched name and postcode
+                        matched_non_eBay = True
+                        cust_doc = frappe.get_doc("Customer", db_cust_name_test)
+                        cust_doc.ebay_user_id = ebay_user_id
+                        cust_doc.save()
+                        updated_db = True
+                        db_cust_name = db_cust_name_test
+                        db_cust_customer_name = db_cust_customer_name_test
+                        msgprint('Located non-eBay user: ' +
+                                 db_cust_customer_name_test + ' : ' +
+                                 ebay_user_id)
+
+        if not matched_non_eBay:
+            msgprint('Adding a user: ' + ebay_user_id +
+                     ' : ' + customer_dict['customer_name'])
     elif len(cust_queries) == 1:
+        # We have a customer with a matching ebay_user_id
         db_cust_name = cust_queries[0]['name']
         db_cust_customer_name = cust_queries[0]['customer_name']
         msgprint('User already exists: ' + ebay_user_id +
                  ' : ' + db_cust_customer_name)
     else:
+        # We have multiple customers with this ebay_user_id
+        # This is not permitted
         print cust_queries
         frappe.throw('Multiple customer entries with same eBay ID!')
 
-    add_customer = db_cust_name is None
-
     # Add customer if required
-    if add_customer:
+    if db_cust_name is None:
         frappe.get_doc(customer_dict).insert()
+        updated_db = True
 
     if address_dict is None:
         add_address = False
@@ -148,7 +183,7 @@ def create_customer(customer_dict, address_dict):
                 cust = frappe.get_doc("Customer", db_cust_name)
                 cust.customer_name = address_dict["customer_name"]
                 cust.save()
-                updated_name = True
+                updated_db = True
 
     # Add address if required
     if add_address:
@@ -160,9 +195,10 @@ def create_customer(customer_dict, address_dict):
                 fieldname="name")
         address_dict['customer'] = db_cust_name
         frappe.get_doc(address_dict).insert()
+        updated_db = True
 
     # Commit changes to database
-    if add_customer or add_address or updated_name:
+    if updated_db:
         frappe.db.commit()
 
     return None
