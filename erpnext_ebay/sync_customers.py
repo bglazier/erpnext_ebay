@@ -89,7 +89,7 @@ def extract_customer(order):
 
 def create_customer(customer_dict, address_dict):
     """Process an order and add the customer; add customer address
-    Does not duplicate entries
+    Does not duplicate entries where possible
 
     customer_dict - A dictionary ready to create a Customer doctype
     address_dict - A dictionary ready to create an Address doctype (or None)"""
