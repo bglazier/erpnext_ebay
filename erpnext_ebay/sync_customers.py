@@ -1,6 +1,9 @@
 """Functions to read through eBay orders and load customers and addresses"""
 
 from __future__ import unicode_literals
+
+import datetime
+
 import frappe
 from frappe import msgprint,_
 from frappe.utils import flt
@@ -9,15 +12,28 @@ from ebay_requests import get_orders
 
 
 @frappe.whitelist()
-def sync_new():
+def sync():
     """Sync the Ebay database with the Frappe database."""
+
+    # Create a synchronization log
+    log_dict = {"doctype": "eBay sync log",
+                "ebay_sync_datetime": datetime.datetime.now(),
+                "ebay_log_table": []}
+    changes = []
 
     # Load orders from Ebay and load new customers
     orders = get_orders()
-    for order in orders:
-        cust, address = extract_customer(order)
-        create_customer(cust, address)
-
+    try:
+        for order in orders:
+            cust, address = extract_customer(order)
+            changes.extend(create_customer(cust, address))
+    finally:
+        # Save the log, regardless of how far we got
+        for change in changes:
+            log_dict['ebay_log_table'].append(change)
+        log = frappe.get_doc(log_dict)
+        log.insert()
+        frappe.db.commit()
 
 def extract_customer(order):
     """Process and order, and extract limited customer information
@@ -94,6 +110,7 @@ def create_customer(customer_dict, address_dict):
     customer_dict - A dictionary ready to create a Customer doctype
     address_dict - A dictionary ready to create an Address doctype (or None)"""
 
+    changes = []
     updated_db = False
 
     # First test if the customer already exists
@@ -118,6 +135,7 @@ def create_customer(customer_dict, address_dict):
                 fields=["name", "customer"])
             if len(address_queries) == 1:
                 # We have a matching postcode - match the name
+                db_address_test = address_queries[0]["name"]
                 db_cust_name_test = address_queries[0]["customer"]
                 cust_queries_test = frappe.db.get_values(
                     "Customer",
@@ -136,8 +154,13 @@ def create_customer(customer_dict, address_dict):
                         db_cust_name = db_cust_name_test
                         db_cust_customer_name = db_cust_customer_name_test
                         msgprint('Located non-eBay user: ' +
-                                 db_cust_customer_name_test + ' : ' +
-                                 ebay_user_id)
+                                 ebay_user_id + ' : ' +
+                                 db_cust_customer_name_test)
+                        changes.append({"ebay_change": "Located non-eBay user",
+                                       "ebay_user_id": ebay_user_id,
+                                       "customer_name": db_cust_customer_name,
+                                       "customer": db_cust_name,
+                                       "address": db_address_test})
 
         if not matched_non_eBay:
             msgprint('Adding a user: ' + ebay_user_id +
@@ -148,11 +171,22 @@ def create_customer(customer_dict, address_dict):
         db_cust_customer_name = cust_queries[0]['customer_name']
         msgprint('User already exists: ' + ebay_user_id +
                  ' : ' + db_cust_customer_name)
+        changes.append({"ebay_change": "User already exists",
+                       "ebay_user_id": ebay_user_id,
+                       "customer_name": db_cust_customer_name,
+                       "customer": db_cust_name,
+                       "address": None})
     else:
         # We have multiple customers with this ebay_user_id
         # This is not permitted
         print cust_queries
         frappe.throw('Multiple customer entries with same eBay ID!')
+        changes.append({"ebay_change": "Multiple customer entries "
+                            "with the same eBay ID!",
+                       "ebay_user_id": ebay_user_id,
+                       "customer_name": "",
+                       "customer": None,
+                       "address": None})
 
     # Add customer if required
     if db_cust_name is None:
@@ -168,7 +202,7 @@ def create_customer(customer_dict, address_dict):
         for key in keys:
             if address_dict[key] is not None:
                 filters[key] = address_dict[key]
-        
+
         db_address_name = frappe.db.get_value("Address",
                                               filters=filters,
                                               fieldname="name")
@@ -180,6 +214,11 @@ def create_customer(customer_dict, address_dict):
             if db_cust_customer_name == ebay_user_id:
                 msgprint('Updating name: ' + ebay_user_id + ' -> ' +
                          address_dict["customer_name"])
+                changes.append({"ebay_change": "Updating name",
+                               "ebay_user_id": ebay_user_id,
+                               "customer_name": db_cust_customer_name,
+                               "customer": db_cust_name,
+                               "address": db_address_name})
                 cust = frappe.get_doc("Customer", db_cust_name)
                 cust.customer_name = address_dict["customer_name"]
                 cust.save()
@@ -201,7 +240,7 @@ def create_customer(customer_dict, address_dict):
     if updated_db:
         frappe.db.commit()
 
-    return None
+    return changes
 
 
 def sanitize_postcode(in_postcode):

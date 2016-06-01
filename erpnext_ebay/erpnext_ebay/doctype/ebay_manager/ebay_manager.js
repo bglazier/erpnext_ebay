@@ -13,7 +13,7 @@ frappe.ui.form.on('eBay Manager', 'customer_sync', function(frm) {
     //alert("Importing New Customers...");
 	
 	frappe.call({
-			method: "erpnext_ebay.sync_customers.sync_new",
+			method: "erpnext_ebay.sync_customers.sync",
 			args: {},
 			callback: function(r){}
 				//cur_frm.reload_doc();
