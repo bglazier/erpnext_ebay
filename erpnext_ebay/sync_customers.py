@@ -21,12 +21,18 @@ def sync():
                 "ebay_log_table": []}
     changes = []
 
-    # Load orders from Ebay and load new customers
+    # Load orders from Ebay
     orders = get_orders()
     try:
+        # Load new customers
         for order in orders:
             cust, address = extract_customer(order)
             changes.extend(create_customer(cust, address))
+
+        for order in orders:
+            orders_details = extract_order_info(order)
+            changes.extend(create_ebay_order(orders_details))
+
     finally:
         # Save the log, regardless of how far we got
         for change in changes:
@@ -35,8 +41,9 @@ def sync():
         log.insert()
         frappe.db.commit()
 
+
 def extract_customer(order):
-    """Process and order, and extract limited customer information
+    """Process an order, and extract limited customer information
 
     order - a single order entry from the eBay TradingAPI
 
@@ -103,12 +110,31 @@ def extract_customer(order):
     return customer_dict, address_dict
 
 
+def extract_order_info(order):
+    """Process an order, and extract limited transaction information
+
+    order - a single order entry from the eBay TradingAPI
+
+    Returns dictionary for eBay order entries"""
+
+    ebay_user_id = order['BuyerUserID']
+
+    order_dict = {"doctype": "eBay order",
+                  "name": order['OrderID'],
+                  "ebay_order_id": order['OrderID'],
+                  "ebay_user_id": order['BuyerUserID'],}
+
+    return order_dict
+
+
 def create_customer(customer_dict, address_dict):
     """Process an order and add the customer; add customer address
     Does not duplicate entries where possible
 
     customer_dict - A dictionary ready to create a Customer doctype
-    address_dict - A dictionary ready to create an Address doctype (or None)"""
+    address_dict - A dictionary ready to create an Address doctype (or None)
+
+    Returns a list of dictionaries for eBay sync log entries"""
 
     changes = []
     updated_db = False
@@ -160,7 +186,8 @@ def create_customer(customer_dict, address_dict):
                                        "ebay_user_id": ebay_user_id,
                                        "customer_name": db_cust_customer_name,
                                        "customer": db_cust_name,
-                                       "address": db_address_test})
+                                       "address": db_address_test,
+                                       "ebay_order": None})
 
         if not matched_non_eBay:
             msgprint('Adding a user: ' + ebay_user_id +
@@ -175,7 +202,8 @@ def create_customer(customer_dict, address_dict):
                        "ebay_user_id": ebay_user_id,
                        "customer_name": db_cust_customer_name,
                        "customer": db_cust_name,
-                       "address": None})
+                       "address": None,
+                       "ebay_order": None})
     else:
         # We have multiple customers with this ebay_user_id
         # This is not permitted
@@ -186,7 +214,8 @@ def create_customer(customer_dict, address_dict):
                        "ebay_user_id": ebay_user_id,
                        "customer_name": "",
                        "customer": None,
-                       "address": None})
+                       "address": None,
+                       "ebay_order": None})
 
     # Add customer if required
     if db_cust_name is None:
@@ -218,7 +247,8 @@ def create_customer(customer_dict, address_dict):
                                "ebay_user_id": ebay_user_id,
                                "customer_name": db_cust_customer_name,
                                "customer": db_cust_name,
-                               "address": db_address_name})
+                               "address": db_address_name,
+                               "ebay_order": None})
                 cust = frappe.get_doc("Customer", db_cust_name)
                 cust.customer_name = address_dict["customer_name"]
                 cust.save()
@@ -235,6 +265,92 @@ def create_customer(customer_dict, address_dict):
         address_dict['customer'] = db_cust_name
         frappe.get_doc(address_dict).insert()
         updated_db = True
+
+    # Commit changes to database
+    if updated_db:
+        frappe.db.commit()
+
+    return changes
+
+
+def create_ebay_order(order_dict):
+    """Process an eBay order and add eBay order document
+    Does not duplicate entries where possible
+
+    order_dict - A dictionary ready to create a eBay order doctype
+
+    Returns a list of dictionaries for eBay sync log entries"""
+
+    changes = []
+    updated_db = False
+
+    ebay_order_id = order_dict['ebay_order_id']
+    ebay_user_id = order_dict['ebay_user_id']
+
+    order_queries = frappe.db.get_values(
+        "eBay order",
+        filters={'ebay_order_id': ebay_order_id},
+        fieldname='name')
+
+    if len(order_queries) == 0:
+        # Order does not exist, create eBay order
+        db_cust_name = None
+        db_cust_customer_name = None
+        db_address_name = None
+
+        cust_queries = frappe.db.get_all(
+            "Customer",
+            filters={'ebay_user_id': ebay_user_id},
+            fields=['name', 'customer_name'])
+
+        if len(cust_queries) == 1:
+            db_cust_name = cust_queries[0]['name']
+            db_cust_customer_name = cust_queries[0]['customer_name']
+            address_queries = frappe.db.get_values(
+                "Address",
+                filters={"customer": db_cust_name},
+                fieldname="name")
+            if len(address_queries) == 1:
+                db_address_name = address_queries[0][0]
+
+        # TO DO - make a better check of eBay order address vs db address
+        frappe.get_doc(order_dict).insert()
+        msgprint('Adding eBay order: ' + ebay_user_id + ' : ' +
+                 ebay_order_id)
+        changes.append({"ebay_change": "Adding eBay order",
+                       "ebay_user_id": ebay_user_id,
+                       "customer_name": db_cust_customer_name,
+                       "customer": db_cust_name,
+                       "address": db_address_name,
+                       "ebay_order": ebay_order_id})
+        updated_db = True
+
+    elif len(order_queries) == 1:
+        # Order already exists
+        # Check if status of order has changed, and if so update??
+        # TO DO
+        msgprint('eBay order already exists: ' + ebay_user_id + ' : ' +
+                 ebay_order_id)
+        # TO DO - obtain customer name
+        changes.append({"ebay_change": "eBay order already exists",
+                       "ebay_user_id": ebay_user_id,
+                       "customer_name": 'TO DO',
+                       "customer": None,
+                       "address": None,
+                       "ebay_order": ebay_order_id})
+
+    else:
+        # We have multiple orders with this ebay_order_id
+        # This is not permitted
+        print order_queries
+        frappe.throw('Multiple eBay order entries with same eBay order ID!')
+        changes.append({"ebay_change": "Multiple eBay orders "
+                            "with the same eBay order ID!",
+                       "ebay_user_id": ebay_user_id,
+                       "customer_name": ebay_order_id,
+                       "customer": None,
+                       "address": None,
+                       "ebay_order": None})
 
     # Commit changes to database
     if updated_db:
