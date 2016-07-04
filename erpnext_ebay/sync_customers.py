@@ -20,14 +20,16 @@ assume_shipping_name_is_ebay_name = True
 def sync():
     """Sync the Ebay database with the Frappe database."""
 
+    # Load orders from Ebay
+    orders, num_days = get_orders()
+
     # Create a synchronization log
     log_dict = {"doctype": "eBay sync log",
                 "ebay_sync_datetime": datetime.datetime.now(),
+                "ebay_sync_days": num_days,
                 "ebay_log_table": []}
     changes = []
 
-    # Load orders from Ebay
-    orders = get_orders()
     try:
         # Load new customers
         for order in orders:

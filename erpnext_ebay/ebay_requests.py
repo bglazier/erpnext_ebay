@@ -27,13 +27,21 @@ def get_orders():
 
     orders = []
     page = 1
+    num_days = frappe.db.get_value(
+        'eBay Manager Settings', filters=None, fieldname='ebay_sync_days')
+    try:
+        if num_days < 1:
+            frappe.msgprint('Invalid number of days: ' + str(num_days))
+    except TypeError:
+        raise ValueError('Invalid type in ebay_sync_days')
+
     try:
         # Initialize TradingAPI; default timeout is 20.
         api = Trading(config_file='ebay.yaml', warnings=True, timeout=20)
         while True:
             # TradingAPI results are paginated, so loop until
             # all pages have been obtained
-            api.execute('GetOrders', {'NumberOfDays': 30,
+            api.execute('GetOrders', {'NumberOfDays': num_days,
                                       'Pagination': {'EntriesPerPage': 100,
                                                      'PageNumber': page}})
 
@@ -50,4 +58,4 @@ def get_orders():
         print(e.response.dict())
         raise e
 
-    return orders
+    return orders, num_days
