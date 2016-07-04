@@ -65,7 +65,7 @@ def extract_customer(order):
     has_shipping_address = order['ShippingAddress']['Name'] is not None
 
     if has_shipping_address:
-        shipping_name = order['ShippingAddress']['Name'].decode("utf-8")
+        shipping_name = order['ShippingAddress']['Name']
         # Tidy up ShippingAddress name, if entirely lower/upper case and not
         # a single word
         if ((shipping_name.islower() or shipping_name.isupper()) and
@@ -97,7 +97,24 @@ def extract_customer(order):
 
         # Rest of the information
         postcode = order['ShippingAddress']['PostalCode']
+        address_line1 = order['ShippingAddress']['Street1']
+        address_line2 = order['ShippingAddress']['Street2']
         country = order['ShippingAddress']['CountryName']
+        if country is not None:
+            country = country.title()
+
+            if country in ['UK', 'GB', 'Great Britain']:
+                country = 'United Kingdom'
+
+            country_query = frappe.db.get_value(
+                'Country', filters={'name': country}, fieldname='name')
+            if country_query is None:
+                if address_line2:
+                    address_line2 = address_line2 + '\n' + country
+                else:
+                    address_line2 = country
+                country = None
+
         if postcode is not None and country=='United Kingdom':
             postcode = sanitize_postcode(postcode)
         address_dict = {
@@ -105,12 +122,12 @@ def extract_customer(order):
             "address_title": shipping_name,
             "ebay_address_id": order['ShippingAddress']['AddressID'],
             "address_type": _("Shipping"),
-            "address_line1": order['ShippingAddress']['Street1'],
-            "address_line2": order['ShippingAddress']['Street2'],
+            "address_line1": address_line1,
+            "address_line2": address_line2,
             "city": order['ShippingAddress']['CityName'],
             "state": order['ShippingAddress']['StateOrProvince'],
             "pincode": postcode,
-            "country": order['ShippingAddress']['CountryName'],
+            "country": country,
             "phone": order['ShippingAddress']['Phone'],
             "email_id": email_id,
             "customer_name": customer_name}
@@ -459,7 +476,7 @@ def db_get_ebay_doc(doctype, ebay_id_name, ebay_id,
                     fields=None, log=None, none_ok=True):
     """Get document with matching ebay_id from database.
 
-    Search in the database for document with matching ebay_user_id.
+    Search in the database for document with matching ebay_id_name = ebay_id.
     If fields is None, get the document and return as_dict().
     If fields is not None, return the dict of fields for that for that document.
 
