@@ -144,6 +144,32 @@ def get_categories():
     return categories_version, categories_data, max_level
 
 
+@frappe.whitelist()
+def GeteBayDetails():
+    """Perform a GeteBayDetails call and save the output in geteBayDetails.txt
+    in the site root directory
+    """
+    filename = os.path.join(frappe.utils.get_site_path(),
+                            'GeteBayDetails.txt')
+
+    try:
+        # Initialize TradingAPI; default timeout is 20.
+        api = Trading(domain='api.sandbox.ebay.com', config_file='ebay.yaml',
+                      siteid=siteid, warnings=True, timeout=20)
+
+    except ConnectionError as e:
+        print(e)
+        print(e.response.dict())
+        raise e
+
+    response = api.execute('GeteBayDetails', {})
+
+    with open(filename, 'wt') as f:
+        f.write(repr(response.dict()))
+
+    return None
+
+
 def sandbox_listing_testing():
 
     pass
