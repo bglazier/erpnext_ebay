@@ -7,7 +7,6 @@ import datetime
 
 import frappe
 from frappe import msgprint,_
-from frappe.utils import flt
 
 from ebay_requests import get_orders
 
