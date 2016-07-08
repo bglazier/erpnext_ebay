@@ -60,6 +60,21 @@ function category_change (frm, category_level) {
 };
 
 
+function check_all_categories_selected (frm) {
+    for (var i=1; i<=6; i++) {
+        var catname = 'category_' + String(i)
+        var has_options = false
+        if (frm.fields_dict[catname].df['options']) {
+           has_options = frm.fields_dict[catname].df['options'].length > 0
+        }
+        if (has_options && frm.doc['category_id_' + String(i)] == 0) {
+            return false;
+        }
+    }
+    return true;
+};
+
+
 frappe.ui.form.on('eBay Listing', {
     onload: function ebay_listing_onload (frm) {
         category_stack = [frm.doc.category_id_1,
@@ -109,16 +124,9 @@ frappe.ui.form.on('eBay Listing', {
 });
 
 frappe.ui.form.on("eBay Listing", "validate", function validate_listing (frm) {
-    for (var i=1; i<=6; i++) {
-        var catname = 'category_' + String(i)
-        var has_options = false
-        if (frm.fields_dict[catname].df['options']) {
-           has_options = frm.fields_dict[catname].df['options'].length > 0
-        }
-        if (has_options && frm.doc['category_id_' + String(i)] == 0) {
-            msgprint(__("You must select a appropriate eBay category!"));
-            validated = false;
-            return false;
-        }
+    if (!check_all_categories_selected(frm)) {
+        msgprint(__("You must select a appropriate eBay category!"));
+        validated = false;
+        return false;
     }
 });
