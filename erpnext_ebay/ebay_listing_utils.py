@@ -157,3 +157,4 @@ def client_update_ebay_categories(category_level, category_stack):
             cat_options[i] = {'value': cat_tuple[0],
                               'label': cat_tuple[1]}
     return cat_options
+

@@ -16,9 +16,11 @@ function proc_opts (option_string) {
 
 
 function category_change (frm, category_level) {
-    if (frm.fields_dict["category_" + String(category_level)].value == 0) {
+    new_val = frm.fields_dict["category_" + String(category_level)].value
+    if (new_val == 0) {
         return;
     }
+    frm.doc["category_id_" + String(category_level)] = new_val;
     for (var i=1; i<=category_level; i++) {
         var catname = "category_" + String(i);
         frm.fields_dict[catname].input.disabled = true;
@@ -30,6 +32,7 @@ function category_change (frm, category_level) {
         frm.set_df_property(catname, "reqd", false);
         frm.fields_dict[catname].input.disabled = true;
         frm.set_value(catname, 0);
+        frm.doc["category_id_" + String(i)] = 0;
     };
     frappe.call({
         method: "erpnext_ebay.ebay_listing_utils.client_update_ebay_categories",
@@ -102,5 +105,20 @@ frappe.ui.form.on('eBay Listing', {
                 });
             }
         });
+    }
+});
+
+frappe.ui.form.on("eBay Listing", "validate", function validate_listing (frm) {
+    for (var i=1; i<=6; i++) {
+        var catname = 'category_' + String(i)
+        var has_options = false
+        if (frm.fields_dict[catname].df['options']) {
+           has_options = frm.fields_dict[catname].df['options'].length > 0
+        }
+        if (has_options && frm.doc['category_id_' + String(i)] == 0) {
+            msgprint(__("You must select a appropriate eBay category!"));
+            validated = false;
+            return false;
+        }
     }
 });
