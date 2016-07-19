@@ -65,6 +65,8 @@ def extract_customer(order):
 
     ebay_user_id = order['BuyerUserID']
 
+    is_pickup_order = 'PickupMethodSelected' in order
+
     has_shipping_address = order['ShippingAddress']['Name'] is not None
 
     if has_shipping_address:
@@ -118,12 +120,20 @@ def extract_customer(order):
                     address_line2 = country
                 country = None
 
+        # If we have a pickup order, there is no eBay AddressID (so make one)
+        if is_pickup_order:
+            ebay_address_id = (ebay_user_id + '_PICKUP_' +
+                               address_line1.replace(' ', '_'))
+        else:
+            ebay_address_id = order['ShippingAddress']['AddressID']
+
+        # Prepare the address dictionary
         if postcode is not None and country=='United Kingdom':
             postcode = sanitize_postcode(postcode)
         address_dict = {
             "doctype": "Address",
             "address_title": shipping_name,
-            "ebay_address_id": order['ShippingAddress']['AddressID'],
+            "ebay_address_id": ebay_address_id,
             "address_type": _("Shipping"),
             "address_line1": address_line1,
             "address_line2": address_line2,
