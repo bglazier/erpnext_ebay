@@ -1,20 +1,6 @@
 // Copyright (c) 2016, Ben Glazier and contributors
 // For license information, please see license.txt
 
-
-function proc_opts (option_string) {
-    if (!option_string) {
-        return [];
-    }
-    var opts_in = option_string.split('\n');
-    var opts_out = [];
-    for (var i=0; i<opts_in.length; i=i+2) {
-        opts_out.push({'value': opts_in[i], 'label': opts_in[i+1]});
-    }
-    return opts_out;
-};
-
-
 function category_change (frm, category_level) {
     new_val = frm.fields_dict["category_" + String(category_level)].value
     if (new_val == 0) {
