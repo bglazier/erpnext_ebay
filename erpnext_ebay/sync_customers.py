@@ -16,6 +16,9 @@ from ebay_requests import get_orders
 # Don't say you weren't warned...
 assume_shipping_name_is_ebay_name = True
 
+# Maximum number of attempts to add duplicate address (by adding -1, -2 etc)
+maximum_address_duplicates = 4
+
 @frappe.whitelist()
 def sync():
     """Sync the Ebay database with the Frappe database."""
@@ -332,7 +335,28 @@ def create_customer(customer_dict, address_dict, changes=None):
                 ebay_user_id, fields=["name"],
                 log=changes, none_ok=False)["name"]
         address_dict['customer'] = db_cust_name
-        frappe.get_doc(address_dict).insert()
+        address_doc = frappe.get_doc(address_dict)
+        # Work around autonaming for addresses, which fails to prevent
+        # duplicates
+        try:
+            address_doc.insert()
+        except frappe.DuplicateEntryError as ex:
+            # An address based on address_title already exists
+            frappe.db.rollback()
+            address_title = address_dict['address_title']
+            for suffix_id in xrange(1,maximum_address_duplicates+1):
+                # Add a digit to the address title and retry
+                address_dict['address_title'] = (
+                    address_title + '-' + str(suffix_id))
+                address_doc = frappe.get_doc(address_dict)
+                try:
+                    address_doc.insert()
+                    break
+                except frappe.DuplicateEntryError:
+                    frappe.db.rollback()
+                    continue
+            else:
+                raise ValueError('Too many duplicate entries of this address!')
         updated_db = True
 
     # Commit changes to database
