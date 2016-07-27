@@ -4,10 +4,11 @@ from __future__ import unicode_literals
 from __future__ import print_function
 
 import datetime
+from types import MethodType
 
 import frappe
 from frappe import msgprint,_
-from frappe.utils import flt
+from frappe.utils import cstr
 
 from ebay_requests import get_orders
 
@@ -39,9 +40,10 @@ def sync():
             cust_details, address_details = extract_customer(order)
             create_customer(cust_details, address_details, changes)
 
-        for order in orders:
-            order_details = extract_order_info(order, changes)
-            create_ebay_order(order_details, changes)
+        # Not currently useful
+        #for order in orders:
+            #order_details = extract_order_info(order, changes)
+            #create_ebay_order(order_details, changes)
 
     finally:
         # Save the log, regardless of how far we got
@@ -346,19 +348,21 @@ def create_customer(customer_dict, address_dict, changes=None):
                 log=changes, none_ok=False)["name"]
         address_dict['customer'] = db_cust_name
         address_doc = frappe.get_doc(address_dict)
-        # Work around autonaming for addresses, which fails to prevent
-        # duplicates
         try:
             address_doc.insert()
         except frappe.DuplicateEntryError as ex:
-            # An address based on address_title already exists
+            # An address based on address_title autonaming already exists
+                # Get new doc, add a digit to the name and retry
             frappe.db.rollback()
-            address_title = address_dict['address_title']
             for suffix_id in xrange(1,maximum_address_duplicates+1):
-                # Add a digit to the address title and retry
-                address_dict['address_title'] = (
-                    address_title + '-' + str(suffix_id))
                 address_doc = frappe.get_doc(address_dict)
+                # Hackily patch out autoname function and do it by hand
+                address_doc.autoname = MethodType(lambda self: None,
+                                                  address_doc)
+                address_doc.name = (cstr(address_doc.address_title).strip()
+                                    + "-"
+                                    + cstr(address_doc.address_type).strip()
+                                    + "-" + str(suffix_id))
                 try:
                     address_doc.insert()
                     break
