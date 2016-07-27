@@ -4,9 +4,11 @@ from __future__ import unicode_literals
 from __future__ import print_function
 
 import datetime
+from types import MethodType
 
 import frappe
 from frappe import msgprint,_
+from frappe.utils import cstr
 
 from ebay_requests import get_orders
 
@@ -14,6 +16,9 @@ from ebay_requests import get_orders
 # eBay does not normally provide buyer name.
 # Don't say you weren't warned...
 assume_shipping_name_is_ebay_name = True
+
+# Maximum number of attempts to add duplicate address (by adding -1, -2 etc)
+maximum_address_duplicates = 4
 
 @frappe.whitelist()
 def sync():
@@ -35,9 +40,10 @@ def sync():
             cust_details, address_details = extract_customer(order)
             create_customer(cust_details, address_details, changes)
 
-        for order in orders:
-            order_details = extract_order_info(order, changes)
-            create_ebay_order(order_details, changes)
+        # Not currently useful
+        #for order in orders:
+            #order_details = extract_order_info(order, changes)
+            #create_ebay_order(order_details, changes)
 
     finally:
         # Save the log, regardless of how far we got
@@ -60,6 +66,8 @@ def extract_customer(order):
     """
 
     ebay_user_id = order['BuyerUserID']
+
+    is_pickup_order = 'PickupMethodSelected' in order
 
     has_shipping_address = order['ShippingAddress']['Name'] is not None
 
@@ -114,12 +122,20 @@ def extract_customer(order):
                     address_line2 = country
                 country = None
 
+        # If we have a pickup order, there is no eBay AddressID (so make one)
+        if is_pickup_order:
+            ebay_address_id = (ebay_user_id + '_PICKUP_' +
+                               address_line1.replace(' ', '_'))
+        else:
+            ebay_address_id = order['ShippingAddress']['AddressID']
+
+        # Prepare the address dictionary
         if postcode is not None and country=='United Kingdom':
             postcode = sanitize_postcode(postcode)
         address_dict = {
             "doctype": "Address",
             "address_title": shipping_name,
-            "ebay_address_id": order['ShippingAddress']['AddressID'],
+            "ebay_address_id": ebay_address_id,
             "address_type": _("Shipping"),
             "address_line1": address_line1,
             "address_line2": address_line2,
@@ -331,7 +347,30 @@ def create_customer(customer_dict, address_dict, changes=None):
                 ebay_user_id, fields=["name"],
                 log=changes, none_ok=False)["name"]
         address_dict['customer'] = db_cust_name
-        frappe.get_doc(address_dict).insert()
+        address_doc = frappe.get_doc(address_dict)
+        try:
+            address_doc.insert()
+        except frappe.DuplicateEntryError as ex:
+            # An address based on address_title autonaming already exists
+                # Get new doc, add a digit to the name and retry
+            frappe.db.rollback()
+            for suffix_id in xrange(1,maximum_address_duplicates+1):
+                address_doc = frappe.get_doc(address_dict)
+                # Hackily patch out autoname function and do it by hand
+                address_doc.autoname = MethodType(lambda self: None,
+                                                  address_doc)
+                address_doc.name = (cstr(address_doc.address_title).strip()
+                                    + "-"
+                                    + cstr(address_doc.address_type).strip()
+                                    + "-" + str(suffix_id))
+                try:
+                    address_doc.insert()
+                    break
+                except frappe.DuplicateEntryError:
+                    frappe.db.rollback()
+                    continue
+            else:
+                raise ValueError('Too many duplicate entries of this address!')
         updated_db = True
 
     # Commit changes to database
