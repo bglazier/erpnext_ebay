@@ -11,6 +11,12 @@ app_email = "ben@benjaminglazier.com"
 app_version = "0.0.1"
 app_license = "MIT"
 
+scheduler_events = {
+    "daily": [
+        "erpnext_ebay.ebay_categories.check_cache_version"
+    ]
+}
+
 # Includes in <head>
 # ------------------
 

@@ -3,6 +3,7 @@
 from __future__ import unicode_literals
 from __future__ import print_function
 
+import collections
 import os
 import sys
 import operator
@@ -148,7 +149,7 @@ def get_categories():
     return categories_data, max_level
 
 
-def get_features(categories_data):
+def get_features():
     """Load the eBay category features for the features cache."""
 
     try:
@@ -162,55 +163,75 @@ def get_features(categories_data):
         raise e
 
     features_data = None
+    listing_durations = {}
 
-    problematic_categories = ['1']
     # Loop over each top-level category, pulling in all of the data
-    for category in categories_data['TopLevel']:
+    search_categories = frappe.db.sql("""
+        SELECT CategoryID, CategoryName
+        FROM eBay_categories_hierarchy WHERE CategoryParentID=0
+        """, as_dict=True)
+
+    # BEGIN DUBIOUS WORKAROUND
+    # Even some top-level categories have a habit of timing out
+    # Run over their subcategories instead
+    problematic_categories = ['1']  # Categories that timeout
+    problem_parents = []
+    problem_children = []
+    for category in search_categories:
         category_id = category['CategoryID']
-        # print('Loading for category {}...'.format(category_id))
-
-        # BEGIN DUBIOUS WORKAROUND
         if category_id in problematic_categories:
-            # Loop over this category's children instead
-            for category_child in category['Children']:
-                category_child_id = category_child['CategoryID']
-                # print('Loading for subcategory {}...'.format(
-                #       category_child_id))
+            problem_parents.append(category)
+            children = frappe.db.sql("""
+                SELECT CategoryID, CategoryName
+                FROM eBay_categories_hierarchy WHERE CategoryParentID=%s
+                """, (category_id,), as_dict=True)
+            problem_children.extend(children)
+    for parent in problem_parents:
+        search_categories.remove(parent)
+    search_categories.extend(problem_children)
+    # END DUBIOUS WORKAROUND
 
-                try:
-                    response = api.execute('GetCategoryFeatures',
-                                           {'CategoryID': category_child_id,
-                                            'DetailLevel': 'ReturnAll',
-                                            'ViewAllNodes': True})
-                except ConnectionError as e:
-                    print(e)
-                    print(e.response.dict())
-                    raise e
-                response_dict = response.dict()
-                if features_data is None:
-                    features_data = response_dict
-                else:
-                    features_data['Category'].extend(response_dict['Category'])
-        # END DUBIOUS WORKAROUND
-        else:
-            try:
-                response = api.execute('GetCategoryFeatures',
-                                       {'CategoryID': category_id,
-                                        'DetailLevel': 'ReturnAll',
-                                        'ViewAllNodes': True})
-            except ConnectionError as e:
-                print(e)
-                print(e.response.dict())
-                raise e
-            response_dict = response.dict()
-        # print('done.')
+    for category in search_categories:
+        category_id = category['CategoryID']
+        print('Loading for category {}...'.format(category_id))
+
+        try:
+            response = api.execute('GetCategoryFeatures',
+                                   {'CategoryID': category_id,
+                                    'DetailLevel': 'ReturnAll',
+                                    'ViewAllNodes': False})
+        except ConnectionError as e:
+            print(e)
+            print(e.response.dict())
+            raise e
+        response_dict = response.dict()
 
         if features_data is None:
             # First batch of new categories
             features_data = response_dict
+            lds = (response_dict['FeatureDefinitions']['ListingDurations']
+                                ['ListingDuration'])
+            for ld in lds:
+                listing_durations[ld['_durationSetID']] = ld['Duration']
+            del (response_dict['FeatureDefinitions']['ListingDurations']
+                              ['ListingDuration'])
         else:
             # Just add new categories
-            features_data['Category'].extend(response_dict['Category'])
+            cat_list = response_dict['Category']
+            if not isinstance(cat_list, collections.Sequence):
+                cat_list = [cat_list]
+            features_data['Category'].extend(cat_list)
+            lds = (response_dict['FeatureDefinitions']['ListingDurations']
+                                ['ListingDuration'])
+            for ld in lds:
+                if ld['_durationSetID'] in listing_durations:
+                    continue
+                listing_durations[ld['_durationSetID']] = ld['Duration']
+            del (response_dict['FeatureDefinitions']['ListingDurations']
+                              ['ListingDuration'])
+
+    # Store the listing durations in a sensible place
+    features_data['ListingDurations'] = listing_durations
 
     # Extract the new version number
     features_version = features_data['CategoryVersion']
