@@ -8,20 +8,3 @@ from frappe.model.document import Document
 
 class eBayListing(Document):
     pass
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -1,4 +1,4 @@
-"""Functions to retrieve data from eBay via ebaysdk module and TradingAPI"""
+"""Functions to retrieve data from eBay via ebaysdk module and TradingAPI."""
 
 from __future__ import unicode_literals
 from __future__ import print_function
@@ -14,19 +14,14 @@ from ebaysdk.exception import ConnectionError
 from ebaysdk.trading import Connection as Trading
 
 
-siteid = 3 # eBay site id: 0=US, 3=UK
+siteid = 3  # eBay site id: 0=US, 3=UK
 
 
 def get_orders():
-    """Returns a list of recent orders from the Ebay TradingAPI"""
+    """Returns a list of recent orders from the Ebay TradingAPI."""
 
     orders = None
     ebay_customers = []
-
-    #CreateTimeFrom = str(datetime.date.today())
-    #CreateTimeFrom = CreateTimeFrom+'T0:0:0.000Z'
-    #CreateTimeTo = str(datetime.datetime.now())
-    #CreateTimeTo = CreateTimeTo[0:len(CreateTimeTo)-3]+'Z'
 
     orders = []
     page = 1
@@ -42,69 +37,78 @@ def get_orders():
         # Initialize TradingAPI; default timeout is 20.
         api = Trading(config_file='ebay.yaml', siteid=siteid,
                       warnings=True, timeout=20)
-        while True:
-            # TradingAPI results are paginated, so loop until
-            # all pages have been obtained
-            api.execute('GetOrders', {'NumberOfDays': num_days,
-                                      'Pagination': {'EntriesPerPage': 100,
-                                                     'PageNumber': page}})
-
-            orders_api = api.response.dict()
-
-            if int(orders_api['ReturnedOrderCountActual']) > 0:
-                orders.extend(orders_api['OrderArray']['Order'])
-            if orders_api['HasMoreOrders'] == 'false':
-                break
-            page += 1
 
     except ConnectionError as e:
         print(e)
         print(e.response.dict())
         raise e
+
+    while True:
+        # TradingAPI results are paginated, so loop until
+        # all pages have been obtained
+        try:
+            api.execute('GetOrders', {'NumberOfDays': num_days,
+                                      'Pagination': {'EntriesPerPage': 100,
+                                                     'PageNumber': page}})
+        except ConnectionError as e:
+            print(e)
+            print(e.response.dict())
+            raise e
+
+        orders_api = api.response.dict()
+
+        if int(orders_api['ReturnedOrderCountActual']) > 0:
+            orders.extend(orders_api['OrderArray']['Order'])
+        if orders_api['HasMoreOrders'] == 'false':
+            break
+        page += 1
 
     return orders, num_days
 
 
-def get_categories_version():
-    """Load the version number of the current eBay categories"""
+def get_categories_versions():
+    """Load the version number of the current eBay categories
+    and category features.
+    """
 
     try:
         # Initialize TradingAPI; default timeout is 20.
         api = Trading(domain='api.sandbox.ebay.com', config_file='ebay.yaml',
                       siteid=siteid, warnings=True, timeout=20)
 
+        response1 = api.execute('GetCategories', {'LevelLimit': 1,
+                                                  'ViewAllNodes': False})
+
+        response2 = api.execute('GetCategoryFeatures', {})
+
     except ConnectionError as e:
         print(e)
         print(e.response.dict())
         raise e
 
-    response = api.execute('GetCategories', {'LevelLimit': 1,
-                                             'ViewAllNodes': False})
+    categories_version = response1.reply.CategoryVersion
+    features_version = response2.reply.CategoryVersion
 
-    return response.dict()['Version']
+    return (categories_version, features_version)
 
 
 def get_categories():
-    """Load the eBay categories into the categories cache"""
+    """Load the eBay categories for the categories cache."""
 
     try:
         # Initialize TradingAPI; default timeout is 20.
         api = Trading(domain='api.sandbox.ebay.com', config_file='ebay.yaml',
-                      siteid=siteid, warnings=True, timeout=20)
+                      siteid=siteid, warnings=True, timeout=60)
+
+        response = api.execute('GetCategories', {'DetailLevel': 'ReturnAll',
+                                                 'ViewAllNodes': True})
 
     except ConnectionError as e:
         print(e)
         print(e.response.dict())
         raise e
 
-    response = api.execute('GetCategories', {'DetailLevel': 'ReturnAll',
-                                             'ViewAllNodes': True})
-
     categories_data = response.dict()
-
-    # Extract the new version number
-    categories_version = int(categories_data['Version'])
-    del categories_data['Version']
 
     # Process the remaining categories data
     cl = categories_data['CategoryArray']['Category']
@@ -141,7 +145,78 @@ def get_categories():
     del categories_data['CategoryArray']
 
     # Return the new categories
-    return categories_version, categories_data, max_level
+    return categories_data, max_level
+
+
+def get_features(categories_data):
+    """Load the eBay category features for the features cache."""
+
+    try:
+        # Initialize TradingAPI; default timeout is 20.
+        api = Trading(domain='api.sandbox.ebay.com', config_file='ebay.yaml',
+                      siteid=siteid, warnings=True, timeout=60)
+
+    except ConnectionError as e:
+        print(e)
+        print(e.response.dict())
+        raise e
+
+    features_data = None
+
+    problematic_categories = ['1']
+    # Loop over each top-level category, pulling in all of the data
+    for category in categories_data['TopLevel']:
+        category_id = category['CategoryID']
+        # print('Loading for category {}...'.format(category_id))
+
+        # BEGIN DUBIOUS WORKAROUND
+        if category_id in problematic_categories:
+            # Loop over this category's children instead
+            for category_child in category['Children']:
+                category_child_id = category_child['CategoryID']
+                # print('Loading for subcategory {}...'.format(
+                #       category_child_id))
+
+                try:
+                    response = api.execute('GetCategoryFeatures',
+                                           {'CategoryID': category_child_id,
+                                            'DetailLevel': 'ReturnAll',
+                                            'ViewAllNodes': True})
+                except ConnectionError as e:
+                    print(e)
+                    print(e.response.dict())
+                    raise e
+                response_dict = response.dict()
+                if features_data is None:
+                    features_data = response_dict
+                else:
+                    features_data['Category'].extend(response_dict['Category'])
+        # END DUBIOUS WORKAROUND
+        else:
+            try:
+                response = api.execute('GetCategoryFeatures',
+                                       {'CategoryID': category_id,
+                                        'DetailLevel': 'ReturnAll',
+                                        'ViewAllNodes': True})
+            except ConnectionError as e:
+                print(e)
+                print(e.response.dict())
+                raise e
+            response_dict = response.dict()
+        # print('done.')
+
+        if features_data is None:
+            # First batch of new categories
+            features_data = response_dict
+        else:
+            # Just add new categories
+            features_data['Category'].extend(response_dict['Category'])
+
+    # Extract the new version number
+    features_version = features_data['CategoryVersion']
+
+    # Return the new features
+    return features_version, features_data
 
 
 @frappe.whitelist()
@@ -157,12 +232,12 @@ def GeteBayDetails():
         api = Trading(domain='api.sandbox.ebay.com', config_file='ebay.yaml',
                       siteid=siteid, warnings=True, timeout=20)
 
+        response = api.execute('GeteBayDetails', {})
+
     except ConnectionError as e:
         print(e)
         print(e.response.dict())
         raise e
-
-    response = api.execute('GeteBayDetails', {})
 
     with open(filename, 'wt') as f:
         f.write(repr(response.dict()))
@@ -170,23 +245,46 @@ def GeteBayDetails():
     return None
 
 
-def sandbox_listing_testing():
+def verify_add_item(listing_dict):
+    """Perform a VerifyAddItem call, and return useful information"""
 
-    pass
+    try:
+        api = Trading(domain='api.sandbox.ebay.com', config_file='ebay.yaml',
+                      siteid=siteid, warnings=True, timeout=20)
 
+        response = api.execute('VerifyAddItem', listing_dict)
 
+    except ConnectionError as e:
+        # traverse the DOM to look for error codes
+        for node in api.response.dom().findall('ErrorCode'):
+            msgprint("error code: %s" % node.text)
 
+        # check for invalid data - error code 37
+        if 37 in api.response_codes():
+            if 'Errors' in api.response.dict():
+                errors_dict = api.response.dict()['Errors']
+                errors_list = []
+                for key, value in errors_dict.items():
+                    errors_list.append('{} : {}'.format(key, value))
+                msgprint('\n'.join(errors_list))
+                if 'ErrorParameters' in errors_dict:
+                    parameter = errors_dict['ErrorParameters']['Value']
+                    parameter_stack = parameter.split('.')
+                    parameter_value = listing_dict
+                    for stack_entry in parameter_stack:
+                        parameter_value = parameter_value[stack_entry]
+                    msgprint("'{}': '{}'".format(parameter, parameter_value))
 
+        else:
+            msgprint("Unknown error: {}".format(api.response_codes()))
+            msgprint('{}'.format(e))
+            msgprint('{}'.format(e.response.dict()))
+        return {'ok': False}
 
+    # Success?
+    ok = True
+    ret_dict = {'ok': ok}
 
+    msgprint(response.dict())
 
-
-
-
-
-
-
-
-
-
-
+    return ret_dict

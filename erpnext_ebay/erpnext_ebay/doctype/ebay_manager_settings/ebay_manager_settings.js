@@ -12,3 +12,11 @@ frappe.ui.form.on('eBay Manager Settings', 'getebaydetails', function(frm) {
         callback: function (r) {}
     });
 });
+
+frappe.ui.form.on('eBay Manager Settings', 'check_ebay_cache_version', function(frm) {
+    frappe.call({
+        method: "erpnext_ebay.ebay_categories.check_cache_version",
+        args: {force_categories: false, force_features: false},
+        callback: function (r) {}
+    });
+});
