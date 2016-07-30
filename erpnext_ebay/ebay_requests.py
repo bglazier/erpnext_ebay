@@ -163,11 +163,12 @@ def get_features():
         raise e
 
     features_data = None
+    feature_definitions = set()
     listing_durations = {}
 
     # Loop over each top-level category, pulling in all of the data
     search_categories = frappe.db.sql("""
-        SELECT CategoryID, CategoryName
+        SELECT CategoryID, CategoryName, CategoryLevel
         FROM eBay_categories_hierarchy WHERE CategoryParentID=0
         """, as_dict=True)
 
@@ -182,24 +183,33 @@ def get_features():
         if category_id in problematic_categories:
             problem_parents.append(category)
             children = frappe.db.sql("""
-                SELECT CategoryID, CategoryName
+                SELECT CategoryID, CategoryName, CategoryLevel
                 FROM eBay_categories_hierarchy WHERE CategoryParentID=%s
                 """, (category_id,), as_dict=True)
             problem_children.extend(children)
     for parent in problem_parents:
         search_categories.remove(parent)
     search_categories.extend(problem_children)
+    search_categories.extend(problem_parents)  # Now at end of list
     # END DUBIOUS WORKAROUND
 
     for category in search_categories:
         category_id = category['CategoryID']
-        print('Loading for category {}...'.format(category_id))
+        category_level = int(category['CategoryLevel'])
+        sub_string = 'sub' * (category_level-1)
+        print('Loading for {}category {}...'.format(sub_string,
+                                                    category_id))
+        options = {'CategoryID': category_id,
+                   'DetailLevel': 'ReturnAll',
+                   'ViewAllNodes': False}
+        # BEGIN DUBIOUS WORKAROUND
+        # Only look at the top level for this category
+        if category_id in problematic_categories:
+            options['LevelLimit'] = 1
+        # END DUBIOUS WORKAROUND
 
         try:
-            response = api.execute('GetCategoryFeatures',
-                                   {'CategoryID': category_id,
-                                    'DetailLevel': 'ReturnAll',
-                                    'ViewAllNodes': False})
+            response = api.execute('GetCategoryFeatures', options)
         except ConnectionError as e:
             print(e)
             print(e.response.dict())
@@ -208,30 +218,59 @@ def get_features():
 
         if features_data is None:
             # First batch of new categories
-            features_data = response_dict
-            lds = (response_dict['FeatureDefinitions']['ListingDurations']
-                                ['ListingDuration'])
-            for ld in lds:
-                listing_durations[ld['_durationSetID']] = ld['Duration']
-            del (response_dict['FeatureDefinitions']['ListingDurations']
-                              ['ListingDuration'])
+            features_data = response_dict   # Initialize with the whole dataset
+            # Extract all the FeatureDefinition keys
+            feature_definitions.update(
+                features_data['FeatureDefinitions'].keys())
+            # Special-case the ListingDurations
+            lds = response_dict['FeatureDefinitions']['ListingDurations']
+            features_data['ListingDurationsVersion'] = lds['_Version']
+            if 'ListingDuration' in lds:
+                for ld in lds['ListingDuration']:
+                    listing_durations[ld['_durationSetID']] = ld['Duration']
+            del (features_data['FeatureDefinitions'])
         else:
-            # Just add new categories
+            # Add new categories to existing dictionary
+            if not 'Category' in response_dict:
+                # No over-ridden categories returned
+                continue
             cat_list = response_dict['Category']
             if not isinstance(cat_list, collections.Sequence):
-                cat_list = [cat_list]
+                cat_list = [cat_list]  # in case there is only one category
+            # Add the new categories, FeatureDefinitions, ListingDurations
             features_data['Category'].extend(cat_list)
-            lds = (response_dict['FeatureDefinitions']['ListingDurations']
-                                ['ListingDuration'])
-            for ld in lds:
-                if ld['_durationSetID'] in listing_durations:
-                    continue
-                listing_durations[ld['_durationSetID']] = ld['Duration']
-            del (response_dict['FeatureDefinitions']['ListingDurations']
-                              ['ListingDuration'])
+            feature_definitions.update(
+                response_dict['FeatureDefinitions'].keys())
+            lds = response_dict['FeatureDefinitions']['ListingDurations']
+            if 'ListingDuration' in lds:
+                for ld in lds['ListingDuration']:
+                    if ld['_durationSetID'] in listing_durations:
+                        continue
+                    listing_durations[ld['_durationSetID']] = ld['Duration']
 
-    # Store the listing durations in a sensible place
+    # Store the FeatureDefinitions and ListingDurations in a sensible place
+    feature_definitions.remove('ListingDurations')
+    features_data['FeatureDefinitions'] = feature_definitions
     features_data['ListingDurations'] = listing_durations
+
+    # Move the ConditionHelpURL out of each category and reorganize
+    # the Conditions
+    for cat in features_data['Category']:
+        if 'ConditionValues' in cat:
+            cv = cat['ConditionValues']
+            if 'ConditionHelpURL' in cv:
+                cat['ConditionHelpURL'] = (
+                    cv['ConditionHelpURL'])
+                del cv['ConditionHelpURL']
+            cat['ConditionValues'] = cv['Condition']
+
+    if 'ConditionValues' in features_data['SiteDefaults']:
+        cv = features_data['SiteDefaults']['ConditionValues']
+        if 'ConditionHelpURL' in cv:
+            features_data['SiteDefaults']['ConditionHelpURL'] = (
+                cv['ConditionHelpURL'])
+            del cv['ConditionHelpURL']
+        features_data['SiteDefaults']['ConditionValues'] = cv['Condition']
 
     # Extract the new version number
     features_version = features_data['CategoryVersion']
