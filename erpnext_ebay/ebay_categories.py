@@ -13,8 +13,8 @@ import frappe
 from frappe import msgprint
 
 from ebay_requests import get_categories_versions, get_categories, get_features
-from ebay_constants import (PAYMENT_METHODS, FEATURES_NOT_SUPPORTED,
-                            FEATURES_PRIMARY_COLUMNS, LISTING_CODE_TOKENS)
+from ebay_constants import *
+
 
 def _bool_process(item):
     """Replaces 'true' with True, 'false' with False, otherwise returns
@@ -27,7 +27,7 @@ def _bool_process(item):
     return item
 
 
-def s_for(seq):
+def _s_for(seq):
     """Returns a string of comma-separated %s markers for each
     element of the sequence; i.e. returns '%s, %s, %s, %s, %s'
     for a 5-element sequence. For SQL queries.
@@ -103,44 +103,40 @@ def ensure_updated_cache(force_categories=False, force_features=False):
     force_features = _bool_process(force_features)
 
     if force_categories or not categories_ok:
-        print('WHY!!!')
-        print(force_categories)
-        print(not categories_ok)
-        print(force_categories or not categories_ok)
         # Load new categories
 
         # Load using the eBay API
         categories_data, max_level = get_categories()
 
-        # Alternative for debugging only
+        # Alternatives for debugging only
         # categories_data = _load_ebay_cache_from_file(
         #    'erpnext_ebay.categories.pkl')
         # max_level = 6
 
+        # _write_ebay_cache_to_file(
+        #     'erpnext_ebay.categories.pkl', categories_data)
+
+        # Create SQL cache
         create_ebay_categories_cache(categories_data)
         frappe.db.set_value('eBay Manager Settings', None,
                             'ebay_categories_cache_maximum_level',
                             max_level)
 
-        # Save for debugging only
-        # _write_ebay_cache_to_file(
-        #     'erpnext_ebay.categories.pkl', categories_data)
-
     if force_features or not features_ok:
         # Load new category features
-
-        # Alternative for debugging only
-        # categories_data = _load_ebay_cache_from_file(
-        #    'erpnext_ebay.features.pkl')
 
         # Load using the eBay API
         new_features_version, features_data = get_features()
 
-        create_ebay_features_cache(features_data)
+        # Alternatives for debugging only
+        # categories_data = _load_ebay_cache_from_file(
+        #    'erpnext_ebay.features.pkl')
 
-        # Save for debugging only
         # _write_ebay_cache_to_file(
         #     'erpnext_ebay.features.pkl', features_data)
+
+        # Create SQL cache
+        create_ebay_features_cache(features_data)
 
 
 @frappe.whitelist()
@@ -294,7 +290,7 @@ def create_ebay_categories_cache(categories_data):
             info_od[key] = False
     frappe.db.sql("""
         INSERT INTO eBay_categories_info (""" + ", ".join(info_od.keys()) + """)
-            VALUES (""" + s_for(info_od.values()) + """)
+            VALUES (""" + _s_for(info_od.values()) + """)
         """, info_od.values())
 
     # Load the categories into the database
@@ -310,7 +306,7 @@ def create_ebay_categories_cache(categories_data):
     frappe.db.sql("""
         INSERT INTO eBay_categories_hierarchy
             (""" + ", ".join(hierarchy_od.keys()) + """)
-            VALUES (""" + s_for(hierarchy_od.values()) + """)
+            VALUES (""" + _s_for(hierarchy_od.values()) + """)
         """, hierarchy_od.values())
 
     for cat in categories_data['TopLevel']:
@@ -325,7 +321,7 @@ def create_ebay_categories_cache(categories_data):
         frappe.db.sql("""
             INSERT INTO eBay_categories_hierarchy
                 (""" + ", ".join(hierarchy_od.keys()) + """)
-                VALUES (""" + s_for(hierarchy_od.values()) + """)
+                VALUES (""" + _s_for(hierarchy_od.values()) + """)
             """, hierarchy_od.values())
 
         # Add the children
@@ -342,7 +338,7 @@ def create_ebay_categories_cache(categories_data):
                 frappe.db.sql("""
                     INSERT INTO eBay_categories_hierarchy
                         (""" + ", ".join(hierarchy_od.keys()) + """)
-                        VALUES (""" + s_for(hierarchy_od.values()) + """)
+                        VALUES (""" + _s_for(hierarchy_od.values()) + """)
                     """, hierarchy_od.values())
                 next_level.extend(cat_child['Children'])
             cat_children = next_level
@@ -420,7 +416,7 @@ def create_ebay_features_cache(features_data):
 
     frappe.db.sql("""
         CREATE TABLE eBay_features_FeatureDefinitions (
-            FeatureDefinition NVARCHAR(200),
+            FeatureDefinition NVARCHAR(""" + EBAY_ATTR_LEN_STR + """),
             Extra BOOLEAN NOT NULL,
             PRIMARY KEY (FeatureDefinition)
         )""")
@@ -444,6 +440,8 @@ def create_ebay_features_cache(features_data):
                 REFERENCES eBay_features_PaymentMethods (PaymentMethod)
         )""")
 
+    # NOTE - changes here should be matched by changes to the
+    # FEATURES_BASE_COLUMNS constant
     frappe.db.sql("""
         CREATE TABLE eBay_features (
             CategoryID NVARCHAR(10) NOT NULL,
@@ -472,8 +470,11 @@ def create_ebay_features_cache(features_data):
     frappe.db.sql("""
         CREATE TABLE eBay_features_extra (
             CategoryID NVARCHAR(10) NOT NULL,
+            Attribute NVARCHAR(""" + EBAY_ATTR_LEN_STR + """) NOT NULL,
+            Value NVARCHAR(""" + EBAY_VALUE_LEN_STR + """),
             FOREIGN KEY (CategoryID)
-                REFERENCES eBay_categories_hierarchy (CategoryID)
+                REFERENCES eBay_categories_hierarchy (CategoryID),
+            UNIQUE cat_attr (CategoryID, Attribute)
         )""")
 
     # Set up the tables with hard-coded eBay constants
@@ -508,14 +509,14 @@ def create_ebay_features_cache(features_data):
             info_od[key] = False
     frappe.db.sql("""
         INSERT INTO eBay_features_info (""" + ", ".join(info_od.keys()) + """)
-            VALUES (""" + s_for(info_od.values()) + """)
+            VALUES (""" + _s_for(info_od.values()) + """)
         """, info_od.values())
 
     # Set up the eBay_features_FeatureDefinitions table
     for fd in features_data['FeatureDefinitions']:
         if fd in FEATURES_NOT_SUPPORTED:
             continue
-        extra = fd not in FEATURES_PRIMARY_COLUMNS
+        extra = fd not in FEATURES_NOT_EXTRA
         frappe.db.sql("""
             INSERT INTO eBay_features_FeatureDefinitions
                 (FeatureDefinition, Extra)
@@ -534,21 +535,14 @@ def create_ebay_features_cache(features_data):
                 """, (ld_key, token))
 
     # Loop over categories, setting up the remaining tables
-    cat_keys = (
-        'CategoryID', 'ListingDurationAdType', 'ListingDurationAuction',
-        'ListingDurationChinese', 'ListingDurationLive',
-        'ListingDurationFixedPriceItem', 'ListingDurationLeadGeneration',
-        'ListingDurationPersonalOffer', 'ListingDurationStoresFixedPrice',
-        'CompatibleVehicleType', 'ExpressEnabled', 'GlobalShippingEnabled',
-        'MaxFlatShippingCost', 'MaxFlatShippingCostCurrency',
-        'ConditionEnabled', 'ConditionHelpURL',
-        'ConditionValuesExist', 'PaymentMethodsExist')
+    cat_keys = FEATURES_BASE_COLUMNS
 
     # First set up the ROOT (CategoryID = 0) element with the SiteDefaults
     root_cat = features_data['SiteDefaults'].copy()
     root_cat['CategoryID'] = 0
     features_data['Category'].insert(0, root_cat)
 
+    local_unsupported = []
     for cat in features_data['Category']:
         # OrderedDict to store values for main table
         cat_od = collections.OrderedDict()
@@ -595,12 +589,29 @@ def create_ebay_features_cache(features_data):
                 # This is an 'extra' key
                 if key in FEATURES_NOT_SUPPORTED:
                     continue
-                # TODO make extras stuff happen
-                pass
+                if key in local_unsupported:
+                    continue
+                if (
+                       not isinstance(value, basestring)
+                        or len(key) > EBAY_ATTR_LEN
+                        or len(value) > EBAY_VALUE_LEN):
+                    print('Unsupported eBay attribute/value: {} : {}'.format(
+                        key, value))
+                    frappe.log(
+                        'Unsupported eBay attribute/value: {} : {}'.format(
+                            key, value))
+                    local_unsupported.append(key)
+                    raise ValueError('Fancy unsupported data type!')
+                frappe.db.sql("""
+                    INSERT INTO eBay_features_extra (
+                        CategoryID, Attribute, Value )
+                        VALUES (%s, %s, %s)
+                """, (cat_id, key, value))
+
         # Insert the completed row for this category
         frappe.db.sql("""
             INSERT INTO eBay_features (""" + ", ".join(cat_od.keys()) + """)
-                VALUES (""" + s_for(cat_od.values()) + """)
+                VALUES (""" + _s_for(cat_od.values()) + """)
             """, cat_od.values())
 
     frappe.db.commit()
