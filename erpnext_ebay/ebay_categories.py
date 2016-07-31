@@ -140,33 +140,20 @@ def ensure_updated_cache(force_categories=False, force_features=False):
 
 
 @frappe.whitelist()
-def client_get_ebay_categories(category_stack):
-    """Return category options at all levels for category_stack"""
+def client_get_new_categories_data(category_level, category_stack):
+    """Return all relevant information given new category information.
 
-    # Frappe passes our lists as a string, so convert back to list
-    # also dealing with keeping it unicode...
-    if isinstance(category_stack, basestring):
-        category_stack = ast.literal_eval(
-            category_stack.replace('"', 'u"').replace('null', '0'))
-    category_stack = [x[:-1] for x in category_stack]
+    If category_level is zero, return category options for all categories.
+    If category_level is non-zero, return category options only for that level.
 
-    # Get full list of category options from top level to category level
-    cat_options_stack = get_ebay_categories(category_stack)
-
-    # Format the category options stack ready for the Javascript select options
-    for cat_options in cat_options_stack:
-        if cat_options:
-            for i, cat_tuple in enumerate(cat_options):
-                cat_options[i] = {'value': cat_tuple[0],
-                                  'label': cat_tuple[1]}
-    return cat_options_stack
-
-
-@frappe.whitelist()
-def client_update_ebay_categories(category_level, category_stack):
-    """Category at category_level has changed. Return new options at
-    category_level+1.
+    Returns a dictionary:
+        category_options: [list of category option strings]
+        is_listing_category: is a listing category currently selected?
+        listing_durations: [list of listing_duration tuples]
+        condition_values: [list of ConditionID tuples]
+        ConditionHelpURL: ConditionHelpURL for current category or None
     """
+
     # Frappe passes our lists as a string, so convert back to list
     # also dealing with keeping it unicode...
     if isinstance(category_stack, basestring):
@@ -176,22 +163,47 @@ def client_update_ebay_categories(category_level, category_stack):
 
     category_level = int(category_level)
 
-    # Trim the category stack to remove deeper levels than the changed level
-    category_stack = category_stack[0:category_level]
+    if category_level == 0:
+        # Find last non-zero/True category
+        category_id = 0
+        for cat_id in category_stack:
+            if (not cat_id) or (cat_id == '0'):
+                break
+            category_id = cat_id
+    else:
+        # Trim the category stack to remove deeper levels
+        # than the changed level
+        category_stack = category_stack[0:category_level]
+        category_id = category_stack[category_level-1]
 
     # Get full list of category options from top level to category level
-    cat_options = get_ebay_categories(category_stack)
-
-    # Trim the category options to just the level below the changed level
-    # (note zero-indexing means this is really category_level + 1)
-    cat_options = cat_options[category_level]
+    cat_options_stack = get_ebay_categories(category_stack)
 
     # Format the category options ready for the Javascript select options
-    if cat_options:
-        for i, cat_tuple in enumerate(cat_options):
-            cat_options[i] = {'value': cat_tuple[0],
-                              'label': cat_tuple[1]}
-    return cat_options
+    for cat_options in cat_options_stack:
+        if cat_options:
+            for i, cat_tuple in enumerate(cat_options):
+                cat_options[i] = {'value': cat_tuple[0],
+                                  'label': cat_tuple[1]}
+
+    # Is the currently selected category a listing category?
+    is_listing_cat = is_listing_category(category_id)
+
+    # Get the listing durations for the current category
+    #listing_durations = get_listing_durations(category_id)
+    listing_durations = None
+    # TODO the above is WRONG because the search must be hierarchical...
+
+    # Get the condition values and ConditionHelpURL for the current category
+    condition_values = None
+    ConditionHelpURL = None
+    # TODO - code hierarchical searches for this
+
+    return {'category_options': cat_options_stack,
+            'is_listing_category': is_listing_cat,
+            'listing_durations': listing_durations,
+            'condition_values': condition_values,
+            'ConditionHelpURL': ConditionHelpURL}
 
 
 def get_ebay_categories(category_stack):
@@ -480,19 +492,19 @@ def create_ebay_features_cache(features_data):
     # Set up the tables with hard-coded eBay constants
 
     # Set up the eBay_features_ListingDurationTokens table
-    for values in LISTING_CODE_TOKENS:
+    for values in LISTING_DURATION_TOKENS:
         frappe.db.sql("""
             INSERT INTO eBay_features_ListingDurationTokens
                 (ListingDurationToken, Days, Description)
                 VALUES (%s, %s, %s)
             """, values)
 
-    for values in PAYMENT_METHODS:
+    for key, value in PAYMENT_METHODS.items():
         frappe.db.sql("""
             INSERT INTO eBay_features_PaymentMethods
                 (PaymentMethod, Description)
                 VALUES (%s, %s)
-            """, values)
+            """, (key, value))
 
     frappe.db.commit()
 
@@ -617,15 +629,111 @@ def create_ebay_features_cache(features_data):
     frappe.db.commit()
 
 
+#def get_category_stack(category_id):
+    #"""Given a CategoryID, return the category_stack"""
+    #category_stack = []
+    #cat_id = category_id
+    #while cat_id != 0:
+        #category_stack.append(cat_id)
+        #cat_id = frappe.db.sql("""
+            #SELECT CategoryID, CategoryParentID
+                #FROM eBay_categories_hierarchy
+                #WHERE CategoryParentID=%s
+            #""", (cat_id,))
+    #category_stack.reverse()
+    #return category_stack
 
 
+def get_listing_durations(category_id, listing_types=None):
+    """Given a CategoryID, return the selected listing durations overrides
+    for that category, if they exist. This function must be called repeatedly
+    over parent categories to return the actual options for a category. If
+    there is no override for each listing_type, return None for that category.
+
+    category_id   - valid CategoryID (can be zero for the SiteDefaults)
+    listing_types - either a valid listing type, or a sequence of valid
+                    listing types, or None for all supported listing types.
+
+    Returns: dictionary. Keys are listing types; values are either a list of
+        the acceptable listing durations or None if there is no override for
+        this category. Each Listing duration is a tuple of the
+        ListingDurationToken (string), days (int) and Description (string).
+    """
+
+    if listing_types is None:
+        # Return options for all supported listing types
+        listing_types = LISTING_TYPES_SUPPORTED
+    else:
+        # User input, so need to do some validation (later SQL query)
+        if isinstance(listing_types, basestring):
+            listing_types = (listing_types,)
+        for listing_type in listing_types:
+            if listing_type not in LISTING_TYPES:
+                raise ValueError('Unknown listing type!')
+
+    return_dict = {}
+
+    listing_duration_type = {x: 'ListingDuration' + x for x in listing_types}
+    listing_column_list = ', '.listing_duration_type.values()
+    # NOTE interpolation in the SQL query, so ensure listing types
+    # are validated
+    cat_durationSetIDs = frappe.db.sql("""
+        SELECT """ + listing_column_list + """
+            FROM eBay_features
+            WHERE CategoryID=%s
+        """, (cat_id,), as_dict=True)[0]  # Should be a single row
+
+    if cat_durationSetIDs.values().count(None) == len(listing_column_list):
+        # There are no overrides for this category
+        return cat_durationSetIDs
+
+    ld_sets = {}
+
+    for listing_type in listing_types:
+        # Loop over listing_type, checking the returned durationSetID for
+        # each listing_type against the database to return the list of
+        # ListingDuration tokens. ld_sets is a cached dictionary of
+        # durationSetID : list(ListingDuration tokens).
+
+        ld_col = listing_duration_type[listing_type]
+        cat_durationSetID = cat_durationSetIDs[ld_col_name]
+
+        if cat_durationSetID is None:
+            # There is no override for this listing_type on this category
+            return_dict[listing_type] = None
+
+        # Ensure we have the ListingDurationToken list cached
+        # for this durationSetID
+        if cat_durationSetID not in ld_sets:
+            # Load the relevant ListingDuration from the database
+            ld_sets[cat_durationSetID] = frappe.db.sql("""
+                SELECT ListingDurationToken from eBay_features_ListingDurations
+                WHERE durationSetID=%s
+                """, (cat_durationSetID,), as_dict=False)
+
+        # Collect data into (token, days, description) tuples
+        return_dict[listing_type] = []
+        for token in ld_sets[cat_durationSetID]:
+            days = LISTING_DURATION_TOKEN_DICT[token]
+            description = LISTING_DURATION_TOKEN_DICT[token]
+            return_dict[listing_type].append(
+                (token, days, description))
 
 
+def is_listing_category(category_id):
+    """Check that the category with CategoryID is a leaf category which is
+    neither expired nor virtual."""
 
+    # 'Root' category is not real, and is never a listing category
+    if (not category_id) or (category_id == "0"):
+        return False
 
+    leaf, virtual, expired = frappe.db.sql("""
+        SELECT LeafCategory, Virtual, Expired FROM eBay_categories_hierarchy
+            WHERE CategoryID=%s
+        """, (category_id,))[0]
 
-
-
+    return leaf and not (virtual or expired)
 
 
 

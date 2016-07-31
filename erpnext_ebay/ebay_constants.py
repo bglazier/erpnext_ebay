@@ -6,39 +6,52 @@ EBAY_ATTR_LEN_STR = str(EBAY_ATTR_LEN)
 EBAY_VALUE_LEN = 1000
 EBAY_VALUE_LEN_STR = str(EBAY_VALUE_LEN)
 
-# Ebay PaymentMethods and their descriptions - TODO write descriptions!
-PAYMENT_METHODS = (('AmEx', None),
-                   ('CashInPerson', None),
-                   ('CashOnPickup', None),
-                   ('CCAccepted', None),
-                   ('COD', None),
-                   ('CODPrePayDelivery', None),
-                   ('CreditCard', None),
-                   ('Diners', None),
-                   ('DirectDebit', None),
-                   ('Discover', None),
-                   ('ELV', None),
-                   ('Escrow', None),
-                   ('IntegratedMerchantCreditCard', None),
-                   ('LoanCheck', None),
-                   ('MOCC', None),
-                   ('MoneyXferAccepted', None),
-                   ('MoneyXferAcceptedInCheckout', None),
-                   ('None', None),
-                   ('Other', None),
-                   ('OtherOnlinePayments', None),
-                   ('PaisaPayAccepted', None),
-                   ('PaisaPayEscrow', None),
-                   ('PaisaPayEscrowEMI', None),
-                   ('PaymentSeeDescription', None),
-                   ('PayOnPickup', None),
-                   ('PayPal', None),
-                   ('PayPalCredit', None),
-                   ('PayUponInvoice', None),
-                   ('PersonalCheck', None),
-                   ('PostalTransfer', None),
-                   ('PrePayDelivery', None),
-                   ('VisaMC', None))
+# eBay PaymentMethods and their descriptions - TODO write descriptions!
+PAYMENT_METHODS = {'AmEx': None,
+                   'CashInPerson': None,
+                   'CashOnPickup': None,
+                   'CCAccepted': None,
+                   'COD': None,
+                   'CODPrePayDelivery': None,
+                   'CreditCard': None,
+                   'Diners': None,
+                   'DirectDebit': None,
+                   'Discover': None,
+                   'ELV': None,
+                   'Escrow': None,
+                   'IntegratedMerchantCreditCard': None,
+                   'LoanCheck': None,
+                   'MOCC': None,
+                   'MoneyXferAccepted': None,
+                   'MoneyXferAcceptedInCheckout': None,
+                   'None': None,
+                   'Other': None,
+                   'OtherOnlinePayments': None,
+                   'PaisaPayAccepted': None,
+                   'PaisaPayEscrow': None,
+                   'PaisaPayEscrowEMI': None,
+                   'PaymentSeeDescription': None,
+                   'PayOnPickup': None,
+                   'PayPal': None,
+                   'PayPalCredit': None,
+                   'PayUponInvoice': None,
+                   'PersonalCheck': None,
+                   'PostalTransfer': None,
+                   'PrePayDelivery': None,
+                   'VisaMC': None}
+
+# eBay listing types, and their descriptions
+LISTING_TYPES = {'AdType': 'Advertisement',
+                 'Auction': None,
+                 'Chinese': 'Auction',
+                 'Live': None,
+                 'FixedPriceItem': 'Buy It Now',
+                 'LeadGeneration': 'Advertisement',
+                 'PersonalOffer': 'Second Chance Offer',
+                 'StoresFixedPrice': 'Buy It Now (eBay Store)'}
+# Listing types we use - these should be permissible site-wide as there is
+# no checking by category for listing types
+LISTING_TYPES_SUPPORTED = ('Chinese', 'FixedPriceItem')
 
 # Feature columns
 
@@ -46,11 +59,8 @@ PAYMENT_METHODS = (('AmEx', None),
 FEATURES_NOT_SUPPORTED = ('GalleryFeaturedDurations',
                           'StoreOwnerExtendedListingDurations')
 # The extra columns produced for ListingDuration
-LISTING_DURATION_COLUMNS = (
-    'ListingDurationAdType', 'ListingDurationAuction',
-    'ListingDurationChinese', 'ListingDurationLive',
-    'ListingDurationFixedPriceItem', 'ListingDurationLeadGeneration',
-    'ListingDurationPersonalOffer', 'ListingDurationStoresFixedPrice')
+LISTING_DURATION_COLUMNS = tuple(
+    'ListingDuration' + x for x in LISTING_TYPES)
 # The columns chosen to be stored in the base, rather than extra, table
 _BASE_COLUMNS = (
     'CompatibleVehicleType', 'ExpressEnabled', 'GlobalShippingEnabled',
@@ -84,6 +94,8 @@ tokens = ['Days_' + str(n) for n in days]
 descriptions = ['{}-day listing'.format(
     low_num[n-1] if n < len(low_num) else str(n))
     for n in days]
-LISTING_CODE_TOKENS = (tuple(zip(tokens, days, descriptions))
+LISTING_DURATION_TOKENS = (tuple(zip(tokens, days, descriptions))
                        + (('GTC', None, "Good 'Til Cancelled"),))
+LISTING_DURATION_TOKEN_DICT = {
+    x[0]: (x[1], x[2]) for x in LISTING_DURATION_TOKENS}
 del low_num, days, tokens, descriptions
