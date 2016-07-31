@@ -17,6 +17,8 @@ scheduler_events = {
     ]
 }
 
+fixtures = ["Custom Field"]
+
 # Includes in <head>
 # ------------------
 
