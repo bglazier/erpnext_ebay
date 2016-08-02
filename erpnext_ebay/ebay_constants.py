@@ -69,8 +69,7 @@ _BASE_COLUMNS = (
 FEATURES_REMOVED = (
     'ConditionValues', 'ListingDurations', 'PaymentMethods')
 # Extra columns to the base table
-FEATURES_BASE_ADDED = (
-    'ConditionHelpURL', 'ConditionValuesExist', 'PaymentMethodsExist')
+FEATURES_BASE_ADDED = ('ConditionHelpURL',)
 
 # Columns of the basic features table
 # NOTE - changes here should be matched by changes to the SQL query creating

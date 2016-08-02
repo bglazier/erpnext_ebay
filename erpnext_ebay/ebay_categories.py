@@ -166,15 +166,21 @@ def client_get_new_categories_data(category_level, category_stack):
     if category_level == 0:
         # Find last non-zero/True category
         category_id = 0
-        for cat_id in category_stack:
+        for i, cat_id in enumerate(category_stack):
             if (not cat_id) or (cat_id == '0'):
                 break
             category_id = cat_id
+            category_level = i + 1
     else:
         # Trim the category stack to remove deeper levels
         # than the changed level
         category_stack = category_stack[0:category_level]
         category_id = category_stack[category_level-1]
+
+    # Validate the category stack
+    test_category_stack = get_category_stack(category_id)
+    if test_category_stack != category_stack[0:category_level]:
+        raise ValueError('Invalid category stack passed!')
 
     # Get full list of category options from top level to category level
     cat_options_stack = get_ebay_categories(category_stack)
@@ -189,21 +195,34 @@ def client_get_new_categories_data(category_level, category_stack):
     # Is the currently selected category a listing category?
     is_listing_cat = is_listing_category(category_id)
 
-    # Get the listing durations for the current category
-    #listing_durations = get_listing_durations(category_id)
-    listing_durations = None
-    # TODO the above is WRONG because the search must be hierarchical...
+    # Search functions and matching arguments:
+    # 1) Listing durations
+    # 2) ConditionEnabled
+    # 3) Condition Values
+    # 4) ConditionHelpURL
+    # 5) Payment methods
+    search_functions = (get_listing_durations,
+                        get_feature_property_basic,
+                        get_condition_values,
+                        get_feature_property_basic,
+                        get_payment_methods)
+    search_args = ({'listing_types': LISTING_TYPES_SUPPORTED},
+                   {'property_name': 'ConditionEnabled'},
+                   None,
+                   {'property_name': 'ConditionHelpURL'},
+                   None)
 
-    # Get the condition values and ConditionHelpURL for the current category
-    condition_values = None
-    ConditionHelpURL = None
-    # TODO - code hierarchical searches for this
+    options = get_overridden_options(category_stack[0:category_level],
+                                     search_functions, search_args)
+    print(options)
 
     return {'category_options': cat_options_stack,
             'is_listing_category': is_listing_cat,
-            'listing_durations': listing_durations,
-            'condition_values': condition_values,
-            'ConditionHelpURL': ConditionHelpURL}
+            'listing_durations': options[0],
+            'condition_enabled': options[1],
+            'condition_values': options[2],
+            'condition_help_URL': options[3],
+            'payment_methods': options[4]}
 
 
 def get_ebay_categories(category_stack):
@@ -473,8 +492,6 @@ def create_ebay_features_cache(features_data):
             MaxFlatShippingCostCurrency NVARCHAR(10),
             ConditionEnabled NVARCHAR(100),
             ConditionHelpURL NVARCHAR(1000),
-            ConditionValuesExist BOOLEAN DEFAULT false,
-            PaymentMethodsExist BOOLEAN DEFAULT false,
             FOREIGN KEY (CategoryID)
                 REFERENCES eBay_categories_hierarchy (CategoryID)
         )""")
@@ -560,8 +577,6 @@ def create_ebay_features_cache(features_data):
         cat_od = collections.OrderedDict()
         for key in cat_keys:
             cat_od[key] = None
-        cat_od['ConditionValuesExist'] = False
-        cat_od['PaymentMethodsExist'] = False
         cat_id = cat['CategoryID']
         # Loop over attributes and values
         for key, value in cat.items():
@@ -572,7 +587,6 @@ def create_ebay_features_cache(features_data):
                     ld_key_str = 'ListingDuration' + ld_dict['_type']
                     cat_od[ld_key_str] = ld_dict['value']
             elif key == 'PaymentMethod':
-                cat_od['PaymentMethodsExist'] = True
                 if isinstance(value, basestring):
                     value = (value,)
                 for payment_method in value:
@@ -582,7 +596,6 @@ def create_ebay_features_cache(features_data):
                             VALUES (%s, %s)
                         """, (cat_id, payment_method))
             elif key == 'ConditionValues':
-                cat_od['ConditionValuesExist'] = True
                 if not isinstance(value, collections.Sequence):
                     value = (value,)
                 for cv_dict in value:
@@ -629,21 +642,215 @@ def create_ebay_features_cache(features_data):
     frappe.db.commit()
 
 
-#def get_category_stack(category_id):
-    #"""Given a CategoryID, return the category_stack"""
-    #category_stack = []
-    #cat_id = category_id
-    #while cat_id != 0:
-        #category_stack.append(cat_id)
-        #cat_id = frappe.db.sql("""
-            #SELECT CategoryID, CategoryParentID
-                #FROM eBay_categories_hierarchy
-                #WHERE CategoryParentID=%s
-            #""", (cat_id,))
-    #category_stack.reverse()
-    #return category_stack
+def get_category_stack(category_id):
+    """Given a CategoryID, return the category_stack"""
+    category_stack = []
+    while category_id != "0":
+        category_stack.append(category_id)
+        category_id = frappe.db.sql("""
+            SELECT CategoryParentID
+                FROM eBay_categories_hierarchy
+                WHERE CategoryID=%s
+            """, (category_id,))
+        category_id = category_id[0][0]
+    category_stack.reverse()
+    return category_stack
 
 
+def scalar_search_function(f):
+    """Function decorator that marks functions for get_overridden_options
+    indicating that the result should be treated as a scalar.
+    This decorator is optional.
+    """
+    f._search_multiple_elements = False
+    return f
+
+
+def multiple_search_function(f):
+    """Function decorator that marks functions for get_overridden_options
+    indicating that the result should be checked treating each element
+    separately."""
+    f._search_multiple_elements = True
+    return f
+
+
+def get_overridden_options(category_stack, search_functions, sf_args_seq=None):
+    """Using a search_function with search_args, find the options for a
+    category. The search_function is called repeatedly, starting at the deepest
+    category and moving towards the root category, to find all overridden
+    arguments.
+
+    category_stack - a sequence of CategoryID values
+    search_functions - a sequence of search functions
+    sf_args - a sequence of mapping types (e.g. a dict) containing
+              arguments for the search_functions
+
+    The search function should accept the category id as the first argument.
+    Any sf_args will be passed to the search function. The value None indicates
+    that there is no override for this category.
+
+    If the search function
+    has been decorated with multiple_search_function, then it can return
+    either:
+        a) A sequence type (e.g. a list) - each entry is a property
+        b) A mapping type (e.g. a dictionary) - each key/value is a property
+    The format of the sequence or mapping types (length or keys) should be
+    consistent, and should be mutable. Each element will be considered
+    separately when checking for overrides.
+
+    If it has been decorated with single_search_function or has not been
+    decorated, then it can return any result. This will be treated as a
+    single value.
+
+    Returns a list, with one entry for each search function, of results in
+    whatever format was returned by each search_function.
+    """
+
+    # Deal with a single search_function and search_args dict
+    if not isinstance(search_functions, collections.Sequence):
+        search_functions = (search_functions,)
+        sf_args_seq = (sf_args_seq,)
+
+    n_search = len(search_functions)
+    search_done = [False for x in search_functions]
+    search_multiple_elements = [hasattr(f, '_search_multiple_elements')
+                                and f._search_multiple_elements
+                                for f in search_functions]
+    results = [None for x in search_functions]
+    if sf_args_seq is None:
+        sf_args_seq = [[] for x in search_functions]
+
+    # We need to add the 'root' node to get the SiteDefaults
+    category_stack.insert(0, "0")
+
+    for category_id in reversed(category_stack):
+        for i_search, search_function in enumerate(search_functions):
+            if search_done[i_search]:
+                # We have completed this search
+                continue
+            search_args = sf_args_seq[i_search]
+            if search_args is None:
+                search_args = {}
+            result = search_function(category_id, **search_args)
+            if result is None:
+                continue
+            # We have some results
+            if not search_multiple_elements[i_search]:
+                # Scalar results (the default)
+                results[i_search] = result
+                search_done[i_search] = True
+            elif isinstance(result, collections.Mapping):
+                # Multiple results; treat each element separately
+                # We have a dict-type object, loop over keys
+                if results[i_search] is None:
+                    results[i_search] = result
+                else:
+                    for key in result:
+                        if (result[key] is None
+                                or results[i_search][key] is None):
+                            results[i_search][key] = result[key]
+                if None not in results[i_search].values():
+                    search_done[i_search] = True
+            elif (not isinstance(result, basestring)
+                    and isinstance(result, collections.Sequence)):
+                # Multiple results; treat each element separately
+                # We have a list-type value, loop over values
+                if results[i_search] is None:
+                    results[i_search] = result
+                else:
+                    for i, result_item in enumerate(result):
+                        if result_item is None or results[i_search][i] is None:
+                            results[i_search][i] = result_item
+                if None not in results[i_search]:
+                    search_done[i_search] = True
+            else:
+                raise ValueError('If decorated as a multiple_search_function, '
+                                 + 'must return a sequence or mapping type!')
+
+    return results
+
+
+@scalar_search_function
+def get_feature_property_basic(category_id, property_name):
+    """Given a CategoryID, return the selected 'property_name' overrides
+    for that category, if they exist. This function must be called repeatedly
+    over parent categories to return the actual options for a category. If
+    there is no override for each listing_type, return None for that category.
+    This function only handles 'basic' properties in the eBay_features table,
+    not 'extra' properties in the 'eBay_features_extra' EAV table.
+
+    category_id   - valid CategoryID (can be zero for the SiteDefaults)
+    property_name - valid database property
+
+    Returns: The requested property
+    """
+
+    # SQL string interpolation ahead, so need to verify valid property name
+    if property_name not in FEATURES_BASE_COLUMNS:
+        raise ValueError('Trying to look up illegal column name!')
+
+    rows = frappe.db.sql("""
+        SELECT """ + property_name + """ FROM eBay_features
+            WHERE CategoryID=%s
+        """, (category_id))
+
+    if not rows:
+        rows = None
+    else:
+        rows = rows[0][0]
+    return rows
+
+
+@scalar_search_function
+def get_condition_values(category_id):
+    """Given a CategoryID, return the selected ConditionValue overrides
+    for that category, if they exist. This function must be called repeatedly
+    over parent categories to return the actual options for a category. If
+    there is no override for each listing_type, return None for that category.
+
+    category_id - valid CategoryID (can be zero for the SiteDefaults)
+
+    Returns: list of lists. Each list item is a two-element list:
+        [valid ConditionID, its description]
+    """
+    rows = frappe.db.sql("""
+        SELECT ConditionID, DisplayName FROM eBay_features_ConditionValues
+            WHERE CategoryID=%s
+        """, (category_id))
+
+    if not rows:
+        rows = None
+    return rows
+
+
+@scalar_search_function
+def get_payment_methods(category_id):
+    """Given a CategoryID, return the selected PaymentMethod overrides
+    for that category, if they exist. This function must be called repeatedly
+    over parent categories to return the actual options for a category. If
+    there is no override for each listing_type, return None for that category.
+
+    category_id - valid CategoryID (can be zero for the SiteDefaults)
+
+    Returns: list of lists. Each list item is a two-element list:
+        [valid PaymentMethod, its description].
+    """
+    rows = frappe.db.sql("""
+        SELECT
+            eBay_features_PaymentMethodConnections.PaymentMethod, Description
+            FROM eBay_features_PaymentMethodConnections
+            LEFT OUTER JOIN eBay_features_PaymentMethods
+            ON eBay_features_PaymentMethodConnections.PaymentMethod
+                = eBay_features_PaymentMethods.PaymentMethod
+            WHERE CategoryID=%s;
+        """, (category_id))
+
+    if not rows:
+        rows = None
+    return rows
+
+
+@multiple_search_function
 def get_listing_durations(category_id, listing_types=None):
     """Given a CategoryID, return the selected listing durations overrides
     for that category, if they exist. This function must be called repeatedly
@@ -654,10 +861,12 @@ def get_listing_durations(category_id, listing_types=None):
     listing_types - either a valid listing type, or a sequence of valid
                     listing types, or None for all supported listing types.
 
-    Returns: dictionary. Keys are listing types; values are either a list of
-        the acceptable listing durations or None if there is no override for
-        this category. Each Listing duration is a tuple of the
+    Returns: dictionary (or None). Keys are listing types; values are either a
+        list of the acceptable listing durations or None if there is no
+        override for this category. Each Listing duration is a tuple of the
         ListingDurationToken (string), days (int) and Description (string).
+        If the category does not appear in the features table at all, None
+        will be returned instead.
     """
 
     if listing_types is None:
@@ -674,17 +883,24 @@ def get_listing_durations(category_id, listing_types=None):
     return_dict = {}
 
     listing_duration_type = {x: 'ListingDuration' + x for x in listing_types}
-    listing_column_list = ', '.listing_duration_type.values()
+    listing_column_list = ', '.join(listing_duration_type.values())
     # NOTE interpolation in the SQL query, so ensure listing types
     # are validated
     cat_durationSetIDs = frappe.db.sql("""
         SELECT """ + listing_column_list + """
             FROM eBay_features
             WHERE CategoryID=%s
-        """, (cat_id,), as_dict=True)[0]  # Should be a single row
+        """, (category_id,), as_dict=True)
+
+    if cat_durationSetIDs:
+        cat_durationSetIDs = cat_durationSetIDs[0]
+    else:
+        # This category does not appear in the features table, and so
+        # has no overrides
+        return None
 
     if cat_durationSetIDs.values().count(None) == len(listing_column_list):
-        # There are no overrides for this category
+        # There are no ListingDuration overrides for this category
         return cat_durationSetIDs
 
     ld_sets = {}
@@ -695,7 +911,7 @@ def get_listing_durations(category_id, listing_types=None):
         # ListingDuration tokens. ld_sets is a cached dictionary of
         # durationSetID : list(ListingDuration tokens).
 
-        ld_col = listing_duration_type[listing_type]
+        ld_col_name = listing_duration_type[listing_type]
         cat_durationSetID = cat_durationSetIDs[ld_col_name]
 
         if cat_durationSetID is None:
@@ -709,15 +925,17 @@ def get_listing_durations(category_id, listing_types=None):
             ld_sets[cat_durationSetID] = frappe.db.sql("""
                 SELECT ListingDurationToken from eBay_features_ListingDurations
                 WHERE durationSetID=%s
-                """, (cat_durationSetID,), as_dict=False)
+                """, (cat_durationSetID,), as_dict=False)[0]
 
         # Collect data into (token, days, description) tuples
         return_dict[listing_type] = []
         for token in ld_sets[cat_durationSetID]:
-            days = LISTING_DURATION_TOKEN_DICT[token]
-            description = LISTING_DURATION_TOKEN_DICT[token]
+            days = LISTING_DURATION_TOKEN_DICT[token][0]
+            description = LISTING_DURATION_TOKEN_DICT[token][1]
             return_dict[listing_type].append(
                 (token, days, description))
+
+    return return_dict
 
 
 def is_listing_category(category_id):
