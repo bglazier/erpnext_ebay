@@ -201,7 +201,7 @@ def get_features():
                                                     category_id))
         options = {'CategoryID': category_id,
                    'DetailLevel': 'ReturnAll',
-                   'ViewAllNodes': False}
+                   'ViewAllNodes': True}
         # BEGIN DUBIOUS WORKAROUND
         # Only look at the top level for this category
         if category_id in problematic_categories:
