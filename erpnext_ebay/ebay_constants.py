@@ -51,7 +51,7 @@ LISTING_TYPES = {'AdType': 'Advertisement',
                  'StoresFixedPrice': 'Buy It Now (eBay Store)'}
 # Listing types we use - these should be permissible site-wide as there is
 # no checking by category for listing types
-LISTING_TYPES_SUPPORTED = ('Chinese', 'FixedPriceItem')
+LISTING_TYPES_SUPPORTED = ('Chinese', 'FixedPriceItem', 'StoresFixedPrice')
 
 # Feature columns
 
