@@ -16,6 +16,24 @@ from ebay_requests import get_categories_versions, get_categories, get_features
 from ebay_constants import *
 
 
+def _infinite_strings(key=None):
+    """Returns a function which returns a float: either 'inf' for a
+    (base)string, or the float(value) for the argument. Intended for
+    sorting numbers before strings. Accepts a 'key' argument as for
+    sorting algorithms.
+    """
+    def _sort_func(value):
+        if key is not None:
+            value = key(value)
+        if isinstance(value, basestring) or value is None:
+            value = float('inf')
+        else:
+            value = float(value)
+        return value
+
+    return _sort_func
+
+
 def _bool_process(item):
     """Replaces 'true' with True, 'false' with False, otherwise returns
     the 'item' unchanged
@@ -47,6 +65,13 @@ def _write_ebay_cache_to_file(fn, cache_data):
     cache_file = os.path.join(frappe.utils.get_site_path(), fn)
     with open(cache_file, 'wb') as f:
         pickle.dump(cache_data, f, pickle.HIGHEST_PROTOCOL)
+
+
+@frappe.whitelist()
+def supported_listing_types():
+    """Return the supported listing types"""
+    return [{'value': x, 'label': LISTING_TYPES[x]}
+            for x in LISTING_TYPES_SUPPORTED]
 
 
 @frappe.whitelist()
@@ -201,6 +226,7 @@ def client_get_new_categories_data(category_level, category_stack):
     # 3) Condition Values
     # 4) ConditionHelpURL
     # 5) Payment methods
+
     search_functions = (get_listing_durations,
                         get_feature_property_basic,
                         get_condition_values,
@@ -214,15 +240,33 @@ def client_get_new_categories_data(category_level, category_stack):
 
     options = get_overridden_options(category_stack[0:category_level],
                                      search_functions, search_args)
-    print(options)
+
+    (listing_durations, condition_enabled, condition_values,
+     condition_help_URL, payment_methods) = options
+
+    # Format the condition_values options ready for the
+    # Javascript select options
+    if condition_values:
+        condition_values = list(condition_values)
+        for i, condition_item in enumerate(condition_values):
+            condition_values[i] = {'value': condition_item[0],
+                                   'label': condition_item[1]}
+
+    # Format the listing duration options ready for the Javascript
+    # select options
+    if listing_durations:
+        for listing_type, ld_list in listing_durations.items():
+            ld_list.sort(key=_infinite_strings(operator.itemgetter(1)))
+            new_ld_list = [{'value': x[0], 'label': x[2]} for x in ld_list]
+            listing_durations[listing_type] = new_ld_list
 
     return {'category_options': cat_options_stack,
             'is_listing_category': is_listing_cat,
-            'listing_durations': options[0],
-            'condition_enabled': options[1],
-            'condition_values': options[2],
-            'condition_help_URL': options[3],
-            'payment_methods': options[4]}
+            'listing_durations': listing_durations,
+            'condition_enabled': condition_enabled,
+            'condition_values': condition_values,
+            'condition_help_URL': condition_help_URL,
+            'payment_methods': payment_methods}
 
 
 def get_ebay_categories(category_stack):
@@ -925,11 +969,12 @@ def get_listing_durations(category_id, listing_types=None):
             ld_sets[cat_durationSetID] = frappe.db.sql("""
                 SELECT ListingDurationToken from eBay_features_ListingDurations
                 WHERE durationSetID=%s
-                """, (cat_durationSetID,), as_dict=False)[0]
+                """, (cat_durationSetID,), as_dict=False)
 
         # Collect data into (token, days, description) tuples
         return_dict[listing_type] = []
-        for token in ld_sets[cat_durationSetID]:
+        for token_tuple in ld_sets[cat_durationSetID]:
+            token = token_tuple[0]
             days = LISTING_DURATION_TOKEN_DICT[token][0]
             description = LISTING_DURATION_TOKEN_DICT[token][1]
             return_dict[listing_type].append(
