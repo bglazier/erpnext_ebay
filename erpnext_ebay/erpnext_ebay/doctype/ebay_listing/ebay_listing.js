@@ -3,6 +3,8 @@
 
 var MAX_LEVEL = 6;
 
+/* ******************* Frappe events ******************* */
+
 frappe.ui.form.on('eBay Listing', {
     do_a_thing: function do_a_thing_change (frm) {
         // clicked the damn button!
@@ -45,14 +47,16 @@ frappe.ui.form.on('eBay Listing', {
             }
         });
 
-        // Get the supported listing types
+        // Get eBay constants: supported listing types and payment methods
         frappe.call({
-            method: "erpnext_ebay.ebay_categories.supported_listing_types",
+            method: "erpnext_ebay.ebay_constants.get_ebay_constants",
             args: {},
             callback: function (data) {
                 // Set up the listing type selection
+                frm.ebay_data.ebay_constants = data.message;
                 frm.set_df_property('ebay_listing_type_select', 'options',
                                     data.message);
+                create_payment_method_checkboxes(frm);
             }
         });
         if (frm.doc['ebay_listing_type']) {
@@ -69,7 +73,7 @@ frappe.ui.form.on('eBay Listing', {
         }
     },
 
-    before_submit: function test_listing(frm) {
+    /*before_submit: function test_listing(frm) {
         // Test submitting the listing to eBay
         msgprint("before_submit");
         frappe.call({
@@ -89,7 +93,7 @@ frappe.ui.form.on('eBay Listing', {
         // Cancel listing
         msgprint("This eBay interface is not ready yet!");
         validated = false;
-    },
+    },*/
 
     'ebay_conditionid_select': function (frm) {
         // Change of conditionID - store in document field
@@ -113,70 +117,50 @@ frappe.ui.form.on('eBay Listing', {
     }
 });
 
-/*
-function get_last_category(frm) {
-    // Return the ID of the last selected category on the form
-    var last_category = 0;
+/* ******************* Form setup/lock/unlock ******************* */
+
+function initial_form_setup (frm) {
+    // If we have an update-to-date eBay cache, get the category etc. data
+    var category_stack = [];
     for (var i=1; i<=MAX_LEVEL; i++) {
-        var catname = 'category_' + String(i);
-        var value = frm.fields_dict[catname].value;
-        if (value && (value > 0)) {
-            last_category = value;
-        } else {
-            break;
+        catname = "category_id_" + String(i);
+        category_stack.push(frm.doc[catname]);
+    }
+
+    // Set the value for the conditionID from the document
+    frm.set_value('ebay_conditionid_select', frm.doc['ebay_conditionid']);
+
+    frappe.call({
+        // Callback to obtain current eBay categories for this listing
+        method: "erpnext_ebay.ebay_categories.client_get_new_categories_data",
+        args: {category_level: 0,
+               category_stack: category_stack},
+        callback: function load_categories (data) {
+
+            // Unlock the form and update
+            frm.ebay_data.category_data = data.message;
+            unlock_update(frm, 0, true, data);
+
+            // Set the category select boxes according to the document
+            for (var i=1; i<=MAX_LEVEL; i++) {
+                var catname = 'category_' + String(i);
+                frm.set_value(catname, frm.doc['category_id_' + String(i)]);
+            }
+
+            // Set up events for changing the categories 'select' inputs
+            function category_change_function (frm, cat_level) {
+                return function (frm) {
+                    category_change(frm, cat_level);
+                }
+            }
+
+            for (i=1; i<=MAX_LEVEL; i++) {
+                catname = 'category_' + String(i);
+                frappe.ui.form.on('eBay Listing', catname,
+                                  category_change_function(frm, i));
+            }
         }
-    }
-    return last_category;
-}*/
-
-
-function update_condition_description_status(frm) {
-    // Update the condition description field
-    if ((frm.fields_dict['ebay_conditionid_select'].input.disabled) ||
-            (frm.fields_dict['ebay_conditionid_select'].value > 1500)) {
-        // Allow a condition description
-        frm.fields_dict['condition_description'].input.disabled = false;
-        frm.set_df_property(
-            'condition_description', 'label',
-            'Condition description (optional)');
-    } else {
-        // No condition description for this ConditionID
-        frm.fields_dict['condition_description'].input.disabled = true;
-        frm.set_value('condition_description', '');
-        frm.set_df_property(
-            'condition_description', 'label',
-            'Condition description (select an appropriate condition)');
-    }
-}
-
-
-function update_listing_durations(frm) {
-    // Update the listing duration list based on the currently
-    // selected listing type and category
-    listing_durations_obj = frm.ebay_data.category_data.listing_durations
-    listing_type = frm.fields_dict['ebay_listing_type_select'].value;
-    if (!listing_type) {
-        frm.fields_dict['ebay_listing_duration_select'].input.disabled = true;
-        frm.set_df_property('ebay_listing_duration_select', 'label',
-                            'Length of listing (select a listing type)');
-        return
-    }
-    var listing_durations = listing_durations_obj[listing_type];
-    frm.fields_dict['ebay_listing_duration_select'].input.disabled = false;
-    frm.set_df_property('ebay_listing_duration_select', 'options',
-                        listing_durations)
-        frm.set_df_property('ebay_listing_duration_select', 'label',
-                            'Length of listing');
-    valid_value = false
-    for (i=0; i<listing_durations.length; i++) {
-        if (listing_durations[i].value
-            == frm.fields_dict['ebay_listing_duration_select'].value) {
-            valid_value = true
-        }
-    }
-    if (!valid_value) {
-        frm.set_value('ebay_listing_duration_select', null);
-    }
+    });
 }
 
 
@@ -238,6 +222,13 @@ function lock_forms(frm, category_level) {
 
     // Lock the listing duration field
     frm.fields_dict['ebay_listing_duration_select'].input.disabled = true;
+
+    // Lock the payment method checkboxes
+    $('[name="ebay_payment_methods"]').each( function (index, el) {
+        // Disable each checkbox
+        var element = $(el);  // Get the JQuery object
+        element.prop('disabled', true);
+    });
 }
 
 
@@ -302,7 +293,8 @@ function unlock_update(frm, category_level, onload, data) {
             frm.set_value('ebay_conditionid_select', null);
             break;
         case 'Enabled':
-            data.message.condition_values.push({'label': '', 'value': 0});
+            data.message.condition_values.push({'label': '(not specified)',
+                                                'value': 0});
             frm.set_df_property('ebay_conditionid_select', 'options',
                                 data.message.condition_values);
             frm.fields_dict['ebay_conditionid_select'].input.disabled = false;
@@ -340,8 +332,80 @@ function unlock_update(frm, category_level, onload, data) {
 
     // Update listing duration field
     update_listing_durations(frm);
+
+    // Unlock payment method checkboxes
+    $('[name="ebay_payment_methods"]').each( function (index, el) {
+        // Disable each checkbox
+        var element = $(el);  // Get the JQuery object
+        payment_method = element.attr('id').slice(20);
+        was_checked = element.prop('checked');
+        if (data.message.payment_methods.indexOf(payment_method) == -1) {
+            // Disable and uncheck this payment method
+            element.prop('disabled', true);
+            if (was_checked) {
+                // If previously checked, uncheck and trigger change in doc
+                element.prop('checked', false);
+                element.trigger('change');
+            }
+        } else {
+            // Enable this payment method
+            element.prop('disabled', false);
+        }
+    });
 }
 
+/* ******************* Update fields ******************* */
+
+function update_condition_description_status(frm) {
+    // Update the condition description field
+    if ((frm.fields_dict['ebay_conditionid_select'].input.disabled) ||
+            (frm.fields_dict['ebay_conditionid_select'].value > 1500)) {
+        // Allow a condition description
+        frm.fields_dict['condition_description'].input.disabled = false;
+        frm.set_df_property(
+            'condition_description', 'label',
+            'Condition description (optional)');
+    } else {
+        // No condition description for this ConditionID
+        frm.fields_dict['condition_description'].input.disabled = true;
+        frm.set_value('condition_description', '');
+        frm.set_df_property(
+            'condition_description', 'label',
+            'Condition description (select an appropriate condition)');
+    }
+}
+
+
+function update_listing_durations(frm) {
+    // Update the listing duration list based on the currently
+    // selected listing type and category
+    listing_durations_obj = frm.ebay_data.category_data.listing_durations
+    listing_type = frm.fields_dict['ebay_listing_type_select'].value;
+    if (!listing_type) {
+        frm.fields_dict['ebay_listing_duration_select'].input.disabled = true;
+        frm.set_df_property('ebay_listing_duration_select', 'label',
+                            'Length of listing (select a listing type)');
+        return
+    }
+    var listing_durations = listing_durations_obj[listing_type];
+    frm.fields_dict['ebay_listing_duration_select'].input.disabled = false;
+    frm.set_df_property('ebay_listing_duration_select', 'options',
+                        listing_durations)
+        frm.set_df_property('ebay_listing_duration_select', 'label',
+                            'Length of listing');
+    valid_value = false
+    for (i=0; i<listing_durations.length; i++) {
+        if (listing_durations[i].value
+            == frm.fields_dict['ebay_listing_duration_select'].value) {
+            valid_value = true
+        }
+    }
+    if (!valid_value) {
+        frm.set_value('ebay_listing_duration_select', null);
+    }
+}
+
+/* ******************* Event handlers ******************* */
 
 function category_change (frm, category_level) {
     // The category on category_level has changed - update the form
@@ -373,6 +437,32 @@ function category_change (frm, category_level) {
     });
 }
 
+function changed_payment_method(event) {
+    // A PaymentMethod checkbox has been used
+    var frm = event.data;
+    var target = $(event.target);
+    var payment_method = target.attr('id').slice(20);
+    var payment_methods_doc = get_doc_payment_methods(frm);
+    idx = payment_methods_doc.indexOf(payment_method);
+    if (target.prop('checked')) {
+        if (idx == -1) {
+            // Add new payment method to document
+            var new_row = frappe.model.add_child(
+                frm.doc, "eBay_PaymentMethod_child", "ebay_payment_methods_table");
+            new_row.payment_method = payment_method;
+        }
+    } else {
+        // Remove payment method from document
+        if (idx != -1) {
+            frm.doc.ebay_payment_methods_table.splice(idx, 1);
+        }
+    }
+    // Update the form and set it to 'dirty' i.e. unsaved
+    frm.refresh_field("ebay_payment_methods_table");
+    frm.dirty();
+}
+
+/* ******************* Validation ******************* */
 
 function check_all_categories_selected (frm) {
     // Validation function - check we have no further category choices
@@ -391,49 +481,92 @@ function check_all_categories_selected (frm) {
     return true;
 }
 
+/* ******************* Custom HTML ******************* */
 
-function initial_form_setup (frm) {
-    // If we have an update-to-date eBay cache, get the category etc. data
-    var category_stack = [];
-    for (var i=1; i<=MAX_LEVEL; i++) {
-        catname = "category_id_" + String(i);
-        category_stack.push(frm.doc[catname]);
+function create_payment_method_checkboxes(frm) {
+    // Create each checkbox
+    if (!frm['ebay_data'] || !frm.ebay_data['ebay_constants']) {
+        // We don't have the data yet
+        return;
     }
+    // Create the HTML template for the checkboxes
+    var payment_methods = frm.ebay_data.ebay_constants.payment_methods;
+    var template = '\
+        <div class="form-group" style="margin: 0px;" \
+          id="ebay_payment_method_checkboxes">\
+          <label class="control-label" style="padding-right: 0px;">\
+            Payment methods:\
+          </label>\
+          {% for (var i=0; i<payment_methods.length; i++) {\
+          var pm = payment_methods[i].value;\
+          var pm_label = payment_methods[i].label; %}\
+            <div class="checkbox" style="margin-top: 0px;">\
+              <label>\
+                <span class="input-area">\
+                  <input type="checkbox" autocomplete="off" \
+                    class="input-with-feedback" \
+                    name="ebay_payment_methods" \
+                    id="ebay_payment_method_{{ pm }}">\
+                </span>\
+                <span class="label-area small">{{pm_label}}</span>\
+              </label>\
+            </div>\
+          {% } %}\
+        </div>';
+    var rendered = frappe.render(template, {payment_methods: payment_methods});
+    // Apply the template
+    $(frm.fields_dict.ebay_payment_methods_html.wrapper).html(rendered);
+    // Disable the checkboxes for now
+    $('[name="ebay_payment_methods"]').each( function (index, el) {
+        var element = $(el);  // Get the JQuery object
+        element.prop('disabled', true);
+    });
+    // Bind the encapsulating div with an event handler for 'change'
+    $('[id="ebay_payment_method_checkboxes"]').on(
+        "change", "input", frm, changed_payment_method);
+    set_ebay_payment_method_checkboxes(frm);
+}
 
-    // Set the value for the conditionID from the document
-    frm.set_value('ebay_conditionid_select', frm.doc['ebay_conditionid']);
 
-    frappe.call({
-        // Callback to obtain current eBay categories for this listing
-        method: "erpnext_ebay.ebay_categories.client_get_new_categories_data",
-        args: {category_level: 0,
-               category_stack: category_stack},
-        callback: function load_categories (data) {
-
-            // Unlock the form and update
-            frm.ebay_data.category_data = data.message;
-            unlock_update(frm, 0, true, data);
-
-            // Set the category select boxes according to the document
-            for (var i=1; i<=MAX_LEVEL; i++) {
-                var catname = 'category_' + String(i);
-                frm.set_value(catname, frm.doc['category_id_' + String(i)]);
-            }
-
-            // Set up events for changing the categories 'select' inputs
-            function category_change_function (frm, cat_level) {
-                return function (frm) {
-                    category_change(frm, cat_level);
-                }
-            }
-
-            for (i=1; i<=MAX_LEVEL; i++) {
-                catname = 'category_' + String(i);
-                frappe.ui.form.on('eBay Listing', catname,
-                                  category_change_function(frm, i));
-            }
+function set_ebay_payment_method_checkboxes(frm) {
+    // Set the PaymentMethod checkboxes to the correct value
+    var payment_methods_doc = get_doc_payment_methods(frm);
+    $('[name="ebay_payment_methods"]').each( function (index, el) {
+        // Set up each checkbox, iterating over the DOM elements
+        var element = $(el);  // Get the JQuery object
+        if (payment_methods_doc.indexOf(element.attr('id').slice(20)) == -1) {
+            element.prop('checked', false);
+        } else {
+            element.prop('checked', true);
         }
     });
 }
 
+/* ******************* Utility ******************* */
 
+function get_doc_payment_methods(frm) {
+    // Create an array containing the payment types included
+    // in the document
+    var payment_methods = [];
+    var doc = frm.doc.ebay_payment_methods_table;
+    for (var i=0; i<doc.length; i++) {
+        payment_methods.push(doc[i].payment_method);
+    }
+    return payment_methods;
+}
+
+/*
+function get_last_category(frm) {
+    // Return the ID of the last selected category on the form
+    var last_category = 0;
+    for (var i=1; i<=MAX_LEVEL; i++) {
+        var catname = 'category_' + String(i);
+        var value = frm.fields_dict[catname].value;
+        if (value && (value > 0)) {
+            last_category = value;
+        } else {
+            break;
+        }
+    }
+    return last_category;
+}*/

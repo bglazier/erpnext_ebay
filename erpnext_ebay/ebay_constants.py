@@ -1,44 +1,60 @@
 """A module of eBay constants"""
 
+import frappe
+
 # Assumed maximum length of eBay attributes and values
 EBAY_ATTR_LEN = 100
 EBAY_ATTR_LEN_STR = str(EBAY_ATTR_LEN)
 EBAY_VALUE_LEN = 1000
 EBAY_VALUE_LEN_STR = str(EBAY_VALUE_LEN)
 
-# eBay PaymentMethods and their descriptions - TODO write descriptions!
-PAYMENT_METHODS = {'AmEx': None,
-                   'CashInPerson': None,
-                   'CashOnPickup': None,
-                   'CCAccepted': None,
-                   'COD': None,
-                   'CODPrePayDelivery': None,
-                   'CreditCard': None,
-                   'Diners': None,
-                   'DirectDebit': None,
-                   'Discover': None,
-                   'ELV': None,
-                   'Escrow': None,
-                   'IntegratedMerchantCreditCard': None,
-                   'LoanCheck': None,
-                   'MOCC': None,
-                   'MoneyXferAccepted': None,
-                   'MoneyXferAcceptedInCheckout': None,
-                   'None': None,
-                   'Other': None,
-                   'OtherOnlinePayments': None,
-                   'PaisaPayAccepted': None,
-                   'PaisaPayEscrow': None,
-                   'PaisaPayEscrowEMI': None,
-                   'PaymentSeeDescription': None,
-                   'PayOnPickup': None,
-                   'PayPal': None,
-                   'PayPalCredit': None,
-                   'PayUponInvoice': None,
-                   'PersonalCheck': None,
-                   'PostalTransfer': None,
-                   'PrePayDelivery': None,
-                   'VisaMC': None}
+# eBay PaymentMethods and their descriptions
+PAYMENT_METHODS = {'AmEx': 'American Express',
+                   'CashInPerson': 'Cash in person (US/CA Motors only)',
+                   'CashOnPickup': 'Payment on delivery',
+                   'CCAccepted': 'Credit card',
+                   'COD': 'Cash on delivery (not US/CA/UK)',
+                   'CODPrePayDelivery': '(reserved)',
+                   'CreditCard': 'Credit card (eBay Now only)',
+                   'Diners': 'Diners Club Card (Cybersource Gateway sellers)',
+                   'DirectDebit': 'Debit card (eBay Now only)',
+                   'Discover': 'Discover card',
+                   'ELV': 'Elektronisches Lastschriftverfahren (obselete)',
+                   'Escrow': '(reserved)',
+                   'IntegratedMerchantCreditCard':
+                       'Credit card (payment gateway)',
+                   'LoanCheck': 'Loan check (US/CA Motors only)',
+                   'MOCC': "Money order/cashiers' cheque",
+                   'MoneyXferAccepted': 'Money/bank transfer',
+                   'MoneyXferAcceptedInCheckout':
+                       'Money/bank transfer (displayed at checkout)',
+                   'None': 'No payment method specified',
+                   'Other': 'Other',
+                   'OtherOnlinePayments': 'Other online payment',
+                   'PaisaPayAccepted': 'PaisaPay (India only)',
+                   'PaisaPayEscrow': 'PaisaPay Escrow (India only)',
+                   'PaisaPayEscrowEMI':
+                       'PaisaPay Escrow equal monthly installments '
+                       + '(India only)',
+                   'PaymentSeeDescription':
+                       'See description for payment details',
+                   'PayOnPickup': 'Pay on pickup',
+                   'PayPal': 'Paypal',
+                   'PayPalCredit': 'Paypal credit card',
+                   # PayUponInvoice is not a valid option for listing
+                   'PayUponInvoice': 'Pay Upon Invoice (DE only)',
+                   'PersonalCheck': 'Personal cheque',
+                   'PostalTransfer': '(reserved)',
+                   'PrePayDelivery': '(reserved)',
+                   'VisaMC': 'Visa/Mastercard'}
+
+PAYMENT_METHODS_SUPPORTED = ('AmEx', 'CashOnPickup', 'CCAccepted',
+                             'CreditCard', 'Discover',
+                             'IntegratedMerchantCreditCard', 'MOCC',
+                             'MoneyXferAccepted', 'None', 'Other',
+                             'OtherOnlinePayments', 'PaymentSeeDescription',
+                             'PayPal', 'PayPalCredit', 'PersonalCheck',
+                             'VisaMC')
 
 # eBay listing types, and their descriptions
 LISTING_TYPES = {'AdType': 'Advertisement',
@@ -94,7 +110,23 @@ descriptions = ['{}-day listing'.format(
     low_num[n-1] if n < len(low_num) else str(n))
     for n in days]
 LISTING_DURATION_TOKENS = (tuple(zip(tokens, days, descriptions))
-                       + (('GTC', None, "Good 'Til Cancelled"),))
+                           + (('GTC', None, "Good 'Til Cancelled"),))
 LISTING_DURATION_TOKEN_DICT = {
     x[0]: (x[1], x[2]) for x in LISTING_DURATION_TOKENS}
 del low_num, days, tokens, descriptions
+
+
+@frappe.whitelist()
+def get_ebay_constants():
+    """Return the supported listing types"""
+    return_dict = {}
+    return_dict['listing_type'] = [
+        {'value': x, 'label': LISTING_TYPES[x]}
+        for x in LISTING_TYPES_SUPPORTED]
+
+    return_dict['payment_methods'] = [
+        {'value': x,
+         'label': PAYMENT_METHODS[x]}
+        for x in PAYMENT_METHODS_SUPPORTED]
+
+    return return_dict

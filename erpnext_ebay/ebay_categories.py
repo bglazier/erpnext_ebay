@@ -68,17 +68,11 @@ def _write_ebay_cache_to_file(fn, cache_data):
 
 
 @frappe.whitelist()
-def supported_listing_types():
-    """Return the supported listing types"""
-    return [{'value': x, 'label': LISTING_TYPES[x]}
-            for x in LISTING_TYPES_SUPPORTED]
-
-
-@frappe.whitelist()
 def check_cache_versions():
     """Check existence and non-emptyness of tables, and check version numbers.
     Return True/False for categories and features caches.
     """
+    return (True, True)  # DEBUG DEBUG TODO TODO Temporary DELETE ME
     tables_list = frappe.db.get_tables()
 
     # Check categories cache
@@ -232,6 +226,7 @@ def client_get_new_categories_data(category_level, category_stack):
                         get_condition_values,
                         get_feature_property_basic,
                         get_payment_methods)
+
     search_args = ({'listing_types': LISTING_TYPES_SUPPORTED},
                    {'property_name': 'ConditionEnabled'},
                    None,
@@ -259,6 +254,10 @@ def client_get_new_categories_data(category_level, category_stack):
             ld_list.sort(key=_infinite_strings(operator.itemgetter(1)))
             new_ld_list = [{'value': x[0], 'label': x[2]} for x in ld_list]
             listing_durations[listing_type] = new_ld_list
+
+    # For payment methods, just return a list of the valid keys
+    if payment_methods:
+        payment_methods = [x[0] for x in payment_methods]
 
     return {'category_options': cat_options_stack,
             'is_listing_category': is_listing_cat,
@@ -997,16 +996,3 @@ def is_listing_category(category_id):
         """, (category_id,))[0]
 
     return leaf and not (virtual or expired)
-
-
-
-
-
-
-
-
-
-
-
-
-
