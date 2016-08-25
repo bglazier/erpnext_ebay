@@ -19,6 +19,10 @@ frappe.ui.form.on('eBay Listing', {
 
     onload: function ebay_listing_onload (frm) {
         // Event called before the form is rendered
+
+        // HTML for 'is a listing category' checkbox
+        create_is_a_listing_category_checkbox(frm);
+
         // Global variable for various properties
         frm.ebay_data = {};
         // Initial display of the form: set up categories
@@ -208,8 +212,7 @@ function lock_forms(frm, category_level) {
     }
 
     // Uncheck 'is this a listing category?' checkbox
-    frm.fields_dict['ebay_is_listing_category'].input.disabled = true;
-    frm.fields_dict['ebay_is_listing_category'].set_input(false);
+    $('[id="ebay_is_listing_category_checkbox"]').prop('checked', false);
 
     // Lock the condition fields
     frm.fields_dict['ebay_conditionid_select'].input.disabled = true;
@@ -271,9 +274,9 @@ function unlock_update(frm, category_level, onload, data) {
 
     // Update 'is this a listing category?' checkbox
     if (data.message.is_listing_category) {
-        frm.fields_dict['ebay_is_listing_category'].set_input(true);
+        $('[id="ebay_is_listing_category_checkbox"]').prop('checked', true);
     } else {
-        frm.fields_dict['ebay_is_listing_category'].set_input(false);
+        $('[id="ebay_is_listing_category_checkbox"]').prop('checked', false);
     }
 
     // Update condition values
@@ -482,6 +485,29 @@ function check_all_categories_selected (frm) {
 }
 
 /* ******************* Custom HTML ******************* */
+function create_is_a_listing_category_checkbox(frm) {
+    // Create the checkbox
+    var plain_html = '\
+        <div class="form-group" style="margin: 0px;" \
+          id="ebay_is_listing_category_checkbox_group">\
+          <div class="checkbox" style="margin-top: 0px;">\
+            <label>\
+              <span class="input-area">\
+                <input type="checkbox" autocomplete="off" \
+                  class="input-with-feedback" \
+                  id="ebay_is_listing_category_checkbox" \
+                  disabled="true">\
+              </span>\
+              <span class="label-area small">\
+                Is this a listing category?\
+              </span>\
+            </label>\
+          </div>\
+        </div>';
+    // Apply the html
+    $(frm.fields_dict.ebay_is_listing_category.wrapper).html(plain_html);
+}
+
 
 function create_payment_method_checkboxes(frm) {
     // Create each checkbox
