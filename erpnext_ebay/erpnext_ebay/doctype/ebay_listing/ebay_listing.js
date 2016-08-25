@@ -63,9 +63,7 @@ frappe.ui.form.on('eBay Listing', {
                 create_payment_method_checkboxes(frm);
             }
         });
-        if (frm.doc['ebay_listing_type']) {
-            frm.set_value('ebay_listing_type', frm.doc.ebay_listing_type);
-        }
+
     },
 
     validate: function validate_listing(frm) {
@@ -111,6 +109,16 @@ frappe.ui.form.on('eBay Listing', {
         // Change of listing type - store in document field
         frm.doc['ebay_listing_type'] =
             frm.fields_dict['ebay_listing_type_select'].value;
+
+        // Lock the Auction price field if not an auction
+        var el = frm.fields_dict['auction_price'].$input;
+        if (frm.doc['ebay_listing_type'] != 'Chinese') {
+            el.prop('disabled', true);
+        } else {
+            el.prop('disabled', false);
+        }
+
+        // Update the listing durations
         update_listing_durations(frm);
     },
 
@@ -190,6 +198,15 @@ function lock_forms(frm, category_level) {
                 frm.fields_dict[catname].input.disabled = true;
                 frm.refresh_field(catname);
             }
+        }
+
+        // Set listing type from document (no callback needed)
+        frm.set_value('ebay_listing_type_select', frm.doc['ebay_listing_type']);
+        var el = frm.fields_dict['auction_price'].$input;
+        if (frm.doc['ebay_listing_type'] != 'Chinese') {
+            el.prop('disabled', true);
+        } else {
+            el.prop('disabled', false);
         }
     } else {
         // Category update locking
@@ -382,7 +399,6 @@ function update_condition_description_status(frm) {
 function update_listing_durations(frm) {
     // Update the listing duration list based on the currently
     // selected listing type and category
-    listing_durations_obj = frm.ebay_data.category_data.listing_durations
     listing_type = frm.fields_dict['ebay_listing_type_select'].value;
     if (!listing_type) {
         frm.fields_dict['ebay_listing_duration_select'].input.disabled = true;
@@ -390,7 +406,12 @@ function update_listing_durations(frm) {
                             'Length of listing (select a listing type)');
         return
     }
-    var listing_durations = listing_durations_obj[listing_type];
+    if (!frm.ebay_data['category_data']) {
+        frm.fields_dict['ebay_listing_duration_select'].input.disabled = true;
+        return;
+    }
+    var listing_durations =
+        frm.ebay_data.category_data.listing_durations[listing_type];
     frm.fields_dict['ebay_listing_duration_select'].input.disabled = false;
     frm.set_df_property('ebay_listing_duration_select', 'options',
                         listing_durations)
@@ -451,7 +472,8 @@ function changed_payment_method(event) {
         if (idx == -1) {
             // Add new payment method to document
             var new_row = frappe.model.add_child(
-                frm.doc, "eBay_PaymentMethod_child", "ebay_payment_methods_table");
+                frm.doc, "eBay_PaymentMethod_child",
+                "ebay_payment_methods_table");
             new_row.payment_method = payment_method;
         }
     } else {
