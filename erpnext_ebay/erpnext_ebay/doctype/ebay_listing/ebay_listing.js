@@ -59,7 +59,7 @@ frappe.ui.form.on('eBay Listing', {
                 // Set up the listing type selection
                 frm.ebay_data.ebay_constants = data.message;
                 frm.set_df_property('ebay_listing_type_select', 'options',
-                                    data.message);
+                                    data.message.listing_type);
                 create_payment_method_checkboxes(frm);
             }
         });
