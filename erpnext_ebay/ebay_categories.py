@@ -171,6 +171,8 @@ def client_get_new_categories_data(category_level, category_stack):
         listing_durations: [list of listing_duration tuples]
         condition_values: [list of ConditionID tuples]
         ConditionHelpURL: ConditionHelpURL for current category or None
+        AutoPayEnabled: AutoPayEnabled for current category
+        BestOfferEnabled: BestOfferEnabled for current category
     """
 
     # Frappe passes our lists as a string, so convert back to list
@@ -259,13 +261,23 @@ def client_get_new_categories_data(category_level, category_stack):
     if payment_methods:
         payment_methods = [x[0] for x in payment_methods]
 
+    # AutoPayEnabled and BestOfferEnabled are found in the Categories, not
+    # CategoryFeatures data
+    auto_pay_enabled, best_offer_enabled = frappe.db.sql("""
+                SELECT AutoPayEnabled, BestOfferEnabled
+                from eBay_categories_hierarchy
+                WHERE CategoryID=%s
+                """, (category_id,), as_dict=False)[0]
+
     return {'category_options': cat_options_stack,
             'is_listing_category': is_listing_cat,
             'listing_durations': listing_durations,
             'condition_enabled': condition_enabled,
             'condition_values': condition_values,
             'condition_help_URL': condition_help_URL,
-            'payment_methods': payment_methods}
+            'payment_methods': payment_methods,
+            'AutoPayEnabled': auto_pay_enabled,
+            'BestOfferEnabled': best_offer_enabled}
 
 
 def get_ebay_categories(category_stack):

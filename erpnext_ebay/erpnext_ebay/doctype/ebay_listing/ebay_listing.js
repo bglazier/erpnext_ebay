@@ -15,6 +15,7 @@ frappe.ui.form.on('eBay Listing', {
         // Event called after the form is rendered
         // Lock the forms until the initial data load completes
         lock_forms(frm, 0);
+        changed_listing_type(frm);
     },
 
     onload: function ebay_listing_onload (frm) {
@@ -63,7 +64,6 @@ frappe.ui.form.on('eBay Listing', {
                 create_payment_method_checkboxes(frm);
             }
         });
-
     },
 
     validate: function validate_listing(frm) {
@@ -109,23 +109,29 @@ frappe.ui.form.on('eBay Listing', {
         // Change of listing type - store in document field
         frm.doc['ebay_listing_type'] =
             frm.fields_dict['ebay_listing_type_select'].value;
-
-        // Lock the Auction price field if not an auction
-        var el = frm.fields_dict['auction_price'].$input;
-        if (frm.doc['ebay_listing_type'] != 'Chinese') {
-            el.prop('disabled', true);
-        } else {
-            el.prop('disabled', false);
-        }
-
-        // Update the listing durations
-        update_listing_durations(frm);
+        changed_listing_type(frm);
     },
 
     'ebay_listing_duration_select': function (frm) {
         // Change of listing duration - store in document field
         frm.doc['ebay_listing_duration'] =
             frm.fields_dict['ebay_listing_duration_select'].value;
+    },
+
+    'buyitnow_enabled': function (frm) {
+        // Change of Buy It Now enabled - enable/disable price form
+        var el = frm.fields_dict['buyitnow_price'].$input
+        if (frm.fields_dict['buyitnow_enabled'].$input.prop('checked')) {
+            el.prop('disabled', false);
+        } else {
+            el.prop('disabled', true);
+            el.val([]);
+        }
+    },
+
+    'buyitnow_price': function (frm) {
+        // This may change AutoPayEnabled if too high
+        update_autopay_enabled(frm);
     }
 });
 
@@ -198,15 +204,6 @@ function lock_forms(frm, category_level) {
                 frm.fields_dict[catname].input.disabled = true;
                 frm.refresh_field(catname);
             }
-        }
-
-        // Set listing type from document (no callback needed)
-        frm.set_value('ebay_listing_type_select', frm.doc['ebay_listing_type']);
-        var el = frm.fields_dict['auction_price'].$input;
-        if (frm.doc['ebay_listing_type'] != 'Chinese') {
-            el.prop('disabled', true);
-        } else {
-            el.prop('disabled', false);
         }
     } else {
         // Category update locking
@@ -350,8 +347,9 @@ function unlock_update(frm, category_level, onload, data) {
         frm.set_df_property('ebay_conditionhelpurl', 'options', '');
     }
 
-    // Update listing duration field
-    update_listing_durations(frm);
+    // Update listing type-dependent fields
+    //update_listing_durations(frm);
+    changed_listing_type(frm);
 
     // Unlock payment method checkboxes
     $('[name="ebay_payment_methods"]').each( function (index, el) {
@@ -429,6 +427,42 @@ function update_listing_durations(frm) {
     }
 }
 
+
+function update_autopay_enabled(frm) {
+    // Check if conditions for autopay are valid:
+    // AutoPayEnabled on this category,
+    // have a BuyItNow price, BuyItNow price less than limit,
+    // only Paypal selected as payment method
+    if (!frm.ebay_data || !frm.ebay_data.category_data) {
+        // We don't have the data yet
+        return;
+    }
+    var el_autopay = frm.fields_dict['autopay_enabled'].$input;
+    var test1 = frm.ebay_data.category_data.AutoPayEnabled;
+    var test2 = frm.doc['buyitnow_enabled'];
+    var test3 = (frm.doc['buyitnow_price'] <=
+                frm.ebay_data.ebay_constants.MAX_AUTOPAY_PRICE);
+    var paypal_enabled = false;
+    var non_paypal_enabled = false;
+    $('[name="ebay_payment_methods"]').each( function (index, el) {
+        var element = $(el);  // Get the JQuery object
+        if (el.id == "ebay_payment_method_PayPal") {
+            paypal_enabled = element.prop('checked');
+        } else {
+            non_paypal_enabled = non_paypal_enabled || element.prop('checked');
+        }
+    });
+    var test4 = paypal_enabled && !non_paypal_enabled;
+
+    if (test1 && test2 && test3 && test4) {
+        el_autopay.prop('disabled', false);
+    } else {
+        el_autopay.prop('disabled', true);
+        el_autopay.val([]);
+        frm.doc['autopay_enabled'] = 0;
+    }
+}
+
 /* ******************* Event handlers ******************* */
 
 function category_change (frm, category_level) {
@@ -461,6 +495,7 @@ function category_change (frm, category_level) {
     });
 }
 
+
 function changed_payment_method(event) {
     // A PaymentMethod checkbox has been used
     var frm = event.data;
@@ -482,10 +517,56 @@ function changed_payment_method(event) {
             frm.doc.ebay_payment_methods_table.splice(idx, 1);
         }
     }
+
+    // Update AutoPayEnabled
+    update_autopay_enabled(frm);
+
     // Update the form and set it to 'dirty' i.e. unsaved
     frm.refresh_field("ebay_payment_methods_table");
     frm.dirty();
 }
+
+
+function changed_listing_type(frm) {
+    // Update other fields to match current listing type
+
+    // For an auction, allow Buy It Now price
+    // Otherwise, remove auction price and require Buy It Now price
+    // Also update AutoPayEnabled and BestOfferEnabled
+    var el_auction = frm.fields_dict['auction_price'].$input;
+    var el_bin_enabled = frm.fields_dict['buyitnow_enabled'].$input;
+    var el_best_offer = frm.fields_dict['best_offer_enabled'].$input;
+    if (frm.doc['ebay_listing_type'] == 'Chinese') {
+        el_auction.prop('disabled', false);
+        el_bin_enabled.prop('disabled', false);
+        el_best_offer.prop('disabled', true);
+        el_best_offer.prop('checked', false);
+        frm.doc['best_offer_enabled'] = 0;
+    } else {
+        el_auction.prop('disabled', true);
+        el_auction.val([]);
+        el_bin_enabled.prop('disabled', true);
+        el_bin_enabled.prop('checked', true);
+        frm.doc['buyitnow_enabled'] = 1;
+        frm.fields_dict['buyitnow_price'].$input.prop('disabled', false);
+        if (frm.ebay_data.category_data) {
+            if (frm.ebay_data.category_data.BestOfferEnabled) {
+                el_best_offer.prop('disabled', false);
+            } else {
+                el_best_offer.prop('disabled', true);
+                el_best_offer.val([]);
+                frm.doc['best_offer_enabled'] = 0;
+            }
+        }
+    }
+
+    // Update AutoPayEnabled
+    update_autopay_enabled(frm);
+
+    // Update the listing durations
+    update_listing_durations(frm);
+}
+
 
 /* ******************* Validation ******************* */
 

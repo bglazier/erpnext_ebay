@@ -115,10 +115,11 @@ LISTING_DURATION_TOKEN_DICT = {
     x[0]: (x[1], x[2]) for x in LISTING_DURATION_TOKENS}
 del low_num, days, tokens, descriptions
 
+MAX_AUTOPAY_PRICE = 2500.0
 
 @frappe.whitelist()
 def get_ebay_constants():
-    """Return the supported listing types"""
+    """Return eBay constants such as the supported listing types"""
     return_dict = {}
     return_dict['listing_type'] = [
         {'value': x, 'label': LISTING_TYPES[x]}
@@ -128,5 +129,7 @@ def get_ebay_constants():
         {'value': x,
          'label': PAYMENT_METHODS[x]}
         for x in PAYMENT_METHODS_SUPPORTED]
+
+    return_dict['MAX_AUTOPAY_PRICE'] = MAX_AUTOPAY_PRICE
 
     return return_dict
