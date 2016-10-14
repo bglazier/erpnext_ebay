@@ -18,5 +18,23 @@ frappe.ui.form.on('eBay Manager', 'customer_sync', function(frm) {
 			callback: function(r){}
 				//cur_frm.reload_doc();
 			});
+			
 	
+
+	
+});
+
+
+
+frappe.ui.form.on('eBay Manager', 'create_garagesale', function(frm) {
+    //alert("Importing New Customers...");
+
+
+	frappe.call({
+			method: "erpnext_ebay.garage_sale.run_cron_create_xml",
+			args: {},
+			callback: function(r){}
+			});
+			
+
 });
