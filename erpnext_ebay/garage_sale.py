@@ -126,10 +126,10 @@ def export_to_garage_sale_xml(creation_date):
 
 
         for ssi in ss_images_list:
-            if exists2('127.0.0.1:8000/' + ssi.image):
-                ET.SubElement(doc, "imageURL").text = images_url + ssi.image
-            else:
-                throw('Problem with image' + ssi.image)
+            #if exists(images_url + ssi.image):
+            ET.SubElement(doc, "imageURL").text = images_url + ssi.image
+            #else:
+            #    throw('Problem with image' + ssi.image)
 
         # IF there is no slideshow then try the ws_image
         #if(!ssi):
@@ -174,16 +174,18 @@ def export_to_garage_sale_xml(creation_date):
 
 def grade(cond, func):
 
-    c1 = ''
-    f1 = ''
-    c2 = ''
-    f2 = ''
-    c3 = ''
-    f3 = ''
-    c4 = ''
-    f4 = ''
-    c5 = ''
-    f5 = ''
+
+
+    c1 = 'New. Boxed in original packaging.'
+    f1 = 'Tested. Working. Reconditioned.'
+    c2 = 'New or as new. Not in original packaging.'
+    f2 = 'Tested. Working.'
+    c3 = 'Minor cosmetic damage. Otherwise excellent condition.'
+    f3 = 'Powers up but not tested further.'
+    c4 = 'Good condition. Some signs of use. Possible limited damage e.g. dents or scratches'
+    f4 = 'Untested'
+    c5 = 'Heavy use.  Scratches, often heavy, or blemishes.'
+    f5 = 'Not working - for spares or repair'
 
     grade = ''
 
@@ -192,33 +194,43 @@ def grade(cond, func):
 
         grade += '<tr>'
         grade += '<td>Grade 1</td>'
-        if cond == '1': grade += '<td><b>' + c1 + '</b></td>' else: grade += '<td>' + c1 + '</td>'
-        if func == '1': grade += '<td><b>' + c1 + '</b></td>' else: grade += '<td>' + c1 + '</td>'
+        if cond == '1': grade += '<td><b> %s </b></td>' %(c1) 
+        else: grade += '<td>' + c1 + '</td>'
+        if func == '1': grade += '<td><b>%s</b></td>' %f1 
+        else: grade += '<td>' + f1 + '</td>'
 
         grade += '</tr>'
 
         grade += '<tr>'
         grade += '<td>Grade 2</td>'
-        if cond == '2': grade += '<td><b>' + c2 + '</b></td>' else: grade += '<td>' + c2 + '</td>'
-        if func == '2': grade += '<td><b>' + c2 + '</b></td>' else: grade += '<td>' + c2 + '</td>'
+        if cond == '2': grade += '<td><b>%s</b></td>' %c2 
+        else: grade += '<td>%s</td>' %c2
+        if func == '2': grade += '<td><b>%s</b></td>' %f2 
+        else: grade += '<td>%s</td>' %f2
         grade += '</tr>'
 
         grade += '<tr>'
         grade += '<td>Grade 3</td>'
-        if cond == '3': grade += '<td><b>' + c3 + '</b></td>' else: grade += '<td>' + c3 + '</td>'
-        if cond == '3': grade += '<td><b>' + c3 + '</b></td>' else: grade += '<td>' + c3 + '</td>'
+        if cond == '3': grade += '<td><b>%s</b></td>' %c3 
+        else: grade += '<td>%s</td>' %c3
+        if func == '3': grade += '<td><b>%s</b></td>' %f3 
+        else: grade += '<td>%s</td>' %f3
         grade += '</tr>'
 
         grade += '<tr>'
         grade += '<td>Grade 4</td>'
-        if cond == '4': grade += '<td><b>' + c4 + '</b></td>' else: grade += '<td>' + c4 + '</td>'
-        if cond == '4': grade += '<td><b>' + c4 + '</b></td>' else: grade += '<td>' + c4 + '</td>'
+        if cond == '4': grade += '<td><b>%s</b></td>' %c4 
+        else: grade += '<td>%s</td>' %c4
+        if func == '4': grade += '<td><b>%s</b></td>' %f4 
+        else: grade += '<td>%s</td>' %f4
         grade += '</tr>'
 
         grade += '<tr>'
         grade += '<td>Grade 5</td>'
-        if cond == '5': grade += '<td><b>' + c5 + '</b></td>' else: grade += '<td>' + c5 + '</td>'
-        if cond == '5': grade += '<td><b>' + c5 + '</b></td>' else: grade += '<td>' + c5 + '</td>'
+        if cond == '5': grade += '<td><b>%s</b></td>' %c5 
+        else: grade += '<td>%s</td>' %c5
+        if func == '5': grade += '<td><b>%s</b></td>' %f5 
+        else: grade += '<td>%s</td>' %f5
         grade += '</tr>'
 
         grade += '</table>'
