@@ -16,16 +16,16 @@ IS_TESTING = False
 
 #Save to public directory so one can download
 garage_xml_path = '/home/frappe/frappe-bench/sites/site1.local/public/files/xml/'
-if(IS_TESTING): garage_xml_path = '/home/frappe/frappe-bench/sites/erpnext.vm/garagesale/xml/'
+#if(IS_TESTING): garage_xml_path = '/home/frappe/frappe-bench/sites/erpnext.vm/garagesale/xml/'
 
 
 site_files_path= '/home/frappe/frappe-bench/sites/site1.local/public/files/'
-if(IS_TESTING): site_files_path= '/home/frappe/frappe-bench/sites/erpnext.vm/public/files/'
+#if(IS_TESTING): site_files_path= '/home/frappe/frappe-bench/sites/erpnext.vm/public/files/'
 
 temp_site_files_path= '/home/uploads/'
 
 site_url = 'http://www.universaleresourcetrading.com'
-if(IS_TESTING): site_url = 'http://127.0.0.1:8000'
+#if(IS_TESTING): site_url = 'http://127.0.0.1:8000'
 
 
 
