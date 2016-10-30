@@ -96,7 +96,7 @@ def export_to_garage_sale_xml(creation_date):
 
         body += "<h3>Grade</h3><p>The item has been graded as shown in bold below:</p>"
         body += grade(r.condition, r.function_grade)
-        body += "<br></br>The item has " + r.grade_details #first_lower(r.grade_details)
+        if r.grade_details: body += "<br></br>The item has " + first_lower(r.grade_details)
         
         if r.tech_details: body += "<h3>Specifications</h3>" + r.tech_details
         body += "]]>"
@@ -356,7 +356,7 @@ def kg_to_imperial(kg):
 
 def first_lower(s):
     if not s:
-        return
+        return ""
     return s[0].lower() + s[1:]
 
 
