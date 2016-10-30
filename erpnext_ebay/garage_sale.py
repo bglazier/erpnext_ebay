@@ -23,7 +23,7 @@ site_files_path= '/home/frappe/frappe-bench/sites/site1.local/public/files/'
 if(IS_TESTING): site_files_path= '/home/frappe/frappe-bench/sites/erpnext.vm/public/files/'
 
 
-images_url = 'http://www.universaleresourcetrading.com'
+images_url = 'http://www.universalresourcetrading.com'
 
 
 
