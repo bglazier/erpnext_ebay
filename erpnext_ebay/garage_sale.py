@@ -11,7 +11,7 @@ import xml.etree.cElementTree as ET
 import requests
 #import mechanize
 
-IS_TESTING = True
+IS_TESTING = False
 
 
 #Save to public directory so one can download
