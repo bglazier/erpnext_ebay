@@ -355,8 +355,8 @@ def kg_to_imperial(kg):
 
 
 def first_lower(s):
-    if s == "":
-        return s
+    if is not s:
+        return
     return s[0].lower() + s[1:]
 
 
