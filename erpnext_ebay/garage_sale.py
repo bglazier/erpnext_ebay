@@ -5,7 +5,7 @@
 from __future__ import unicode_literals
 import frappe, os, shutil #, nltk   
 from frappe.model.document import Document
-from datetime import date
+from datetime import date, timedelta
 
 import xml.etree.cElementTree as ET
 import requests
@@ -23,37 +23,26 @@ site_files_path= '/home/frappe/frappe-bench/sites/site1.local/public/files/'
 if(IS_TESTING): site_files_path= '/home/frappe/frappe-bench/sites/erpnext.vm/public/files/'
 
 
-
 images_url = 'http://www.universaleresourcetrading.com'
 
 
 
-def exists(path):
-    r = requests.head(path)
-    return r.status_code == requests.codes.ok
 
-
-'''
-def exists2(path):
-    br = mechanize.Browser()
-    br.set_handle_redirect(False)
-    try:
-        br.open_novisit(path)
-        return True
-    except:
-        return False
-'''
-
-'''GARAGE SALE STUFF'''
 
 @frappe.whitelist()
-def run_cron_create_xml():
+def run_cron_create_xml(garagesale_export_date):
     
-    #added to apps/frappe/frappe/hooks.py:
-    # "unigreenscheme.unigreenscheme.doctype.booking.booking.run_cron_create_xml",
-    today = date.today()
+    #added to apps/frappe/frappe/hooks.py:  @TODO CRON DOES NOT WORK
+    frappe.msgprint("Exporting all listings created on/after: " + garagesale_export_date)
     
-    export_to_garage_sale_xml(today.isoformat())
+    if garagesale_export_date =="": 
+        today = date.today()
+        export_date = today.isoformat()
+    else:
+        export_date = garagesale_export_date
+    
+    export_to_garage_sale_xml(export_date)
+    
     
     return
 
@@ -66,33 +55,54 @@ def export_to_garage_sale_xml(creation_date):
     layout = "thumb gallery"
     decline = 0.9
     accept = 0.1
-    duration = 30
-    handling_time = 3
+    duration = 30  # TODO GTC
+    handling_time = 1
 
     
     root = ET.Element("items")
 
     records = get_item_records_by_creation(creation_date)
-    #records = get_item_records_by_item(code)
-    
+
     for r in records:
-        title = r.item_name
+        if r.brand: title = r.brand + " "
+        else: title = ""
+        title += r.item_name
         item_code = r.name
+        category = lookup_category(r.item_group)
+        
         price = r.price_list_rate
         quantity = r.actual_qty
+        
+        #image = r.image
         ws_image = r.website_image
         ss_images_list = get_slideshow_records(r.slideshow)
-        condition_description = r.grade_details
-        category = lookup_category(r.item_group)
                 
-        body = r.description
-        if r.accessories_extras: body += r.accessories_extras
-        body += "<b>No cables, remotes, accessories, power supplies, consumables or any other item is included unless show in the item photo or description</b>"
-        body += "<h3>Grade</h3>"
+        
+        pounds, ounces = kg_to_imperial(r.net_weight)
+        
+        body = "<![CDATA[<br></br>"
+        body += r.description
+        
+        body += "<h3>Accessories / Extras</h3><b>NOTE: No cables, remotes, accessories, power supplies, consumables or any other item is included unless shown in the item photo or is in the item description</b><br></br>"
+
+        if r.accessories_extras or r.power_cable_included or r.power_supply_included or r.remote_control_included or r.case_included:
+            s = "<br></br>Also included in the sale: <br></br>"
+            if r.power_cable_included: s += "<li>Power cable</li>"
+            if r.power_supply_included: s += "<li>Power supply/transformer</li>"
+            if r.remote_control_included: s += "<li>Remote Control</li>"
+            if r.case_included: s += "<li>Case</li>"
+            s += "<li>" + r.accessories_extras + "</li>"
+            body += s
+
+        body += "<h3>Grade</h3><p>The item has been graded as shown in bold below:</p>"
         body += grade(r.condition, r.function_grade)
-        body += "<br>"
-        if condition_description: body += condition_description
-        body += "<h3>Detailed Description</h3>"
+        body += "<br></br>The item has " + first_lower(r.grade_details)
+        
+        if r.tech_details: body += "<h3>Specifications</h3>" + r.tech_details
+        body += "]]>"
+        
+        
+        #if r.warranty: body += "XX day warranty on this item"
         
         
         if(not price):
@@ -107,13 +117,13 @@ def export_to_garage_sale_xml(creation_date):
         doc = ET.SubElement(root, "item")
 
         ET.SubElement(doc, "bestOffer").text = "true"
-        ET.SubElement(doc, "bestOfferAutoAcceptPrice").text = str(price - (price * accept))
-        ET.SubElement(doc, "bestOfferAutoDeclinePrice").text = str(price - (price * decline))         
+        #ET.SubElement(doc, "bestOfferAutoAcceptPrice").text = str(price - (price * accept))
+        #ET.SubElement(doc, "bestOfferAutoDeclinePrice").text = str(price - (price * decline))         
         ET.SubElement(doc, "buyItNowPrice").text = str(price)
         ET.SubElement(doc, "category").text = category 
         #ET.SubElement(doc, "category2").text =
-        ET.SubElement(doc, "condition").text = lookup_condition(r.condition)
-        ET.SubElement(doc, "conditionDescription").text = condition_description
+        ET.SubElement(doc, "condition").text = lookup_condition(r.condition, r.function_grade)
+        ET.SubElement(doc, "conditionDescription").text = r.grade_details
         ET.SubElement(doc, "convertDescriptionToHTML").text = "true"
         ET.SubElement(doc, "convertMarkdownToHTML").text = "true"
         ET.SubElement(doc, "description").text = body
@@ -142,11 +152,11 @@ def export_to_garage_sale_xml(creation_date):
 
         ET.SubElement(doc, "layout").text = layout
         #ET.SubElement(doc, "lotSize").text = "1"
-        #ET.SubElement(doc, "packageDepth").text = ""
-        #ET.SubElement(doc, "packageLength").text = ""
-        #ET.SubElement(doc, "packageOunces").text = ""
-        #ET.SubElement(doc, "packagePounds").text = ""
-        #ET.SubElement(doc, "packageWidth").text = ""
+        ET.SubElement(doc, "packageDepth").text = str(r.height)
+        ET.SubElement(doc, "packageLength").text = str(r.length)
+        ET.SubElement(doc, "packageOunces").text = str(ounces)
+        ET.SubElement(doc, "packagePounds").text = str(pounds)
+        ET.SubElement(doc, "packageWidth").text = str(r.width)
         #ET.SubElement(doc, "paymentInstructions").text = ""
         ET.SubElement(doc, "privateAuction").text = "false"
         ET.SubElement(doc, "quantity").text = str(quantity)
@@ -163,13 +173,11 @@ def export_to_garage_sale_xml(creation_date):
             
         tree = ET.ElementTree(root)
         today = date.today()
-        tree.write(garage_xml_path + today.isoformat() + "_garageimportfile.xml")
+        tree.write(garage_xml_path + creation_date + "_garageimportfile.xml")
 
         
 
     return
-
-
 
 
 def grade(cond, func):
@@ -190,46 +198,48 @@ def grade(cond, func):
     grade = ''
 
     if cond and func:
-        grade += '<table>'
+        grade += '<table id="grades">'
+        
+        grade += '<tr><th>Grade</th><th>Condition</th><th>Function</th></tr>'
 
         grade += '<tr>'
-        grade += '<td>Grade 1</td>'
-        if cond == '1': grade += '<td><b> %s </b></td>' %(c1) 
+        grade += '<td>1</td>'
+        if cond == '1': grade += '<td class="td_highlight"><b> %s </b></td>' %(c1) 
         else: grade += '<td>' + c1 + '</td>'
-        if func == '1': grade += '<td><b>%s</b></td>' %f1 
+        if func == '1': grade += '<td class="td_highlight"><b>%s</b></td>' %f1 
         else: grade += '<td>' + f1 + '</td>'
 
         grade += '</tr>'
 
         grade += '<tr>'
-        grade += '<td>Grade 2</td>'
-        if cond == '2': grade += '<td><b>%s</b></td>' %c2 
+        grade += '<td>2</td>'
+        if cond == '2': grade += '<td class="td_highlight"><b>%s</b></td>' %c2 
         else: grade += '<td>%s</td>' %c2
-        if func == '2': grade += '<td><b>%s</b></td>' %f2 
+        if func == '2': grade += '<td class="td_highlight"><b>%s</b></td>' %f2 
         else: grade += '<td>%s</td>' %f2
         grade += '</tr>'
 
         grade += '<tr>'
-        grade += '<td>Grade 3</td>'
-        if cond == '3': grade += '<td><b>%s</b></td>' %c3 
+        grade += '<td>3</td>'
+        if cond == '3': grade += '<td class="td_highlight"><b>%s</b></td>' %c3 
         else: grade += '<td>%s</td>' %c3
-        if func == '3': grade += '<td><b>%s</b></td>' %f3 
+        if func == '3': grade += '<td class="td_highlight"><b>%s</b></td>' %f3 
         else: grade += '<td>%s</td>' %f3
         grade += '</tr>'
 
         grade += '<tr>'
-        grade += '<td>Grade 4</td>'
-        if cond == '4': grade += '<td><b>%s</b></td>' %c4 
+        grade += '<td>4</td>'
+        if cond == '4': grade += '<td class="td_highlight"><b>%s</b></td>' %c4 
         else: grade += '<td>%s</td>' %c4
-        if func == '4': grade += '<td><b>%s</b></td>' %f4 
+        if func == '4': grade += '<td class="td_highlight"><b>%s</b></td>' %f4 
         else: grade += '<td>%s</td>' %f4
         grade += '</tr>'
 
         grade += '<tr>'
-        grade += '<td>Grade 5</td>'
-        if cond == '5': grade += '<td><b>%s</b></td>' %c5 
+        grade += '<td>5</td>'
+        if cond == '5': grade += '<td class="td_highlight"><b>%s</b></td>' %c5 
         else: grade += '<td>%s</td>' %c5
-        if func == '5': grade += '<td><b>%s</b></td>' %f5 
+        if func == '5': grade += '<td class="td_highlight"><b>%s</b></td>' %f5 
         else: grade += '<td>%s</td>' %f5
         grade += '</tr>'
 
@@ -238,25 +248,37 @@ def grade(cond, func):
     return grade
 
 
-def lookup_condition(con_db):
+def lookup_condition(con_db, func_db):
     # options:  New, New other, Manufacturer refurbished, Seller refurbished, Used, For parts or not working
     
     condition = "Used"
 
     if con_db == "1":
         condition = "New"
+    if con_db == "2":
+        condition = "New"
+    if con_db == "3":
+        condition = "Used"
+    if con_db == "4":
+        condition = "Used"
+    if con_db == "5":
+        condition = "Used"
+        
+    if func_db == "5":
+        condition = "For parts or not working"
 
     return condition
 
 
 def lookup_category(cat_db):
     
-    category = "1"
+    val = 0
 
-    if cat_db == "Av":
-        category = "111"    
+    if cat_db:
+        val = frappe.get_value("Item Group", str(cat_db), "ebay_category_code")
 
-    return category
+
+    return val
 
 
 
@@ -270,19 +292,7 @@ def rid_html(txt):
 def get_item_records_by_item(item_code):
     
     entries = frappe.db.sql("""select
-        it.item_code, it.name, it.item_name, it.description, it.website_image, it.slideshow, it.accessories, it.condition, it.function_grade
-        , bin.actual_qty
-        , ip.price_list_rate
-        
-        from `tabItem` it
-        
-        left join `tabBin` bin
-        on  bin.item_code = it.name
-        
-        left join `tabItem Price` ip
-        on ip.item_code = it.name
-        
-        
+
         where it.name = '""" + item_code + """'
         """ , as_dict=1)
 
@@ -293,8 +303,13 @@ def get_item_records_by_item(item_code):
 def get_item_records_by_creation(creation_date):
     
     entries = frappe.db.sql("""select
-        it.item_code, it.name, it.item_name, it.description, it.website_image, it.slideshow, it.accessories_extras, it.condition
-        , it.function_grade, it.grade_details, it.tech_details
+        it.item_code, it.name, it.item_name, it.item_group
+        , it.brand, it.description, it.tech_details
+        , it.image, it.website_image, it.slideshow
+        , it.accessories_extras, it.power_cable_included, it.power_supply_included, it.remote_control_included, it.case_included
+        , it.condition, it.function_grade, it.grade_details
+        , it.warranty_period
+        , it.net_weight, it.length, it.width, it.height
         , bin.actual_qty
         , ip.price_list_rate
         
@@ -328,11 +343,27 @@ def get_slideshow_records(parent):
     return records
 
 
-
-
-
-
 '''UTILITIES'''
+    
+def kg_to_imperial(kg):
+    
+    ounces = kg * 35.27396195
+    pounds = kg * 2.2046226218
+    ounces = ounces - (pounds * 12.0)
+    
+    return pounds, ounces
+
+
+def first_lower(s):
+    if s == "":
+        return s
+    return s[0].lower() + s[1:]
+
+
+def exists(path):
+    r = requests.head(path)
+    return r.status_code == requests.codes.ok
+
 
 def list_directories(path):
     
@@ -374,3 +405,5 @@ def scp_files(local_files):
 
 
     
+
+#<div style="text-align: center; background: url(http://www.iwascoding.de/GarageSale/defaultFooterBG.png) no-repeat center center scroll; clear: both; margin-top: 15px; -webkit-filter: blur(0px);" id="gs-garageSaleBadge"><a href="http://www.iwascoding.com/GarageSale/" target="_blank"><img src="http://www.iwascoding.com/GarageSale/MadeWithGarageSale.png" border="0" alt="Created with GarageSale" width="88" height="33" title="Created with GarageSale - the most advanced listing tool for Mac OS X."></a></div>
