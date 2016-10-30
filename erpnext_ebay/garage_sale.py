@@ -91,7 +91,7 @@ def export_to_garage_sale_xml(creation_date):
             if r.power_supply_included: s += "<li>Power supply/transformer</li>"
             if r.remote_control_included: s += "<li>Remote Control</li>"
             if r.case_included: s += "<li>Case</li>"
-            s += "<li>" + r.accessories_extras + "</li>"
+            if r.accessories_extras: s += "<li>" + r.accessories_extras + "</li>"
             body += s
 
         body += "<h3>Grade</h3><p>The item has been graded as shown in bold below:</p>"
