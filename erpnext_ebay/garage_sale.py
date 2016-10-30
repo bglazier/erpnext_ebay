@@ -137,7 +137,7 @@ def export_to_garage_sale_xml(creation_date):
 
         for ssi in ss_images_list:
             #if exists(images_url + ssi.image):
-            ET.SubElement(doc, "imageURL").text = images_url + ssi.image
+            if ssi.image: ET.SubElement(doc, "imageURL").text = images_url + ssi.image
             #else:
             #    throw('Problem with image' + ssi.image)
 
@@ -152,11 +152,11 @@ def export_to_garage_sale_xml(creation_date):
 
         ET.SubElement(doc, "layout").text = layout
         #ET.SubElement(doc, "lotSize").text = "1"
-        ET.SubElement(doc, "packageDepth").text = str(r.height)
-        ET.SubElement(doc, "packageLength").text = str(r.length)
+        if r.height: ET.SubElement(doc, "packageDepth").text = str(r.height)
+        if r.length: ET.SubElement(doc, "packageLength").text = str(r.length)
         ET.SubElement(doc, "packageOunces").text = str(ounces)
         ET.SubElement(doc, "packagePounds").text = str(pounds)
-        ET.SubElement(doc, "packageWidth").text = str(r.width)
+        if r.width: ET.SubElement(doc, "packageWidth").text = str(r.width)
         #ET.SubElement(doc, "paymentInstructions").text = ""
         ET.SubElement(doc, "privateAuction").text = "false"
         ET.SubElement(doc, "quantity").text = str(quantity)
