@@ -12,7 +12,7 @@ import requests
 #import mechanize
 
 IS_TESTING = False
-LOCAL_IMAGES = True
+NO_IMAGES = True
 
 
 #Save to public directory so one can download
@@ -25,8 +25,6 @@ if(IS_TESTING): site_files_path= '/home/frappe/frappe-bench/sites/erpnext.vm/pub
 
 
 images_url = 'http://www.universalresourcetrading.com'
-local_images_url = 'file://Users/macmini/Documents/garageimages'
-
 
 
 
@@ -71,7 +69,7 @@ def export_to_garage_sale_xml(creation_date):
         item_code = r.name
         category = lookup_category(r.item_group)
         
-        price = r.price_list_rate
+        price = r.standard_rate
         quantity = r.actual_qty
         
         #image = r.image
@@ -139,9 +137,7 @@ def export_to_garage_sale_xml(creation_date):
         for ssi in ss_images_list:
             #if exists(images_url + ssi.image):
             if ssi.image: 
-                if LOCAL_IMAGES: 
-                    ET.SubElement(doc, "imageURL").text = local_images_url + ssi.image
-                else:
+                if URL_IMAGES: 
                     ET.SubElement(doc, "imageURL").text = images_url + ssi.image
                     
             #else:
@@ -317,7 +313,7 @@ def get_item_records_by_creation(creation_date):
         , it.warranty_period
         , it.net_weight, it.length, it.width, it.height
         , bin.actual_qty
-        , ip.price_list_rate
+        , ip.standard_rate
         
         from `tabItem` it
         
@@ -332,6 +328,10 @@ def get_item_records_by_creation(creation_date):
         
 
     return entries
+
+
+
+
 
 
 def get_slideshow_records(parent):
