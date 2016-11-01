@@ -12,6 +12,7 @@ import requests
 #import mechanize
 
 IS_TESTING = False
+LOCAL_IMAGES = True
 
 
 #Save to public directory so one can download
@@ -24,7 +25,7 @@ if(IS_TESTING): site_files_path= '/home/frappe/frappe-bench/sites/erpnext.vm/pub
 
 
 images_url = 'http://www.universalresourcetrading.com'
-
+local_images_url = 'file://Users/macmini/Documents/garageimages'
 
 
 
@@ -137,7 +138,12 @@ def export_to_garage_sale_xml(creation_date):
 
         for ssi in ss_images_list:
             #if exists(images_url + ssi.image):
-            if ssi.image: ET.SubElement(doc, "imageURL").text = images_url + ssi.image
+            if ssi.image: 
+                if LOCAL_IMAGES: 
+                    ET.SubElement(doc, "imageURL").text = local_images_url + ssi.image
+                else:
+                    ET.SubElement(doc, "imageURL").text = images_url + ssi.image
+                    
             #else:
             #    throw('Problem with image' + ssi.image)
 
