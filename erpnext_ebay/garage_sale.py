@@ -194,7 +194,7 @@ def export_to_garage_sale_xml(creation_date):
 def grade(cond, func):
 
 
-    c0 = "."
+    c0 = ""
     f1 = "Not Applicable"
     c1 = 'New. Boxed in original packaging.'
     f1 = 'Tested. Working. Reconditioned.'
@@ -216,9 +216,9 @@ def grade(cond, func):
 
 
         grade += '<tr>'
-        grade += '<td>.</td>'
+        grade += '<td></td>'
         if cond == '0': grade += '<td class="td_highlight"><b> %s </b></td>' %(c0) 
-        else: grade += '<td>.</td>'
+        else: grade += '<td></td>'
         if func == '0': grade += '<td class="td_highlight"><b>%s</b></td>' %f0 
         else: grade += '<td>' + f0 + '</td>'
 
