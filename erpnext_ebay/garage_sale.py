@@ -69,7 +69,7 @@ def export_to_garage_sale_xml(creation_date):
         item_code = r.name
         category = lookup_category(r.item_group)
         
-        price = r.standard_rate
+        price = r.selling
         quantity = r.actual_qty
         
         #image = r.image
