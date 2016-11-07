@@ -220,7 +220,7 @@ def grade(cond, func):
         if cond == '0': grade += '<td class="td_highlight"><b> %s </b></td>' %(c0) 
         else: grade += '<td>.</td>'
         if func == '0': grade += '<td class="td_highlight"><b>%s</b></td>' %f0 
-        else: grade += '<td>' + f1 + '</td>'
+        else: grade += '<td>' + f0 + '</td>'
 
         grade += '</tr>'
 
@@ -228,9 +228,9 @@ def grade(cond, func):
         grade += '<tr>'
         grade += '<td>1</td>'
         if cond == '1': grade += '<td class="td_highlight"><b> %s </b></td>' %(c1) 
-        else: grade += '<td></td>'
+        else: grade += '<td>%s</td>' %c1
         if func == '1': grade += '<td class="td_highlight"><b>%s</b></td>' %f1 
-        else: grade += '<td></td>'
+        else: grade += '<td>%s</td>' %f1
 
         grade += '</tr>'
 
