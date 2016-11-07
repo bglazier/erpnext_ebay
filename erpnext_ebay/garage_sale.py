@@ -195,7 +195,7 @@ def grade(cond, func):
 
 
     c0 = ""
-    f1 = "Not Applicable"
+    f0 = "Not Applicable"
     c1 = 'New. Boxed in original packaging.'
     f1 = 'Tested. Working. Reconditioned.'
     c2 = 'New or as new. Not in original packaging.'
