@@ -69,7 +69,7 @@ def export_to_garage_sale_xml(creation_date):
         item_code = r.name
         category = lookup_category(r.item_group)
         
-        price = r.selling
+        price = r.price
         quantity = r.actual_qty
         
         #image = r.image
@@ -313,7 +313,7 @@ def get_item_records_by_creation(creation_date):
         , it.warranty_period
         , it.net_weight, it.length, it.width, it.height
         , bin.actual_qty
-        , ip.selling
+        , it.price
         
         from `tabItem` it
         
