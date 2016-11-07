@@ -313,7 +313,7 @@ def get_item_records_by_creation(creation_date):
         , it.warranty_period
         , it.net_weight, it.length, it.width, it.height
         , bin.actual_qty
-        , it.price
+        , it.standard_rate as price
         
         from `tabItem` it
         
