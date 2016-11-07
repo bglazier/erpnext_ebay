@@ -80,6 +80,15 @@ def export_to_garage_sale_xml(creation_date):
         pounds, ounces = kg_to_imperial(r.net_weight)
         
         body = "<![CDATA[<br></br>"
+        body += "The price includes VAT and we can provide VAT invoices."
+        body += "<br>"
+        if r.function_grade == "0": body += "Free 45-day return policy if you are unhappy with your purchase for any reason."
+        if r.function_grade == "1" or r.function_grade == "2": body += "Product Guarantee: We guarantee this product will work properly or your money back with our free 45-day return policy."
+        if r.function_grade == "3": body += "Product Guarantee: Whilst we haven't tested every function of this item, we guarantee it will work properly or your money back with our free 45-day return policy."
+        if r.function_grade == "4": body += "Product Guarantee: Whilst we haven't tested this item, we guarantee it will work properly or your money back with our free 45-day return policy."
+        if r.function_grade == "5": body += "Product Guarantee: This item is sold as spares/repairs only. It may require servicing or repair.  However, we still offer our free 45-day return policy if you are unhappy with your purchase for any reason."
+        body += "<br>"
+        
         body += r.description
         
         body += "<h3>Accessories / Extras</h3><b>NOTE: No cables, remotes, accessories, power supplies, consumables or any other item is included unless shown in the item photo or is in the item description</b><br></br>"
@@ -185,7 +194,8 @@ def export_to_garage_sale_xml(creation_date):
 def grade(cond, func):
 
 
-
+    c0 = ""
+    f1 = "Not Applicable"
     c1 = 'New. Boxed in original packaging.'
     f1 = 'Tested. Working. Reconditioned.'
     c2 = 'New or as new. Not in original packaging.'
@@ -204,12 +214,23 @@ def grade(cond, func):
         
         grade += '<tr><th>Grade</th><th>Condition</th><th>Function</th></tr>'
 
+
+        grade += '<tr>'
+        grade += '<td></td>'
+        if cond == '0': grade += '<td class="td_highlight"><b> %s </b></td>' %(c0) 
+        else: grade += '<td></td>'
+        if func == '0': grade += '<td class="td_highlight"><b>%s</b></td>' %f0 
+        else: grade += '<td>' + f1 + '</td>'
+
+        grade += '</tr>'
+
+
         grade += '<tr>'
         grade += '<td>1</td>'
         if cond == '1': grade += '<td class="td_highlight"><b> %s </b></td>' %(c1) 
-        else: grade += '<td>' + c1 + '</td>'
+        else: grade += '<td></td>'
         if func == '1': grade += '<td class="td_highlight"><b>%s</b></td>' %f1 
-        else: grade += '<td>' + f1 + '</td>'
+        else: grade += '<td></td>'
 
         grade += '</tr>'
 
