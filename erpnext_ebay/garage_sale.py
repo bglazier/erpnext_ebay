@@ -11,7 +11,7 @@ import xml.etree.cElementTree as ET
 import requests
 #import mechanize
 
-IS_TESTING = False
+IS_TESTING = True
 NO_IMAGES = True
 
 
@@ -134,11 +134,11 @@ def export_to_garage_sale_xml(creation_date):
         ET.SubElement(doc, "handlingTime").text = str(handling_time)          
 
 
-        for ssi in ss_images_list:
+        #for ssi in ss_images_list:
             #if exists(images_url + ssi.image):
-            if ssi.image: 
-                if URL_IMAGES: 
-                    ET.SubElement(doc, "imageURL").text = images_url + ssi.image
+            #if ssi.image: 
+                #if URL_IMAGES: 
+                    #ET.SubElement(doc, "imageURL").text = images_url + ssi.image
                     
             #else:
             #    throw('Problem with image' + ssi.image)
@@ -313,7 +313,7 @@ def get_item_records_by_creation(creation_date):
         , it.warranty_period
         , it.net_weight, it.length, it.width, it.height
         , bin.actual_qty
-        , ip.standard_rate
+        , ip.selling
         
         from `tabItem` it
         
