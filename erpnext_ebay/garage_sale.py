@@ -94,7 +94,7 @@ def export_to_garage_sale_xml(creation_date):
         body += "<h3>Accessories / Extras</h3><b>NOTE: No cables, remotes, accessories, power supplies, consumables or any other item is included unless shown in the item photo or is in the item description</b><br></br>"
 
         if r.accessories_extras or r.power_cable_included or r.power_supply_included or r.remote_control_included or r.case_included:
-            s = "<br></br>Also included in the sale: <br></br>"
+            #s = "<br></br>Also included in the sale: <br></br>"
             if r.power_cable_included: s += "<li>Power cable</li>"
             if r.power_supply_included: s += "<li>Power supply/transformer</li>"
             if r.remote_control_included: s += "<li>Remote Control</li>"
@@ -107,7 +107,7 @@ def export_to_garage_sale_xml(creation_date):
         if r.grade_details: body += "<br></br>The item has " + first_lower(r.grade_details)
         
         if r.tech_details: body += "<h3>Specifications</h3>" + r.tech_details
-        body += "]]>"
+        body += "]]"
         
         
         #if r.warranty: body += "XX day warranty on this item"
