@@ -95,12 +95,11 @@ def export_to_garage_sale_xml(creation_date):
 
         if r.accessories_extras or r.power_cable_included or r.power_supply_included or r.remote_control_included or r.case_included:
             #s = "<br></br>Also included in the sale: <br></br>"
-            if r.power_cable_included: s += "<li>Power cable</li>"
-            if r.power_supply_included: s += "<li>Power supply/transformer</li>"
-            if r.remote_control_included: s += "<li>Remote Control</li>"
-            if r.case_included: s += "<li>Case</li>"
-            if r.accessories_extras: s += "<li>" + r.accessories_extras + "</li>"
-            body += s
+            if r.power_cable_included: body += "<li>Power cable</li>"
+            if r.power_supply_included: body += "<li>Power supply/transformer</li>"
+            if r.remote_control_included: body += "<li>Remote Control</li>"
+            if r.case_included: body += "<li>Case</li>"
+            if r.accessories_extras: body += "<li>" + r.accessories_extras + "</li>"
 
         body += "<h3>Grade</h3><p>The item has been graded as shown in bold below:</p>"
         body += grade(r.condition, r.function_grade)
