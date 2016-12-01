@@ -57,8 +57,8 @@ def sync():
         
         # Not currently useful
         #for order in orders:
-            order_details = extract_order_info(order, changes)
-            create_ebay_order(order_details, changes, order)
+            #order_details = extract_order_info(order, changes)
+            #create_ebay_order(order_details, changes, order)
     
     finally:
         # Save the log, regardless of how far we got
@@ -545,7 +545,7 @@ def create_sales_order(db_cust_name, order, ebay_settings, company=None):
             })
 
         so.save(ignore_permissions=True)
-        so.submit()
+        #so.submit(). don't submit leave in draft
 
 
     else:
