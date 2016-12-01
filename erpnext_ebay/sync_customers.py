@@ -13,9 +13,12 @@ sys.path.insert(0, "/usr/local/lib/python2.7/dist-packages/ebaysdk-2.1.4-py2.7.e
 sys.path.insert(0, "/usr/local/lib/python2.7/dist-packages/lxml-3.6.4-py2.7-linux-i686.egg")
 
 
+#import aniso8601
 
 import datetime
 from types import MethodType
+
+import string
 
 import frappe
 from frappe import msgprint,_
@@ -55,7 +58,7 @@ def sync():
         # Not currently useful
         #for order in orders:
             order_details = extract_order_info(order, changes)
-            create_ebay_order(order_details, changes)
+            create_ebay_order(order_details, changes, order)
     
     finally:
         # Save the log, regardless of how far we got
@@ -76,6 +79,8 @@ def extract_customer(order):
     The second dictionary is ready to create an Address Doctype entry.
     The second dictionary could be replaced by None if there is no address.
     """
+    
+    
     
     ebay_user_id = order['BuyerUserID']
     
@@ -107,6 +112,7 @@ def extract_customer(order):
     if has_shipping_address:
         # Attempt to get email address
         transactions = order['TransactionArray']['Transaction']
+        
         email_id = None
         email_ids = [x['Buyer']['Email'] for x in transactions]
         if email_ids.count(email_ids[0]) == len(email_ids):
@@ -176,6 +182,8 @@ def extract_order_info(order, changes=None):
         changes = []
     
     ebay_user_id = order['BuyerUserID']
+    
+
     
     # Get customer information
     cust_fields = db_get_ebay_cust(
@@ -401,7 +409,7 @@ def create_customer(customer_dict, address_dict, changes=None):
     return None
 
 
-def create_ebay_order(order_dict, changes):
+def create_ebay_order(order_dict, changes, order):
     """Process an eBay order and add eBay order document.
     Does not duplicate entries where possible.
     
@@ -474,7 +482,7 @@ def create_ebay_order(order_dict, changes):
                        
                        
         # create dict for item details
-        create_sales_order(cust_fields["customer_name"],0,0)
+        create_sales_order(cust_fields["customer_name"],order,0)
 
     
     # Commit changes to database
@@ -485,28 +493,44 @@ def create_ebay_order(order_dict, changes):
 
 
 
-def create_sales_order(db_cust_name, ebay_order, ebay_settings, company=None):
+def create_sales_order(db_cust_name, order, ebay_settings, company=None):
     #so = frappe.db.get_value("Sales Order", {"shopify_order_id": shopify_order.get("id")}, "name")
     so = False
+    
+    price_exc_vat = 0.0
+    qty = 1
+    
+    creation_date = str(order['CreatedTime'])
+    #dt = aniso8601.parse_datetime(creation_date)
+    dt = creation_date[:10]
+    msgprint(dt)
+    
+    transactions = order['TransactionArray']['Transaction']
+    for transaction in transactions:
+        qty = transaction['QuantityPurchased']
+        price_inc_vat = transaction['TransactionPrice']['value']
+        if price_inc_vat: price_exc_vate = float(price_inc_vat) / 1.2 
+        sku = transaction['Item']['SKU']
+        if len(sku) == 3: sku = 'ITEM-00' + sku
+        if len(sku) == 4: sku = 'ITEM-0' + sku
 
     if not so:
         so = frappe.get_doc({
             "doctype": "Sales Order",
             "naming_series": "SO-Ebay-",
             #"ebay_order_id": ebay_order.get("id"),
-            "customer": db_cust_name, #frappe.db.get_value("Customer", {"shopify_customer_id": shopify_order.get("customer").get("id")}, "name"),
-            "delivery_date": "2016-12-11", #date.today(),
+            "customer": db_cust_name,
+            "transaction_date": dt,
+            "delivery_date": dt,
             "selling_price_list": "Standard Selling",
             "price_list_currency": "GBP",
             "price_list_exchange_rate": 1,
             "ignore_pricing_rule": 1,
             "apply_discount_on": "Net Total",
-            #"discount_amount": 888.00,
             "status": "Draft",
             "update_stock": 1,
-            #"items": [] #get_order_items(shopify_order.get("line_items"), shopify_settings),
-            #"taxes": get_order_taxes(shopify_order, shopify_settings)
-            "items": [{"name":"eree", "item_code": "ITEM-02011", "description": "test"}]
+            #"taxes": 
+            "items": [{"name":"x", "item_code": sku, "description": "x", "qty": qty, "rate": price_exc_vat}]
             
         })
 
