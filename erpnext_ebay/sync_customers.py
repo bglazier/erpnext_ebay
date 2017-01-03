@@ -37,36 +37,43 @@ maximum_address_duplicates = 4
 @frappe.whitelist()
 def sync():
     """Sync the Ebay database with the Frappe database."""
-    
-    
-    # Load orders from Ebay
-    orders, num_days = get_orders()
-    
-    # Create a synchronization log
-    log_dict = {"doctype": "eBay sync log",
-                "ebay_sync_datetime": datetime.datetime.now(),
-                "ebay_sync_days": num_days,
-                "ebay_log_table": []}
-    changes = []
+    import traceback
     
     try:
-        # Load new customers
-        for order in orders:
-            cust_details, address_details = extract_customer(order)
-            create_customer(cust_details, address_details, changes)
+        # Load orders from Ebay
+        orders, num_days = get_orders()
         
-        # Not currently useful
-        #for order in orders:
-            #order_details = extract_order_info(order, changes)
-            #create_ebay_order(order_details, changes, order)
-    
-    finally:
-        # Save the log, regardless of how far we got
-        for change in changes:
-            log_dict['ebay_log_table'].append(change)
-        log = frappe.get_doc(log_dict)
-        log.insert()
-        frappe.db.commit()
+        # Create a synchronization log
+        log_dict = {"doctype": "eBay sync log",
+                    "ebay_sync_datetime": datetime.datetime.now(),
+                    "ebay_sync_days": num_days,
+                    "ebay_log_table": []}
+        changes = []
+        
+        try:
+            # Load new customers
+            for order in orders:
+                cust_details, address_details = extract_customer(order)
+                create_customer(cust_details, address_details, changes)
+            
+            # Not currently useful
+            for order in orders:
+                order_details = extract_order_info(order, changes)
+                create_ebay_order(order_details, changes, order)
+        
+        finally:
+            # Save the log, regardless of how far we got
+            for change in changes:
+                log_dict['ebay_log_table'].append(change)
+                print ('change: ', change)
+            log = frappe.get_doc(log_dict)
+            print('log_dict: ', log_dict)
+            print('log_dict[ebay_log_table]: ', log_dict['ebay_log_table'])
+            log.insert()
+            frappe.db.commit()
+    except:
+        traceback.print_exc()
+        raise
 
 
 def extract_customer(order):
@@ -183,7 +190,7 @@ def extract_order_info(order, changes=None):
     
     ebay_user_id = order['BuyerUserID']
     
-
+    
     
     # Get customer information
     cust_fields = db_get_ebay_cust(
@@ -455,14 +462,25 @@ def create_ebay_order(order_dict, changes, order):
         frappe.get_doc(order_dict).insert()
         msgprint('Adding eBay order: ' + ebay_user_id + ' : ' +
                  ebay_order_id)
-        changes.append({"ebay_change": "Adding eBay order",
+        '''changes.append({"ebay_change": "Adding eBay order",
                        "ebay_user_id": ebay_user_id,
                        "customer_name": db_cust_customer_name,
                        "customer": db_cust_name,
                        "address": db_address_name,
                        "ebay_order": ebay_order_id})
+        '''
         updated_db = True
-
+        '''''
+        cust_fields2 = frappe.db.get_all(
+            "Address",
+            filters={'ebay_address_id': ebay_address_id},
+            fields=['email_id'])
+        
+        cust_email = cust_fields2['email_id']
+        '''
+        create_sales_order(ebay_order_id, cust_fields["customer_name"],order,0)
+        
+    
     else:
         # Order already exists
         # TODO Check if status of order has changed, and if so update??
@@ -479,11 +497,9 @@ def create_ebay_order(order_dict, changes, order):
                        "customer": cust_fields["name"],
                        "address": None,
                        "ebay_order": db_order_name})
-                       
-                       
-        # create dict for item details
-        create_sales_order(cust_fields["customer_name"],order,0)
 
+    
+    
     
     # Commit changes to database
     if updated_db:
@@ -493,66 +509,96 @@ def create_ebay_order(order_dict, changes, order):
 
 
 
-def create_sales_order(db_cust_name, order, ebay_settings, company=None):
-    #so = frappe.db.get_value("Sales Order", {"shopify_order_id": shopify_order.get("id")}, "name")
-    so = False
+def create_sales_order(ebay_order_id, db_cust_name, order, ebay_settings):
     
-    price_exc_vat = 0.0
-    qty = 1
+    #TODO if exists then update.  si = frappe.db.get_value("Sales Invoice", {"ebay_order_id": ebay_order.get("id")}, "name")
     
-    creation_date = str(order['CreatedTime'])
-    #dt = aniso8601.parse_datetime(creation_date)
-    dt = creation_date[:10]
-    msgprint(dt)
     
-    transactions = order['TransactionArray']['Transaction']
-    for transaction in transactions:
-        qty = transaction['QuantityPurchased']
-        price_inc_vat = transaction['TransactionPrice']['value']
-        if price_inc_vat: price_exc_vate = float(price_inc_vat) / 1.2 
-        sku = transaction['Item']['SKU']
-        if len(sku) == 3: sku = 'ITEM-00' + sku
-        if len(sku) == 4: sku = 'ITEM-0' + sku
+    
+    try:
+        
+        si = False
+        price_exc_vat = float(0.0)
+        qty = 1
+        
+        creation_date = str(order['CreatedTime'])
+        #dt = aniso8601.parse_datetime(creation_date)
+        dt = creation_date[:10]
+        
+        order_status = order['OrderStatus']
+        
 
-    if not so:
-        so = frappe.get_doc({
-            "doctype": "Sales Order",
-            "naming_series": "SO-Ebay-",
-            #"ebay_order_id": ebay_order.get("id"),
-            "customer": db_cust_name,
-            "transaction_date": dt,
-            "delivery_date": dt,
-            "selling_price_list": "Standard Selling",
-            "price_list_currency": "GBP",
-            "price_list_exchange_rate": 1,
-            "ignore_pricing_rule": 1,
-            "apply_discount_on": "Net Total",
-            "status": "Draft",
-            "update_stock": 1,
-            #"taxes": 
-            "items": [{"name":"x", "item_code": sku, "description": "x", "qty": qty, "rate": price_exc_vat}]
+        
+        
+        # TransactionArray.Transaction.Buyer.VATStatus   #TODO use to determine if business
+        # TransactionArray.Transaction.BuyerCheckoutMessage
+        # TransactionArray.Transaction.FinalValueFee
+        
+        # isGSP = TransactionArray.Transaction.ContainingOrder.IsMultiLegShipping
+        #TransactionArray.Transaction.ContainingOrder.MonetaryDetails.Payments.Payment.PaymentStatus
+        # TransactionArray.Transaction.MonetaryDetails.Payments.Payment.PaymentStatus
+        
+        item_list = []
+        payments = []
+        taxes = []
+        sum_price = 0.0
+        
+        transactions = order['TransactionArray']['Transaction']
+        for transaction in transactions:
+            cust_email = transaction['Buyer']['Email']
             
-        })
-
-
-
-
-
-        if company:
-            so.update({
-                "company": company,
-                "status": "Draft"
+            transaction_id = transaction['TransactionID']
+            qty = transaction['QuantityPurchased']
+            price_inc_vat = float(transaction['TransactionPrice']['value'])
+            sum_price += price_inc_vat
+            
+            if price_inc_vat > 0.0: price_exc_vat = float(price_inc_vat) / 1.2
+            sku = transaction['Item']['SKU']
+            if len(sku) < 10: return
+            print ('sku: ',sku)
+            
+            item_title = transaction['Item']['Title']
+            
+            
+            actual_shipping_cost = transaction['ActualShippingCost']
+            # TODO create a line for additional shipping costs
+            
+            item_list.append(({"item_code": sku, "warehouse": "Mamhilad - URTL", "qty": qty, "rate": round(price_exc_vat,2)}))
+            print ("item append", item_list)
+            
+        # Taxes are a single line item not each transaction
+        taxes.append(({"charge_type": "On Net Total", "description": "VAT 20%", "account_head": "VAT - URTL", "rate": "20"}))
+        print ("Taxes", taxes)
+        payments.append({"mode_of_payment": "Paypal", "amount": round(sum_price,2)})
+        print ("payments", payments)
+                    
+        if not si:
+            si = frappe.get_doc({
+                "doctype": "Sales Invoice",
+                "naming_series": db_cust_name + "-" + ebay_order_id, 
+                "customer": db_cust_name,
+                "contact_email": cust_email,
+                "posting_date": dt,
+                "due_date": dt,
+                "selling_price_list": "Standard Selling",
+                "price_list_currency": "GBP",
+                "price_list_exchange_rate": 1,
+                "ignore_pricing_rule": 1,
+                "apply_discount_on": "Net Total",
+                "status": "Draft",
+                "update_stock": 1,
+                "is_pos": 1,
+                "taxes": taxes,
+                "payments": payments,
+                "items": item_list  
             })
-
-        so.save(ignore_permissions=True)
-        #so.submit(). don't submit leave in draft
-
-
-    else:
-        so = frappe.get_doc("Sales Order", so)
-
-    frappe.db.commit()
-    return so
+            
+            si.save(ignore_permissions=True)
+            
+    except Exception as inst:
+        print ("Sales invoice import fail") #+ db_cust_name
+    
+    return si
 
 
 
@@ -664,3 +710,29 @@ def db_get_ebay_doc(doctype, ebay_id_name, ebay_id,
                 log, doc_queries, error_message, customer_name=errstring)
     
     return retval
+    
+
+
+'''''
+    
+    #item_list.append(({"name":item_title, "item_code": sku, "description": item_title, "qty": qty, "rate": price_exc_vat}))
+            
+            so = frappe.get_doc({
+            "doctype": "Sales Order",
+            "naming_series": ebay_order_id,
+            #"ebay_order_id": ebay_order.get("id"),
+            "customer": db_cust_name,
+            "transaction_date": dt,
+            "delivery_date": dt,
+            "selling_price_list": "Standard Selling",
+            "price_list_currency": "GBP",
+            "price_list_exchange_rate": 1,
+            "ignore_pricing_rule": 1,
+            "apply_discount_on": "Net Total",
+            "status": "Draft",
+            "update_stock": 1,
+            "taxes": taxes,
+            "items": item_list
+            #"sales_order_details": so_order_details
+            })
+'''''    

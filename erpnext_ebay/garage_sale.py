@@ -54,7 +54,7 @@ def export_to_garage_sale_xml(creation_date):
     layout = "thumb gallery"
     decline = 0.9
     accept = 0.1
-    duration = 30  # TODO GTC
+    duration = 1000  # GTC = 1000
     handling_time = 1
 
     
@@ -106,6 +106,7 @@ def export_to_garage_sale_xml(creation_date):
         if r.grade_details: body += "<br></br>The item has " + first_lower(r.grade_details)
         
         if r.tech_details: body += "<h3>Specifications</h3>" + r.tech_details
+        body += "sku: " + r.item_code
         body += "]]"
         
         
