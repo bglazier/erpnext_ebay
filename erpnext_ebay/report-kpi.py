@@ -495,8 +495,38 @@ def account_checks():
 
 def stock_checks():
     
-    
+    pri_entries =
+    sales_entries = 
     # P Stock where received and sold is not equal to actual stock
+    
+    for d in pri_entries:
+        sold = 0
+        recycled = 0
+        total_item_sales = 0.0
+        
+        for j in sales_entries:
+            if(j.item_code == d.item_code):
+                if get_customer_status(d.customer) == "RECYCLED": 
+                    recycled += j.qty
+                else:
+                    sold += j.qty
+                    total_item_sales += j.si_sales_revenue     #What about returns?
+                    
+                
+        instock = d.actual_qty
+        ##estimated_item_rebate = (total_item_sales / (sales_sum + returns_sum)) * net_rebate
+        estimated_item_rebate = (net_rebate/ (sales_sum+returns_sum) ) * total_item_sales
+        if estimated_item_rebate == -0.0: estimated_item_rebate = 0.0
+        stock_flag = ''
+        if((d.received_qty - (sold + recycled)) == instock): stock_flag == '' 
+        else: stock_flag = "STOCK ERROR"
+        if(show_detail): print([d.collection_date.strftime('%d/%m/%Y'), d.item_code + ' ' + d.item_name,stock_flag, str(d.received_qty), str(sold), "{0:.2f}".format(estimated_item_rebate), str(instock)]) 
+        sum_calc_rebate += estimated_item_rebate
+        sum_rx += d.received_qty
+        sum_sold += sold
+        sum_recycled += recycled
+        sum_instock += instock
+    print(['<b>Total','','','<b>' + "{0:.2f}".format(sum_rx), '<b>' + "{0:.2f}".format(sum_sold),'<b>' + "{0:.2f}".format(sum_calc_rebate),'<b>' + "{0:.2f}".format(sum_instock)])
     
     
     
@@ -651,8 +681,10 @@ def project_reports():
     # D List of all projects
     sql = """select pr.name, pr.project, s.name
         from `tabPurchase Receipt` pr
+        
         join `tabSupplier` s
         on s.name = pr.supplier
+        
         where pr.docstatus=1 and s.supplier_type = 'University (UK)';
         """
     records = frappe.db.sql(sql, as dict=1)
