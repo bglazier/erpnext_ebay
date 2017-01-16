@@ -563,7 +563,7 @@ def create_sales_order(ebay_order_id, db_cust_name, order, ebay_settings):
             actual_shipping_cost = transaction['ActualShippingCost']
             # TODO create a line for additional shipping costs
             
-            item_list.append(({"item_code": sku, "warehouse": "Mamhilad - URTL", "qty": qty, "rate": round(price_exc_vat,2)}))
+            item_list.append(({"item_code": sku, "warehouse": "Mamhilad - URTL", "qty": qty, "rate": round(price_exc_vat,2),"valuation_rate": 0.0 }))
             print ("item append", item_list)
             
         # Taxes are a single line item not each transaction
@@ -575,7 +575,8 @@ def create_sales_order(ebay_order_id, db_cust_name, order, ebay_settings):
         if not si:
             si = frappe.get_doc({
                 "doctype": "Sales Invoice",
-                "naming_series": db_cust_name + "-" + ebay_order_id, 
+                "naming_series": "SINV-",
+                "title": db_cust_name + "-" + ebay_order_id, 
                 "customer": db_cust_name,
                 "contact_email": cust_email,
                 "posting_date": dt,
