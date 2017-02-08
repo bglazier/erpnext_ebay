@@ -45,7 +45,7 @@ frappe.ui.form.on('eBay Manager', 'create_garagesale', function(frm) {
 frappe.ui.form.on('eBay Manager', 'kpi_report', function(frm) {
 	
 	frappe.call({
-			method: "erpnext_ebay.reportkpi.run",
+			method: "unigreenscheme.reportkpi.run",
 			args: {},
 			callback: function(r){}
 				//cur_frm.reload_doc();
