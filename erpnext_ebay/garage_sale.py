@@ -103,7 +103,7 @@ def export_to_garage_sale_xml(creation_date):
 
         body += "<h3>Grade</h3><p>The item has been graded as shown in bold below:</p>"
         body += grade(r.condition, r.function_grade)
-        if r.grade_details: body += "<br></br>The item has " + first_lower(r.grade_details)
+        if r.grade_details: body += "<br></br>" + first_lower(r.grade_details)
         
         if r.tech_details: body += "<h3>Specifications</h3>" + r.tech_details
         body += "sku: " + r.item_code

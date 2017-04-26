@@ -386,6 +386,11 @@ def create_customer(customer_dict, address_dict, changes=None):
         address_doc = frappe.get_doc(address_dict)
         try:
             address_doc.insert()
+            dl = dlink_customer_address(address_doc.customer, address_doc.name)
+            #print("Customer and address doc: ", address_doc.customer, address_doc.name)
+            #dl.save(ignore_permissions=True)
+            dl.insert()
+            
         except frappe.DuplicateEntryError as ex:
             # An address based on address_title autonaming already exists
                 # Get new doc, add a digit to the name and retry
@@ -401,6 +406,12 @@ def create_customer(customer_dict, address_dict, changes=None):
                                     + "-" + str(suffix_id))
                 try:
                     address_doc.insert()
+                    dl = dlink_customer_address(address_doc.customer, address_doc.name)
+                    #print("Customer and address doc: ", address_doc.customer, address_doc.name)
+                    #dl.save(ignore_permissions=True)
+                    dl.insert()
+                    
+                    
                     break
                 except frappe.DuplicateEntryError:
                     frappe.db.rollback()
@@ -478,7 +489,7 @@ def create_ebay_order(order_dict, changes, order):
         
         cust_email = cust_fields2['email_id']
         '''
-        create_sales_order(ebay_order_id, cust_fields["customer_name"],order,0)
+        #create_sales_order(ebay_order_id, cust_fields["customer_name"],order,0)
         
     
     else:
@@ -566,6 +577,12 @@ def create_sales_order(ebay_order_id, db_cust_name, order, ebay_settings):
             item_list.append(({"item_code": sku, "warehouse": "Mamhilad - URTL", "qty": qty, "rate": round(price_exc_vat,2),"valuation_rate": 0.0 }))
             print ("item append", item_list)
             
+            
+            
+            
+
+        
+        
         # Taxes are a single line item not each transaction
         taxes.append(({"charge_type": "On Net Total", "description": "VAT 20%", "account_head": "VAT - URTL", "rate": "20"}))
         print ("Taxes", taxes)
@@ -712,6 +729,22 @@ def db_get_ebay_doc(doctype, ebay_id_name, ebay_id,
     
     return retval
     
+
+
+def dlink_customer_address(customer, parent):
+    
+    
+    print("Customer is: ", customer)
+    
+    d_link = frappe.get_doc({
+        "doctype": "Dynamic Link",
+        "link_doctype": "Customer",
+        "link_title": "",
+        "parent": parent,
+        "parenttype": "Address"
+    })
+    
+    return d_link
 
 
 '''''
