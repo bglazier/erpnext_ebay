@@ -13,8 +13,6 @@ sys.path.insert(0, "/usr/local/lib/python2.7/dist-packages/ebaysdk-2.1.4-py2.7.e
 sys.path.insert(0, "/usr/local/lib/python2.7/dist-packages/lxml-3.6.4-py2.7-linux-i686.egg")
 
 
-#import aniso8601
-
 import datetime
 from types import MethodType
 
@@ -34,11 +32,9 @@ assume_shipping_name_is_ebay_name = True
 # Maximum number of attempts to add duplicate address (by adding -1, -2 etc)
 maximum_address_duplicates = 4
 
+
 @frappe.whitelist()
-def sync():
-    """Sync the Ebay database with the Frappe database."""
-    import traceback
-    
+def sync():    
     try:
         # Load orders from Ebay
         orders, num_days = get_orders()
@@ -65,14 +61,15 @@ def sync():
             # Save the log, regardless of how far we got
             for change in changes:
                 log_dict['ebay_log_table'].append(change)
-                print ('change: ', change)
+                #print ('change: ', change)
             log = frappe.get_doc(log_dict)
-            print('log_dict: ', log_dict)
-            print('log_dict[ebay_log_table]: ', log_dict['ebay_log_table'])
+            #print('log_dict: ', log_dict)
+            #print('log_dict[ebay_log_table]: ', log_dict['ebay_log_table'])
             log.insert()
             frappe.db.commit()
     except:
-        traceback.print_exc()
+        #traceback.print_exc()
+        msgprint("Exception raised")
         raise
 
 
@@ -185,6 +182,8 @@ def extract_order_info(order, changes=None):
     
     Returns dictionary for eBay order entries."""
     
+    country = "United Kingdom"
+    
     if changes is None:
         changes = []
     
@@ -200,6 +199,7 @@ def extract_order_info(order, changes=None):
     # Get address information, if available
     if 'AddressID' in order['ShippingAddress']:
         ebay_address_id = order['ShippingAddress']['AddressID']
+        country = order['ShippingAddress']['Country']
         
         db_address_name = db_get_ebay_address(
             ebay_address_id, fields=["name"],
@@ -215,7 +215,8 @@ def extract_order_info(order, changes=None):
                   "ebay_address_id": ebay_address_id,
                   "customer": cust_fields["name"],
                   "customer_name": cust_fields["customer_name"],
-                  "address": db_address_name
+                  "address": db_address_name,
+                  "country": country
                   #"item1": order['']
               }
     
@@ -387,10 +388,9 @@ def create_customer(customer_dict, address_dict, changes=None):
         try:
             address_doc.insert()
             dl = dlink_customer_address(address_doc.customer, address_doc.name)
-            #print("Customer and address doc: ", address_doc.customer, address_doc.name)
             #dl.save(ignore_permissions=True)
             dl.insert()
-            
+        
         except frappe.DuplicateEntryError as ex:
             # An address based on address_title autonaming already exists
                 # Get new doc, add a digit to the name and retry
@@ -407,7 +407,6 @@ def create_customer(customer_dict, address_dict, changes=None):
                 try:
                     address_doc.insert()
                     dl = dlink_customer_address(address_doc.customer, address_doc.name)
-                    #print("Customer and address doc: ", address_doc.customer, address_doc.name)
                     #dl.save(ignore_permissions=True)
                     dl.insert()
                     
@@ -489,8 +488,8 @@ def create_ebay_order(order_dict, changes, order):
         
         cust_email = cust_fields2['email_id']
         '''
-        #create_sales_order(ebay_order_id, cust_fields["customer_name"],order,0)
-        
+        create_sales_order(ebay_order_id, cust_fields["customer_name"],order,0)
+    
     
     else:
         # Order already exists
@@ -508,7 +507,7 @@ def create_ebay_order(order_dict, changes, order):
                        "customer": cust_fields["name"],
                        "address": None,
                        "ebay_order": db_order_name})
-
+    
     
     
     
@@ -523,81 +522,157 @@ def create_ebay_order(order_dict, changes, order):
 def create_sales_order(ebay_order_id, db_cust_name, order, ebay_settings):
     
     #TODO if exists then update.  si = frappe.db.get_value("Sales Invoice", {"ebay_order_id": ebay_order.get("id")}, "name")
+    #try:
+        
+    si = False
+    qty = 1
+    creation_date = str(order['CreatedTime'])
+    dt = creation_date[:10]
+    order_status = order['OrderStatus']
+    item_list = []
+    payments = []
+    taxes = []
+        
+    sum_inc_vat = 0.0
+    sum_exc_vat = 0.0
+    sum_vat = 0.0
+    sum_paid = 0.0
+        
+    # TODO
+    # TransactionArray.Transaction.BuyerCheckoutMessage
+    # TransactionArray.Transaction.FinalValueFee
+    # isGSP = TransactionArray.Transaction.ContainingOrder.IsMultiLegShipping
+    #TransactionArray.Transaction.ContainingOrder.MonetaryDetails.Payments.Payment.PaymentStatus
+    # TransactionArray.Transaction.MonetaryDetails.Payments.Payment.PaymentStatus
+        
+        
+    transactions = order['TransactionArray']['Transaction']
+    for transaction in transactions:
+        inc_vat = 0.0
+        exc_vat = 0.0
+        vat = 0.0
+        qty = 0
+        item_rate = 0.0
+            
+        
+        cust_email = transaction['Buyer']['Email']
+        
+        # Vat Status
+        #NoVATTax	VAT is not applicable
+        #VATExempt	Residence in a country with VAT and user is registered as VAT-exempt
+        #VATTax	Residence in a country with VAT and user is not registered as VAT-exempt
+        #vat_status = transaction['Buyer']['VATStatus']
+        
+            
+        transaction_id = transaction['TransactionID']
+        qty = transaction['QuantityPurchased']
+        sku = transaction['Item']['SKU']
+        # Only allow valid SKU
+        if len(sku) < 10: return
+        item_title = transaction['Item']['Title']
+        actual_shipping_cost = 0.0 # transaction['ActualShippingCost']
+        # TODO create a line for any additional shipping costs
+            
+
+            
+            
+        inc_vat = float(transaction['TransactionPrice']['value']) #120
+        if inc_vat <= 0.0: break
+        exc_vat = float(inc_vat) / 1.2 # 100
+        vat = (exc_vat * 0.2) * float(qty) 
+        
+        # If export to Rest of World then zero the vat
+        country = "United Kingdom"
+        #country = order['country']
+        print(country)
+        income_account = determine_income_account(country)
+        if income_account is not 'Sales - URTL':
+            vat = 0.0
+            exc_vat = inc_vat
+            
+        sum_inc_vat += inc_vat
+        sum_exc_vat += exc_vat
+        sum_vat += vat
+        sum_paid += float(inc_vat * float(qty))
+                    
+        if income_account == "Sales - URTL":
+            item_rate = round(exc_vat,2)
+        else:
+            item_rate = round(inc_vat,2)            
+            
+        item_list.append(({
+                "item_code": sku,
+                "warehouse": "Mamhilad - URTL",
+                "qty": qty,
+                "rate": item_rate,
+                "valuation_rate": 0.0,
+                "income_account": "Sales - URTL",
+                "expense_account": "Cost of Goods Sold - URTL",
+                "cost_center": "Main - URTL"
+         }))
+        
+    # Taxes are a single line item not each transaction
+    #taxes.append(({"charge_type": "On Net Total", "description": "VAT 20%", "account_head": "VAT - URTL", "rate": "20"}))
+    if income_account == "Sales - URTL":
+        taxes.append(({"charge_type": "Actual", "description": "VAT 20%", "account_head": "VAT - URTL","rate": "20", "tax_amount": round(sum_vat,2) }))
+        
+        
+    payments.append({"mode_of_payment": "Paypal", "amount": round(sum_paid,2)})
+        
+        
+    create_sales_invoice(db_cust_name, cust_email, ebay_order_id, dt, item_list, payments, taxes)
     
     
+    #except Exception as inst:
+    #    print ("Sales invoice import fail") #+ db_cust_name
     
+    return
+
+
+def determine_income_account(country):
+    
+    if not country or country == "United Kingdom" or country == "":
+        return "Sales - URTL"
+    
+    if country == 'Germany' or country == 'Italy' or country == 'Poland' or country == 'France' or country == 'Romania' or country == 'Sweden' or country == 'Greece' or country == 'Spain' or country == 'Austria' or country == 'Hungary' or country == 'Bulgaria' or country == 'Finland' or country == 'Czech Republic' or country == 'Netherlands' or country == 'Croatia' or country == 'Lithuania' or country == 'Ireland' or country == 'Belgium' or country == 'Cyprus' or country == 'Slovakia' or country == 'Malta' or country == 'Portugal' or country == 'Estonia' or country == 'Slovenia' or country == 'Latvia' or country == 'Denmark' or country == 'Luxembourg':
+        return "Sales - URTL"
+    
+    return "Sales Non EU - URTL"
+
+
+def dlink_customer_address(customer, parent):
+    
+    
+    d_link = frappe.get_doc({
+        "doctype": "Dynamic Link",
+        "parent": parent,
+        "parenttype": "Address",
+        "link_title": "",
+        "link_doctype": "Customer",
+        "link_name": customer
+    
+    
+    })
+    
+    return d_link
+
+
+    
+
+def create_sales_invoice(db_cust_name, cust_email, ebay_order_id, posting_date, item_list, payments, taxes):
+
     try:
         
-        si = False
-        price_exc_vat = float(0.0)
-        qty = 1
-        
-        creation_date = str(order['CreatedTime'])
-        #dt = aniso8601.parse_datetime(creation_date)
-        dt = creation_date[:10]
-        
-        order_status = order['OrderStatus']
-        
-
-        
-        
-        # TransactionArray.Transaction.Buyer.VATStatus   #TODO use to determine if business
-        # TransactionArray.Transaction.BuyerCheckoutMessage
-        # TransactionArray.Transaction.FinalValueFee
-        
-        # isGSP = TransactionArray.Transaction.ContainingOrder.IsMultiLegShipping
-        #TransactionArray.Transaction.ContainingOrder.MonetaryDetails.Payments.Payment.PaymentStatus
-        # TransactionArray.Transaction.MonetaryDetails.Payments.Payment.PaymentStatus
-        
-        item_list = []
-        payments = []
-        taxes = []
-        sum_price = 0.0
-        
-        transactions = order['TransactionArray']['Transaction']
-        for transaction in transactions:
-            cust_email = transaction['Buyer']['Email']
-            
-            transaction_id = transaction['TransactionID']
-            qty = transaction['QuantityPurchased']
-            price_inc_vat = float(transaction['TransactionPrice']['value'])
-            sum_price += price_inc_vat
-            
-            if price_inc_vat > 0.0: price_exc_vat = float(price_inc_vat) / 1.2
-            sku = transaction['Item']['SKU']
-            if len(sku) < 10: return
-            print ('sku: ',sku)
-            
-            item_title = transaction['Item']['Title']
-            
-            
-            actual_shipping_cost = transaction['ActualShippingCost']
-            # TODO create a line for additional shipping costs
-            
-            item_list.append(({"item_code": sku, "warehouse": "Mamhilad - URTL", "qty": qty, "rate": round(price_exc_vat,2),"valuation_rate": 0.0 }))
-            print ("item append", item_list)
-            
-            
-            
-            
-
-        
-        
-        # Taxes are a single line item not each transaction
-        taxes.append(({"charge_type": "On Net Total", "description": "VAT 20%", "account_head": "VAT - URTL", "rate": "20"}))
-        print ("Taxes", taxes)
-        payments.append({"mode_of_payment": "Paypal", "amount": round(sum_price,2)})
-        print ("payments", payments)
-                    
-        if not si:
-            si = frappe.get_doc({
+        si = frappe.get_doc({
                 "doctype": "Sales Invoice",
                 "naming_series": "SINV-",
-                "title": db_cust_name + "-" + ebay_order_id, 
+                "title": db_cust_name + "-" + ebay_order_id,
                 "customer": db_cust_name,
                 "contact_email": cust_email,
-                "posting_date": dt,
-                "due_date": dt,
+                "posting_date": posting_date,
+                "posting_time": "00:00:00",
+                "due_date": posting_date,
+                "set_posting_time": 1,
                 "selling_price_list": "Standard Selling",
                 "price_list_currency": "GBP",
                 "price_list_exchange_rate": 1,
@@ -608,15 +683,27 @@ def create_sales_order(ebay_order_id, db_cust_name, order, ebay_settings):
                 "is_pos": 1,
                 "taxes": taxes,
                 "payments": payments,
-                "items": item_list  
+                "items": item_list,
+                "notification_email_address": cust_email,
+                "notify_by_email": 1
             })
-            
-            si.save(ignore_permissions=True)
-            
-    except Exception as inst:
-        print ("Sales invoice import fail") #+ db_cust_name
+        
+        
+        if posting_date:
+            si.set_posting_time = 1
+        si.posting_date = posting_date 
     
-    return si
+        si.insert()
+        #si.submit()
+    
+    
+    
+    except Exception as inst:
+        print("Unexpected error", inst)
+        raise
+    
+    return
+    
 
 
 
@@ -626,7 +713,7 @@ def sanitize_postcode(in_postcode):
     
     postcode = in_postcode.strip().replace(' ', '').upper()
     if (6 > len(postcode) > 8):
-        print(in_postcode)
+        #print(in_postcode)
         raise ValueError('Unknown postcode type!')
         return in_postcode
     
@@ -728,45 +815,44 @@ def db_get_ebay_doc(doctype, ebay_id_name, ebay_id,
                 log, doc_queries, error_message, customer_name=errstring)
     
     return retval
-    
 
 
-def dlink_customer_address(customer, parent):
-    
-    
-    print("Customer is: ", customer)
-    
-    d_link = frappe.get_doc({
-        "doctype": "Dynamic Link",
-        "link_doctype": "Customer",
-        "link_title": "",
-        "parent": parent,
-        "parenttype": "Address"
-    })
-    
-    return d_link
 
 
 '''''
     
-    #item_list.append(({"name":item_title, "item_code": sku, "description": item_title, "qty": qty, "rate": price_exc_vat}))
-            
-            so = frappe.get_doc({
-            "doctype": "Sales Order",
-            "naming_series": ebay_order_id,
-            #"ebay_order_id": ebay_order.get("id"),
-            "customer": db_cust_name,
-            "transaction_date": dt,
-            "delivery_date": dt,
-            "selling_price_list": "Standard Selling",
-            "price_list_currency": "GBP",
-            "price_list_exchange_rate": 1,
-            "ignore_pricing_rule": 1,
-            "apply_discount_on": "Net Total",
-            "status": "Draft",
-            "update_stock": 1,
-            "taxes": taxes,
-            "items": item_list
-            #"sales_order_details": so_order_details
-            })
+    
+FOR TESTING ONLY
+    
+
+    payments = []
+    payments.append({"mode_of_payment": mode_of_payment, "amount": round(amount,2)})
+    
+    taxes = []
+    taxes.append(({"charge_type": "Actual", "description": "VAT 20%", "account_head": "VAT - URTL","rate": "20", "tax_amount": round(sum_vat,2) }))
+    
+    
+    
+@frappe.whitelist()
+def sync():
+    """Sync the Ebay database with the Frappe database."""
+    #import traceback
+    
+    item_list = []
+    
+    item_list.append(({
+            "item_code": 'ITEM-02537',
+            "warehouse": "Mamhilad - URTL",
+            "qty": 1,
+            "rate": 100,
+            "valuation_rate": 0.0,
+            "income_account": "Sales - URTL",
+            "expense_account": "Cost of Goods Sold - URTL",
+            "cost_center": "Main - URTL"
+     }))
+
+	
+    create_sales_invoice("tommypentre", "test@test", "1232233", "2017-05-15", item_list, "Paypal", 262.3, 33.4)    
+    
+
 '''''    
