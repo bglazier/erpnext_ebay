@@ -63,8 +63,9 @@ def export_to_garage_sale_xml(creation_date):
     records = get_item_records_by_creation(creation_date)
 
     for r in records:
-        if r.brand: title = r.brand + " "
-        else: title = ""
+        
+        #if r.brand: title = r.brand + " "
+        #else: title = ""
         title += r.item_name
         item_code = r.name
         category = lookup_category(r.item_group)

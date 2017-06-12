@@ -574,6 +574,10 @@ def create_sales_order(ebay_order_id, db_cust_name, order, ebay_settings):
         # TODO create a line for any additional shipping costs
             
 
+
+
+
+
             
             
         inc_vat = float(transaction['TransactionPrice']['value']) #120
@@ -582,23 +586,27 @@ def create_sales_order(ebay_order_id, db_cust_name, order, ebay_settings):
         vat = (exc_vat * 0.2) * float(qty) 
         
         # If export to Rest of World then zero the vat
-        country = "United Kingdom"
-        #country = order['country']
-        print(country)
-        income_account = determine_income_account(country)
-        if income_account is not 'Sales - URTL':
+        country_name = "United Kingdom"
+        country = order['ShippingAddress']['CountryName']
+        
+        
+        income_account = determine_income_account(country_name)
+            
+            
+        if income_account is not "Sales - URTL":
             vat = 0.0
             exc_vat = inc_vat
+            item_rate = round(inc_vat,2) 
+        else:
+            print("ITEM SALES YES")
+            item_rate = round(exc_vat,2)
             
         sum_inc_vat += inc_vat
         sum_exc_vat += exc_vat
         sum_vat += vat
         sum_paid += float(inc_vat * float(qty))
                     
-        if income_account == "Sales - URTL":
-            item_rate = round(exc_vat,2)
-        else:
-            item_rate = round(inc_vat,2)            
+
             
         item_list.append(({
                 "item_code": sku,
@@ -613,7 +621,8 @@ def create_sales_order(ebay_order_id, db_cust_name, order, ebay_settings):
         
     # Taxes are a single line item not each transaction
     #taxes.append(({"charge_type": "On Net Total", "description": "VAT 20%", "account_head": "VAT - URTL", "rate": "20"}))
-    if income_account == "Sales - URTL":
+    if income_account is "Sales - URTL":
+        print("APPENDING VAT")
         taxes.append(({"charge_type": "Actual", "description": "VAT 20%", "account_head": "VAT - URTL","rate": "20", "tax_amount": round(sum_vat,2) }))
         
         
@@ -631,7 +640,7 @@ def create_sales_order(ebay_order_id, db_cust_name, order, ebay_settings):
 
 def determine_income_account(country):
     
-    if not country or country == "United Kingdom" or country == "":
+    if not country or country is "United Kingdom" or country is "":
         return "Sales - URTL"
     
     if country == 'Germany' or country == 'Italy' or country == 'Poland' or country == 'France' or country == 'Romania' or country == 'Sweden' or country == 'Greece' or country == 'Spain' or country == 'Austria' or country == 'Hungary' or country == 'Bulgaria' or country == 'Finland' or country == 'Czech Republic' or country == 'Netherlands' or country == 'Croatia' or country == 'Lithuania' or country == 'Ireland' or country == 'Belgium' or country == 'Cyprus' or country == 'Slovakia' or country == 'Malta' or country == 'Portugal' or country == 'Estonia' or country == 'Slovenia' or country == 'Latvia' or country == 'Denmark' or country == 'Luxembourg':
@@ -817,42 +826,3 @@ def db_get_ebay_doc(doctype, ebay_id_name, ebay_id,
     return retval
 
 
-
-
-'''''
-    
-    
-FOR TESTING ONLY
-    
-
-    payments = []
-    payments.append({"mode_of_payment": mode_of_payment, "amount": round(amount,2)})
-    
-    taxes = []
-    taxes.append(({"charge_type": "Actual", "description": "VAT 20%", "account_head": "VAT - URTL","rate": "20", "tax_amount": round(sum_vat,2) }))
-    
-    
-    
-@frappe.whitelist()
-def sync():
-    """Sync the Ebay database with the Frappe database."""
-    #import traceback
-    
-    item_list = []
-    
-    item_list.append(({
-            "item_code": 'ITEM-02537',
-            "warehouse": "Mamhilad - URTL",
-            "qty": 1,
-            "rate": 100,
-            "valuation_rate": 0.0,
-            "income_account": "Sales - URTL",
-            "expense_account": "Cost of Goods Sold - URTL",
-            "cost_center": "Main - URTL"
-     }))
-
-	
-    create_sales_invoice("tommypentre", "test@test", "1232233", "2017-05-15", item_list, "Paypal", 262.3, 33.4)    
-    
-
-'''''    
