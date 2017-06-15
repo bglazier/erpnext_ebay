@@ -590,7 +590,7 @@ def create_sales_order(ebay_order_id, db_cust_name, order, ebay_settings):
         country = order['ShippingAddress']['CountryName']
         
         
-        income_account = determine_income_account(country_name)
+        income_account = "Sales - URTL"#determine_income_account(country_name)
             
             
         if income_account is not "Sales - URTL":
@@ -622,7 +622,7 @@ def create_sales_order(ebay_order_id, db_cust_name, order, ebay_settings):
     # Taxes are a single line item not each transaction
     #taxes.append(({"charge_type": "On Net Total", "description": "VAT 20%", "account_head": "VAT - URTL", "rate": "20"}))
     if income_account is "Sales - URTL":
-        print("APPENDING VAT")
+    #    print("APPENDING VAT")
         taxes.append(({"charge_type": "Actual", "description": "VAT 20%", "account_head": "VAT - URTL","rate": "20", "tax_amount": round(sum_vat,2) }))
         
         

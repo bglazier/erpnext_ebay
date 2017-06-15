@@ -28,6 +28,17 @@ images_url = 'http://www.universalresourcetrading.com'
 
 
 
+
+
+@frappe.whitelist()
+def get_description_body(description, condition, function_grade):
+    return "THIS IS A TEST"
+    
+    
+    
+    
+    
+
 @frappe.whitelist()
 def run_cron_create_xml(garagesale_export_date):
     
