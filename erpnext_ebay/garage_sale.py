@@ -11,6 +11,10 @@ import xml.etree.cElementTree as ET
 import requests
 #import mechanize
 
+from jinja2 import Environment, PackageLoader
+import jinja2
+
+
 IS_TESTING = False
 NO_IMAGES = True
 
@@ -28,16 +32,52 @@ images_url = 'http://www.universalresourcetrading.com'
 
 
 
+def render(tpl_path, context):
+    path, filename = os.path.split(tpl_path)
+    rendered = jinja2.Environment(
+        loader=jinja2.FileSystemLoader(path or './'), autoescape=False
+    ).get_template(filename).render(context)
+    
+    return rendered
+    
+    
+    
+    
+    
+
+def jtemplate(description, function_grade, grade_details, condition, tech_details, delivery_type, accessories_extras, power_cable_included, power_supply_included, remote_control_included, case_included, warranty_period):
 
 
-@frappe.whitelist()
-def get_description_body(description, condition, function_grade):
-    return "THIS IS A TEST"
+    try:
+        context = {
+            'description': description,
+            'function_grade' : function_grade,
+            'grade_details' : grade_details, 
+            'condition': condition, 
+            'tech_details': tech_details, 
+            'delivery_type': delivery_type, 
+            'accessories_extras': accessories_extras, 
+            'power_cable_included': power_cable_included, 
+            'power_supply_included': power_supply_included,
+            'remote_control_included': remote_control_included, 
+            'case_included': case_included, 
+            'warranty_period': warranty_period
+        }
+        
+        result = render('/home/frappe/frappe-bench/apps/erpnext_ebay/erpnext_ebay/item_garage_sale.html', context)
+        
+    except:
+        raise
+        result = ""
+        
+        
+
+    return (result)
     
     
+
     
-    
-    
+
 
 @frappe.whitelist()
 def run_cron_create_xml(garagesale_export_date):
@@ -74,9 +114,13 @@ def export_to_garage_sale_xml(creation_date):
     records = get_item_records_by_creation(creation_date)
 
     for r in records:
+        title = ""
         
         #if r.brand: title = r.brand + " "
         #else: title = ""
+        
+        
+        
         title += r.item_name
         item_code = r.name
         category = lookup_category(r.item_group)
@@ -91,38 +135,13 @@ def export_to_garage_sale_xml(creation_date):
         
         pounds, ounces = kg_to_imperial(r.net_weight)
         
+        
         body = "<![CDATA[<br></br>"
-        body += "The price includes VAT and we can provide VAT invoices."
-        body += "<br></br>"
-        if r.function_grade == "0": body += "Free 45-day return policy if you are unhappy with your purchase for any reason."
-        if r.function_grade == "1" or r.function_grade == "2": body += "Product Guarantee: We guarantee this product will work properly or your money back with our free 45-day return policy."
-        if r.function_grade == "3": body += "Product Guarantee: Whilst we haven't tested every function of this item, we guarantee it will work properly or your money back with our free 45-day return policy."
-        if r.function_grade == "4": body += "Product Guarantee: Whilst we haven't tested this item, we guarantee it will work properly or your money back with our free 45-day return policy."
-        if r.function_grade == "5": body += "Product Guarantee: This item is sold as spares/repairs only. It may require servicing or repair.  However, we still offer our free 45-day return policy if you are unhappy with your purchase for any reason."
-        body += "<br></br>"
+        body += jtemplate(r.description, r.function_grade, r.grade_details, r.condition, r.tech_details, r.delivery_type, r.accessories_extras, r.power_cable_included, \
+        r.power_supply_included, r.remote_control_included, r.case_included, r.warranty_period)
         
-        body += r.description
-        
-        body += "<h3>Accessories / Extras</h3><b>NOTE: No cables, remotes, accessories, power supplies, consumables or any other item is included unless shown in the item photo or is in the item description</b><br></br>"
-
-        if r.accessories_extras or r.power_cable_included or r.power_supply_included or r.remote_control_included or r.case_included:
-            #s = "<br></br>Also included in the sale: <br></br>"
-            if r.power_cable_included: body += "<li>Power cable</li>"
-            if r.power_supply_included: body += "<li>Power supply/transformer</li>"
-            if r.remote_control_included: body += "<li>Remote Control</li>"
-            if r.case_included: body += "<li>Case</li>"
-            if r.accessories_extras: body += "<li>" + r.accessories_extras + "</li>"
-
-        body += "<h3>Grade</h3><p>The item has been graded as shown in bold below:</p>"
-        body += grade(r.condition, r.function_grade)
-        if r.grade_details: body += "<br></br>" + first_lower(r.grade_details)
-        
-        if r.tech_details: body += "<h3>Specifications</h3>" + r.tech_details
-        body += "sku: " + r.item_code
+        body += "<br>sku: " + r.item_code
         body += "]]"
-        
-        
-        #if r.warranty: body += "XX day warranty on this item"
         
         
         if(not price):
@@ -144,13 +163,46 @@ def export_to_garage_sale_xml(creation_date):
         #ET.SubElement(doc, "category2").text =
         ET.SubElement(doc, "condition").text = lookup_condition(r.condition, r.function_grade)
         ET.SubElement(doc, "conditionDescription").text = r.grade_details
-        ET.SubElement(doc, "convertDescriptionToHTML").text = "true"
-        ET.SubElement(doc, "convertMarkdownToHTML").text = "true"
+        ET.SubElement(doc, "convertDescriptionToHTML").text = "false"
+        ET.SubElement(doc, "convertMarkdownToHTML").text = "false"
         ET.SubElement(doc, "description").text = body
         ET.SubElement(doc, "design").text = design
+        
+        
+        if r.delivery_type == 'No GSP':
+            print ("No GSP currently no way to handle this")
+            
+        if r.delivery_type == 'Pallet':
+            print ('Pallet')
+            
+        if r.delivery)_type == 'Collection Only':
+            print ('Collection Only')
+            dom_ship = ET.SubElement(doc, "domesticShippingService").text = "Collection in Person"
+            dom_ship.set("serviceAdditionalFee", "0")
+            dom_ship.set("serviceFee", "0")
+
+        if r.delivery)_type == 'Standard Parcel':
+            dom_ship = ET.SubElement(doc, "domesticShippingService").text = "Other Courier 3-5 days"
+            dom_ship.set("serviceAdditionalFee", "0")
+            dom_ship.set("serviceFee", "0")
+            dom_ship = ET.SubElement(doc, "domesticShippingService").text = "Collection in Person"
+            dom_ship.set("serviceAdditionalFee", "0")
+            dom_ship.set("serviceFee", "0")
+            dom_ship = ET.SubElement(doc, "domesticShippingService").text = "Other 24 Hour Courier"
+            dom_ship.set("serviceAdditionalFee", "12.95")
+            dom_ship.set("serviceFee", "0")
+            
+            
         #dom_ship = ET.SubElement(doc, "domesticShippingService").text =
         #dom_ship.set("serviceAdditionalFee", "0")
         #dom_ship.set("serviceFee", "0")
+        
+        #int_ship = ET.SubElement(doc, "internationalShippingService").text = ""
+        #int_ship.set("serviceAdditionalFee", "0")
+        #int_ship.set("serviceFee","0")
+        
+        
+        
         ET.SubElement(doc, "duration").text = str(duration)
         ET.SubElement(doc, "handlingTime").text = str(handling_time)          
 
@@ -169,9 +221,7 @@ def export_to_garage_sale_xml(creation_date):
         #    if (r.website_image != 'NULL'):
         #        ET.SubElement(doc, "imageURL").text = images_url + ws_image
         
-        #int_ship = ET.SubElement(doc, "internationalShippingService").text = ""
-        #int_ship.set("serviceAdditionalFee", "0")
-        #int_ship.set("serviceFee","0")        
+
 
         ET.SubElement(doc, "layout").text = layout
         #ET.SubElement(doc, "lotSize").text = "1"
@@ -183,6 +233,17 @@ def export_to_garage_sale_xml(creation_date):
         #ET.SubElement(doc, "paymentInstructions").text = ""
         ET.SubElement(doc, "privateAuction").text = "false"
         ET.SubElement(doc, "quantity").text = str(quantity)
+        
+        if r.warranty_period == "45" or warranty_period == "None":
+            ET.SubElement(doc, "returnPolicyDescription").text = "Buy with confidence. If you wish to return the item, for whatever reason, you may do so within 45 days."
+        else
+            ET.SubElement(doc, "returnPolicyDescription").text = "Buy with confidence. If you wish to return the item, for whatever reason, you may do so within 45 days. \
+            This item also includes our " + r.warranty_period + " Day Limited Warranty (please see our terms and conditions for details)."
+        
+        
+        ET.SubElement(doc, "returnsAccepted").text = "true"
+        ET.SubElement(doc, "returnsWithinDays").text = "45"
+        
         #ET.SubElement(doc, "reservePrice").text = ""
         #ET.SubElement(doc, "siteName").text = ""
         ET.SubElement(doc, "SKU").text = item_code
@@ -203,84 +264,6 @@ def export_to_garage_sale_xml(creation_date):
     return
 
 
-def grade(cond, func):
-
-
-    c0 = ""
-    f0 = "Not Applicable"
-    c1 = 'New. Boxed in original packaging.'
-    f1 = 'Tested. Working. Reconditioned.'
-    c2 = 'New or as new. Not in original packaging.'
-    f2 = 'Tested. Working.'
-    c3 = 'Minor cosmetic damage. Otherwise excellent condition.'
-    f3 = 'Powers up but not tested further.'
-    c4 = 'Good condition. Some signs of use. Possible limited damage e.g. dents or scratches'
-    f4 = 'Untested'
-    c5 = 'Heavy use.  Scratches, often heavy, or blemishes.'
-    f5 = 'Not working - for spares or repair'
-
-    grade = ''
-
-    if cond and func:
-        grade += '<table id="grades">'
-        
-        grade += '<tr><th>Grade</th><th>Condition</th><th>Function</th></tr>'
-
-
-        grade += '<tr>'
-        grade += '<td></td>'
-        if cond == '0': grade += '<td class="td_highlight"><b> %s </b></td>' %(c0) 
-        else: grade += '<td></td>'
-        if func == '0': grade += '<td class="td_highlight"><b>%s</b></td>' %f0 
-        else: grade += '<td>' + f0 + '</td>'
-
-        grade += '</tr>'
-
-
-        grade += '<tr>'
-        grade += '<td>1</td>'
-        if cond == '1': grade += '<td class="td_highlight"><b> %s </b></td>' %(c1) 
-        else: grade += '<td>%s</td>' %c1
-        if func == '1': grade += '<td class="td_highlight"><b>%s</b></td>' %f1 
-        else: grade += '<td>%s</td>' %f1
-
-        grade += '</tr>'
-
-        grade += '<tr>'
-        grade += '<td>2</td>'
-        if cond == '2': grade += '<td class="td_highlight"><b>%s</b></td>' %c2 
-        else: grade += '<td>%s</td>' %c2
-        if func == '2': grade += '<td class="td_highlight"><b>%s</b></td>' %f2 
-        else: grade += '<td>%s</td>' %f2
-        grade += '</tr>'
-
-        grade += '<tr>'
-        grade += '<td>3</td>'
-        if cond == '3': grade += '<td class="td_highlight"><b>%s</b></td>' %c3 
-        else: grade += '<td>%s</td>' %c3
-        if func == '3': grade += '<td class="td_highlight"><b>%s</b></td>' %f3 
-        else: grade += '<td>%s</td>' %f3
-        grade += '</tr>'
-
-        grade += '<tr>'
-        grade += '<td>4</td>'
-        if cond == '4': grade += '<td class="td_highlight"><b>%s</b></td>' %c4 
-        else: grade += '<td>%s</td>' %c4
-        if func == '4': grade += '<td class="td_highlight"><b>%s</b></td>' %f4 
-        else: grade += '<td>%s</td>' %f4
-        grade += '</tr>'
-
-        grade += '<tr>'
-        grade += '<td>5</td>'
-        if cond == '5': grade += '<td class="td_highlight"><b>%s</b></td>' %c5 
-        else: grade += '<td>%s</td>' %c5
-        if func == '5': grade += '<td class="td_highlight"><b>%s</b></td>' %f5 
-        else: grade += '<td>%s</td>' %f5
-        grade += '</tr>'
-
-        grade += '</table>'
-
-    return grade
 
 
 def lookup_condition(con_db, func_db):
@@ -289,9 +272,11 @@ def lookup_condition(con_db, func_db):
     condition = "Used"
 
     if con_db == "1":
+        condition = "Used"
+    if con_db == "1":
         condition = "New"
     if con_db == "2":
-        condition = "New"
+        condition = "Used"
     if con_db == "3":
         condition = "Used"
     if con_db == "4":
