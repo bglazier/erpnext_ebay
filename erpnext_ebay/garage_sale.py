@@ -139,7 +139,8 @@ def export_to_garage_sale_xml(creation_date):
         body = "<![CDATA[<br></br>"
         body += jtemplate(r.description, r.function_grade, r.grade_details, r.condition, r.tech_details, r.delivery_type, r.accessories_extras, r.power_cable_included, r.power_supply_included, r.remote_control_included, r.case_included, r.warranty_period)
         
-        body += "<br>sku: " + r.item_code
+        body += "<br><br>The price includes VAT and we can provide VAT invoices."
+        body += "<br><br>sku: " + r.item_code
         body += "]]"
         
         
@@ -167,34 +168,34 @@ def export_to_garage_sale_xml(creation_date):
         ET.SubElement(doc, "description").text = body
         ET.SubElement(doc, "design").text = design
         
+        # Make sure there is a domestic default
+        dom_ship = ET.SubElement(doc, "domesticShippingService").text = "Collection in Person"
+        dom_ship.set("serviceAdditionalFee", "0")
+        dom_ship.set("serviceFee", "0")
         
         if r.delivery_type == 'No GSP':
-            print ("No GSP currently no way to handle this")
-        
-        if r.delivery_type == 'Pallet':
-            print ('Pallet')
-        
-        if r.delivery_type == 'Collection Only':
-            print ('Collection Only')
-            dom_ship = ET.SubElement(doc, "domesticShippingService").text = "Collection in Person"
-            dom_ship.set("serviceAdditionalFee", "0")
-            dom_ship.set("serviceFee", "0")
-        
-        if r.delivery_type == 'Standard Parcel':
             dom_ship = ET.SubElement(doc, "domesticShippingService").text = "Other Courier 3-5 days"
-            dom_ship.set("serviceAdditionalFee", "0")
-            dom_ship.set("serviceFee", "0")
-            dom_ship = ET.SubElement(doc, "domesticShippingService").text = "Collection in Person"
             dom_ship.set("serviceAdditionalFee", "0")
             dom_ship.set("serviceFee", "0")
             dom_ship = ET.SubElement(doc, "domesticShippingService").text = "Other 24 Hour Courier"
             dom_ship.set("serviceAdditionalFee", "12.95")
             dom_ship.set("serviceFee", "0")
-            
+            # For international there is no way to turn off Global using XML !!! Must report on this and do it manually via GarageSale UI
         
-        #dom_ship = ET.SubElement(doc, "domesticShippingService").text =
-        #dom_ship.set("serviceAdditionalFee", "0")
-        #dom_ship.set("serviceFee", "0")
+        if r.delivery_type == 'Pallet':
+            dom_ship = ET.SubElement(doc, "domesticShippingService").text = "Freight"
+            dom_ship.set("serviceAdditionalFee", "60")
+            dom_ship.set("serviceFee", "0")
+        
+        #if r.delivery_type == 'Collection Only':  No need for this as default is set
+        
+        if r.delivery_type == 'Standard Parcel':
+            dom_ship = ET.SubElement(doc, "domesticShippingService").text = "Other Courier 3-5 days"
+            dom_ship.set("serviceAdditionalFee", "0")
+            dom_ship.set("serviceFee", "0")
+            dom_ship = ET.SubElement(doc, "domesticShippingService").text = "Other 24 Hour Courier"
+            dom_ship.set("serviceAdditionalFee", "12.95")
+            dom_ship.set("serviceFee", "0")
         
         #int_ship = ET.SubElement(doc, "internationalShippingService").text = ""
         #int_ship.set("serviceAdditionalFee", "0")
@@ -330,8 +331,9 @@ def get_item_records_by_creation(creation_date):
         , it.condition, it.function_grade, it.grade_details
         , it.warranty_period
         , it.net_weight, it.length, it.width, it.height
-        , bin.actual_qty
         , it.standard_rate as price
+        , it.delivery_type
+        , bin.actual_qty
         
         from `tabItem` it
         
