@@ -45,11 +45,12 @@ def render(tpl_path, context):
     
 
 
-def jtemplate(description, function_grade, grade_details, condition, tech_details, delivery_type, accessories_extras, power_cable_included, power_supply_included, remote_control_included, case_included, warranty_period):
+def jtemplate(version, description, function_grade, grade_details, condition, tech_details, delivery_type, accessories_extras, power_cable_included, power_supply_included, remote_control_included, case_included, warranty_period):
 
     
     try:
         context = {
+            'version': version,
             'description': description,
             'function_grade' : function_grade,
             'grade_details' : grade_details,
@@ -114,6 +115,11 @@ def export_to_garage_sale_xml(creation_date):
     records = get_item_records_by_creation(creation_date)
     
     for r in records:
+        
+        #if r.creation > date(2017, 06, 15):
+        version = 1
+        #else: 
+        #    version = 0
         title = ""
         
         #if r.brand: title = r.brand + " "
@@ -137,9 +143,10 @@ def export_to_garage_sale_xml(creation_date):
         
         
         body = "<![CDATA[<br></br>"
-        body += jtemplate(r.description, r.function_grade, r.grade_details, r.condition, r.tech_details, r.delivery_type, r.accessories_extras, r.power_cable_included, r.power_supply_included, r.remote_control_included, r.case_included, r.warranty_period)
+        body += jtemplate(version, r.description, r.function_grade, r.grade_details, r.condition, r.tech_details, r.delivery_type, r.accessories_extras, r.power_cable_included, r.power_supply_included, r.remote_control_included, r.case_included, r.warranty_period)
         
         body += "<br><br>The price includes VAT and we can provide VAT invoices."
+        body += "<br><br>Universities and colleges - purchase orders accepted - please contact us."
         body += "<br><br>sku: " + r.item_code
         body += "]]"
         
@@ -168,34 +175,31 @@ def export_to_garage_sale_xml(creation_date):
         ET.SubElement(doc, "description").text = body
         ET.SubElement(doc, "design").text = design
         
+        #EXAMPLE <domesticShippingService serviceAdditionalFee="2.00" serviceFee="12.00">UPS Ground</domesticShippingService>
+        dom_ship_free = ET.fromstring("""<domesticShippingService serviceAdditionalFee="0.00" serviceFee="0.00">Other Courier 3-5 days</domesticShippingService>""")
+        dom_ship_pallet = ET.fromstring("""<domesticShippingService serviceAdditionalFee="0.00" serviceFee="60.00">Freight</domesticShippingService>""")
+        dom_ship_collection = ET.fromstring("""<domesticShippingService serviceAdditionalFee="0.00" serviceFee="0.00">Collection in Person</domesticShippingService>""")
+        dom_ship_24hour = ET.fromstring("""<domesticShippingService serviceAdditionalFee="0.00" serviceFee="24.00">Other 24 Hour Courier</domesticShippingService>""")
+        
         # Make sure there is a domestic default
-        dom_ship = ET.SubElement(doc, "domesticShippingService").text = "Collection in Person"
-        dom_ship.set("serviceAdditionalFee", "0")
-        dom_ship.set("serviceFee", "0")
+        ET.SubElement(doc, dom_ship_collection)
         
         if r.delivery_type == 'No GSP':
-            dom_ship = ET.SubElement(doc, "domesticShippingService").text = "Other Courier 3-5 days"
-            dom_ship.set("serviceAdditionalFee", "0")
-            dom_ship.set("serviceFee", "0")
-            dom_ship = ET.SubElement(doc, "domesticShippingService").text = "Other 24 Hour Courier"
-            dom_ship.set("serviceAdditionalFee", "12.95")
-            dom_ship.set("serviceFee", "0")
-            # For international there is no way to turn off Global using XML !!! Must report on this and do it manually via GarageSale UI
+            ET.SubElement(doc, dom_ship_free)
+            ET.SubElement(doc, dom_ship_24hour)
+            # ALSO NEED TO DISABLE GSP MANUALLY !!!!!!
+            
         
         if r.delivery_type == 'Pallet':
-            dom_ship = ET.SubElement(doc, "domesticShippingService").text = "Freight"
-            dom_ship.set("serviceAdditionalFee", "60")
-            dom_ship.set("serviceFee", "0")
+            ET.SubElement(doc, dom_ship_pallet)
+            
         
         #if r.delivery_type == 'Collection Only':  No need for this as default is set
         
         if r.delivery_type == 'Standard Parcel':
-            dom_ship = ET.SubElement(doc, "domesticShippingService").text = "Other Courier 3-5 days"
-            dom_ship.set("serviceAdditionalFee", "0")
-            dom_ship.set("serviceFee", "0")
-            dom_ship = ET.SubElement(doc, "domesticShippingService").text = "Other 24 Hour Courier"
-            dom_ship.set("serviceAdditionalFee", "12.95")
-            dom_ship.set("serviceFee", "0")
+            ET.SubElement(doc, dom_ship_free)
+            ET.SubElement(doc, dom_ship_24hour)
+
         
         #int_ship = ET.SubElement(doc, "internationalShippingService").text = ""
         #int_ship.set("serviceAdditionalFee", "0")
@@ -324,7 +328,8 @@ def get_item_records_by_item(item_code):
 def get_item_records_by_creation(creation_date):
     
     entries = frappe.db.sql("""select
-        it.item_code, it.name, it.item_name, it.item_group
+        it.creation
+        , it.item_code, it.name, it.item_name, it.item_group
         , it.brand, it.description, it.tech_details
         , it.image, it.website_image, it.slideshow
         , it.accessories_extras, it.power_cable_included, it.power_supply_included, it.remote_control_included, it.case_included

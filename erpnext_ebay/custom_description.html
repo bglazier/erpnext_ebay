@@ -1,4 +1,4 @@
-{% macro get_description_body(description, function_grade, grade_details, condition, tech_details, delivery_type, accessories_extras, power_cable_included, power_supply_included, remote_control_included, case_included, warranty_period) -%}
+{% macro get_description_body(version, description, function_grade, grade_details, condition, tech_details, delivery_type, accessories_extras, power_cable_included, power_supply_included, remote_control_included, case_included, warranty_period) -%}
     
 	<style type="text/css">
 		table {
@@ -28,7 +28,7 @@
 	{{web_long_description or description or _("No description given") }}
 		
 	<br>
-	{{tech_details}}
+	{% if tech_details %} {{tech_details}} {% endif%}
 	
 	
 	
@@ -41,11 +41,11 @@
 	</br>
 	
 	
-	{% if power_cable_included %} <li>Power cable included</li> {% endif%}
-	{% if power_supply_included %}  <li>Power supply/transformer included</li> {% endif%}
-	{% if remote_control_included %}  <li>Remote Control included</li> {% endif%}
-	{% if case_included %}  <li>Case included</li> {% endif%}
-	{% if accessories_extras %}  <li>  {{accessories_extras}} </li> {% endif%}
+	{% if power_cable_included %} <li>Power cable included</li> {% endif %}
+	{% if power_supply_included %}  <li>Power supply/transformer included</li> {% endif %}
+	{% if remote_control_included %}  <li>Remote Control included</li> {% endif %}
+	{% if case_included %}  <li>Case included</li> {% endif %}
+	{% if accessories_extras %}  <li>  {{accessories_extras}} </li> {% endif %}
 	<br>
 	<p>NOTE: No cables, remotes, accessories, power supplies, consumables or any other item is included unless shown in the item photo or is in the item description.</p>
 	
@@ -53,17 +53,82 @@
 		
 	
 
+	<br>
+	<br>
 
-
-
-	<br>
-	<br>
-	<b>Grade</b>
-	<br>
-	<br>
-	<br>
+	{% if grade_details or condition != '0' or function_grade != '0' %}
+		<b>Grade</b>
+		<br>
+		<br>
+	{% endif %}
 	
-    <table id="grades">
+	{% if grade_details %} 
+		{{grade_details}} 
+	{% endif %}
+	
+	<br>
+	<br>
+	{% if condition != '0' and function_grade != '0' %} 
+		{{show_table(version, condition, function_grade)}} 
+	{% endif %}
+
+	<br>
+	<br>
+	<b>Shipping</b>
+	<br>
+	<br>
+		
+	{% if delivery_type == 'Standard Parcel' %}
+		
+		The price includes free economy delivery (3-5 working days) to Mainland UK Postcodes - but EXCLUDING the following postcodes:
+		<br>
+
+		AB31-38, AB40-52, AB54-56, AB63 IV1-28, IV30-32, IV36-56, IV63 KA27-28 KW1-17 PA20-38, PA41-49, PA60-78 PH4-44, PH49-50 PO30-41 TR21-25 BT, GS, GY, HY, IM, JE, TDCU, ZE
+		
+		<br>
+		If you live in one of the above postcodes please enquire for a shipping quote.
+		Your item will be carefully packed and dispatched within 24 hours (Mon.-Fri.) of receiving payment.
+		
+		<br>
+		International buyers please contact us for an overseas shipping quote.
+		
+	{% endif %}
+	
+	{% if delivery_type == 'Collection Only' %}
+		For collection only.
+	{% endif %}
+	
+	{% if delivery_type == 'Pallet' %}
+		Free shipping is not available on this product. This item is only suitable for Pallet delivery.
+		<br>
+		International buyers please contact us for an overseas shipping quote.
+	{% endif %}
+	
+	
+	<br>
+	<br>
+	<b>Return Policy</b>
+	<br>
+	<br>
+	{% if warranty_period == 45 or warranty_period == None or warranty_period == 'None' %}
+		Buy with confidence. If you wish to return the item, for whatever reason, you may do so within 45 days.
+	{% else %}
+		Buy with confidence. If you wish to return the item, for whatever reason, you may do so within 45 days.
+		<br>
+		This item also includes our {{warranty_period}} Day Limited Warranty (please see our terms and conditions for details).
+	{% endif %}
+		
+
+{%- endmacro %}
+
+
+
+
+
+
+{%macro show_table(version, condition, function_grade) -%}
+    
+	<table id="grades">
 	
 	
 	{% if function_grade == '0' %}
@@ -72,20 +137,38 @@
     	<tr><th>Grade  </th><th>Condition</th><th>Function</th></tr>
 	{% endif %}
 
+	{% if version == '0' %}
+
+    	{% set c0 = "Not Applicable" %}
+    	{% set c1 = 'New. Boxed in original packaging' %}
+    	{% set c2 = 'New or as new. ' %}
+    	{% set c3 = 'Minor cosmetic damage otherwise excellent condition' %}
+    	{% set c4 = 'Good condition. Some signs of use. Pissible limited damage. e.g dents or blemishes' %}
+    	{% set c5 = 'Heavily use. Scratches, often heavy or blemishes.' %}
 	
-    {% set c0 = "Not Applicable" %}
-    {% set c1 = 'New or as new' %}
-    {% set c2 = 'Used, in excellent condition' %}
-    {% set c3 = 'Used, in good condition but with some minor marks / wear' %}
-    {% set c4 = 'Used, in reasonable condition but with marks of use and/or wear throughout' %}
-    {% set c5 = 'Heavily used, with clear signs of use throughout. Possible damage to the item' %}
+    	{% set f0 = "Not Applicable" %}
+    	{% set f1 = 'Tested. Working. Reconditioned' %}
+    	{% set f2 = 'Tested. Working' %}
+    	{% set f3 = 'Powers up but has not been tested further' %}
+    	{% set f4 = 'Untested' %}
+    	{% set f5 = 'Not working - for spares or repair' %}
+
+	{% else %}
 	
-    {% set f0 = "Not Applicable" %}
-    {% set f1 = 'Item is working and has been fully refurbished' %}
-    {% set f2 = 'Item has been tested and is working' %}
-    {% set f3 = 'Item powers up but has not been tested further' %}
-    {% set f4 = 'Item has not been tested' %}
-    {% set f5 = 'Item does not appear to be working properly. It is sold for spares or repair only' %}
+    	{% set c0 = "Not Applicable" %}
+    	{% set c1 = 'New or as new' %}
+    	{% set c2 = 'Used, in excellent condition' %}
+    	{% set c3 = 'Used, in good condition but with some minor marks / wear' %}
+    	{% set c4 = 'Used, in reasonable condition but with marks of use and/or wear throughout' %}
+    	{% set c5 = 'Heavily used, with clear signs of use throughout. Possible damage to the item' %}
+	
+    	{% set f0 = "Not Applicable" %}
+    	{% set f1 = 'Item is working and has been fully refurbished' %}
+    	{% set f2 = 'Item has been tested and is working' %}
+    	{% set f3 = 'Item powers up but has not been tested further' %}
+    	{% set f4 = 'Item has not been tested' %}
+    	{% set f5 = 'Item does not appear to be working properly. It is sold for spares or repair only' %}
+	{% endif %}
 
 
 
@@ -167,59 +250,5 @@
 
     </table>
 		
-		
-	<br>
-	<br>
-	
-	{{grade_details}}
-	
-		
-		
-	
-	<br>
-	<br>
-	<b>Shipping</b>
-	<br>
-	<br>
-		
-	{% if delivery_type == 'Standard Parcel' %}
-		
-		The price includes free economy delivery (3-5 working days) to Mainland UK Postcodes - but EXCLUDING the following postcodes:
-		<br>
 
-		AB31-38, AB40-52, AB54-56, AB63 IV1-28, IV30-32, IV36-56, IV63 KA27-28 KW1-17 PA20-38, PA41-49, PA60-78 PH4-44, PH49-50 PO30-41 TR21-25 BT, GS, GY, HY, IM, JE, TDCU, ZE
-		
-		<br>
-		If you live in one of the above postcodes please enquire for a shipping quote.
-		Your item will be carefully packed and dispatched within 24 hours (Mon.-Fri.) of receiving payment.
-		
-		<br>
-		International buyers please contact us for an overseas shipping quote.
-		
-	{% endif %}
-	
-	{% if delivery_type == 'Collection Only' %}
-		For collection only.
-	{% endif %}
-	
-	{% if delivery_type == 'Pallet' %}
-		Free shipping not available on this product. This item is only suitable for Pallet delivery. Please enquire for shipping quote.
-	{% endif %}
-	
-	
-	<br>
-	<br>
-	<b>Return Policy</b>
-	<br>
-	<br>
-	{% if warranty_period == 45 or warranty_period == None %}
-		Buy with confidence. If you wish to return the item, for whatever reason, you may do so within 45 days.
-	{% else %}
-		Buy with confidence. If you wish to return the item, for whatever reason, you may do so within 45 days.
-		<br>
-		This item also includes our {{warranty_period}} Day Limited Warranty (please see our terms and conditions for details).
-	{% endif %}
-		
-		
-	
 {%- endmacro %}
