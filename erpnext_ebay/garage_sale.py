@@ -182,23 +182,23 @@ def export_to_garage_sale_xml(creation_date):
         dom_ship_24hour = ET.fromstring("""<domesticShippingService serviceAdditionalFee="0.00" serviceFee="24.00">Other 24 Hour Courier</domesticShippingService>""")
         
         # Make sure there is a domestic default
-        ET.SubElement(doc, dom_ship_collection)
+        doc.append(dom_ship_collection)
         
         if r.delivery_type == 'No GSP':
-            ET.SubElement(doc, dom_ship_free)
-            ET.SubElement(doc, dom_ship_24hour)
+            doc.append(dom_ship_free)
+            doc.append(dom_ship_24hour)
             # ALSO NEED TO DISABLE GSP MANUALLY !!!!!!
             
         
         if r.delivery_type == 'Pallet':
-            ET.SubElement(doc, dom_ship_pallet)
+            doc.append(dom_ship_pallet)
             
         
         #if r.delivery_type == 'Collection Only':  No need for this as default is set
         
         if r.delivery_type == 'Standard Parcel':
-            ET.SubElement(doc, dom_ship_free)
-            ET.SubElement(doc, dom_ship_24hour)
+            doc.append(dom_ship_free)
+            doc.append(dom_ship_24hour)
 
         
         #int_ship = ET.SubElement(doc, "internationalShippingService").text = ""
