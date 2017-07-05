@@ -13,10 +13,14 @@ import requests
 
 from jinja2 import Environment, PackageLoader
 import jinja2
+import subprocess
 
+from ugscommon import *
 
 IS_TESTING = False
 NO_IMAGES = True
+USE_SERVER_IMAGES = False
+AUTO_UPDATE_ITEM_STATUS = True
 
 
 #Save to public directory so one can download
@@ -45,7 +49,8 @@ def render(tpl_path, context):
     
 
 
-def jtemplate(version, description, function_grade, grade_details, condition, tech_details, delivery_type, accessories_extras, power_cable_included, power_supply_included, remote_control_included, case_included, warranty_period):
+def jtemplate(version, description, function_grade, grade_details, condition, tech_details, delivery_type, accessories_extras, \
+power_cable_included, power_supply_included, remote_control_included, case_included, warranty_period):
 
     
     try:
@@ -74,17 +79,19 @@ def jtemplate(version, description, function_grade, grade_details, condition, te
 
     
     return (result)
-    
 
     
-
+@frappe.whitelist()
+def change_pending_to_listed():
+        
+    update_item_status_all("Pending eBay", "Listed eBay" ):
 
 
 @frappe.whitelist()
 def run_cron_create_xml(garagesale_export_date):
     
     #added to apps/frappe/frappe/hooks.py:  @TODO CRON DOES NOT WORK
-    frappe.msgprint("Exporting all listings created on/after: " + garagesale_export_date)
+    frappe.msgprint("Exporting all listings in Pending status")
     
     if garagesale_export_date =="":
         today = date.today()
@@ -96,6 +103,18 @@ def run_cron_create_xml(garagesale_export_date):
     
     
     return
+
+def write_to_undo_file(txt):
+    
+    with open("/home/frappe/undo_status_change.sql", "a") as myfile:
+        myfile.write(txt)
+
+
+
+def resize_images(item_code):
+
+
+    subprocess.call(['mogrify', '-resize', '1024x768', item_code + '*.jpg'])
 
 
 
@@ -109,17 +128,22 @@ def export_to_garage_sale_xml(creation_date):
     duration = 1000  # GTC = 1000
     handling_time = 1
     
+    write_to_undo_file("New file created on:" + today() + "\n")
     
     root = ET.Element("items")
     
-    records = get_item_records_by_creation(creation_date)
+    records = get_item_records_by_item_status()
+    
+    #records = get_item_records_by_creation(creation_date)
     
     for r in records:
         
-        #if r.creation > date(2017, 06, 15):
-        version = 1
-        #else: 
-        #    version = 0
+        # There was a change is function_grade and condition defaults - need to allow for this by checking the changeover date
+        if r.creation > datetime(2017, 06, 15):
+            version = 1
+        else: 
+            version = 0
+            
         title = ""
         
         #if r.brand: title = r.brand + " "
@@ -132,8 +156,9 @@ def export_to_garage_sale_xml(creation_date):
         category = lookup_category(r.item_group)
         
         price = r.price
-        quantity = r.actual_qty
+        quantity = r.actual_qty + get_unsubmitted_prec_qty(item_code)
         
+        resize_images(item_code)
         #image = r.image
         ws_image = r.website_image
         ss_images_list = get_slideshow_records(r.slideshow)
@@ -143,7 +168,8 @@ def export_to_garage_sale_xml(creation_date):
         
         
         body = "<![CDATA[<br></br>"
-        body += jtemplate(version, r.description, r.function_grade, r.grade_details, r.condition, r.tech_details, r.delivery_type, r.accessories_extras, r.power_cable_included, r.power_supply_included, r.remote_control_included, r.case_included, r.warranty_period)
+        body += jtemplate(version, r.description, r.function_grade, r.grade_details, r.condition, r.tech_details, r.delivery_type, r.accessories_extras, \
+        r.power_cable_included, r.power_supply_included, r.remote_control_included, r.case_included, r.warranty_period)
         
         body += "<br><br>The price includes VAT and we can provide VAT invoices."
         body += "<br><br>Universities and colleges - purchase orders accepted - please contact us."
@@ -177,7 +203,7 @@ def export_to_garage_sale_xml(creation_date):
         
         #EXAMPLE <domesticShippingService serviceAdditionalFee="2.00" serviceFee="12.00">UPS Ground</domesticShippingService>
         dom_ship_free = ET.fromstring("""<domesticShippingService serviceAdditionalFee="0.00" serviceFee="0.00">Other Courier 3-5 days</domesticShippingService>""")
-        dom_ship_pallet = ET.fromstring("""<domesticShippingService serviceAdditionalFee="0.00" serviceFee="60.00">Freight</domesticShippingService>""")
+        dom_ship_pallet = ET.fromstring("""<domesticShippingService serviceAdditionalFee="0.00" serviceFee="60.00">Other Courier 3-5 days</domesticShippingService>""")
         dom_ship_collection = ET.fromstring("""<domesticShippingService serviceAdditionalFee="0.00" serviceFee="0.00">Collection in Person</domesticShippingService>""")
         dom_ship_24hour = ET.fromstring("""<domesticShippingService serviceAdditionalFee="0.00" serviceFee="24.00">Other 24 Hour Courier</domesticShippingService>""")
         
@@ -210,20 +236,20 @@ def export_to_garage_sale_xml(creation_date):
         ET.SubElement(doc, "duration").text = str(duration)
         ET.SubElement(doc, "handlingTime").text = str(handling_time)
 
-        
-        #for ssi in ss_images_list:
-            #if exists(images_url + ssi.image):
-            #if ssi.image:
-                #if URL_IMAGES:
-                    #ET.SubElement(doc, "imageURL").text = images_url + ssi.image
+        if USE_SERVER_IMAGES:
+            for ssi in ss_images_list:
+                if exists(images_url + ssi.image):
+                if ssi.image:
+                    if URL_IMAGES:
+                        ET.SubElement(doc, "imageURL").text = images_url + ssi.image
             
-            #else:
-            #    throw('Problem with image' + ssi.image)
+                        else:
+                            throw('Problem with image' + ssi.image)
         
-        # IF there is no slideshow then try the ws_image
-        #if(!ssi):
-        #    if (r.website_image != 'NULL'):
-        #        ET.SubElement(doc, "imageURL").text = images_url + ws_image
+                        # IF there is no slideshow then try the ws_image
+                        if(!ssi):
+                            if (r.website_image != 'NULL'):
+                                ET.SubElement(doc, "imageURL").text = images_url + ws_image
 
 
         
@@ -264,11 +290,35 @@ def export_to_garage_sale_xml(creation_date):
         today = date.today()
         tree.write(garage_xml_path + creation_date + "_garageimportfile.xml")
         
-
+        if AUTO_UPDATE_ITEM_STATUS:
+            update_item_status('Listed eBay', item_code)
+            write_to_undo_file("""update `tabItem` set it.item_status ='Pending eBay' where it.item_code = '""" + item_code + """';""")
     
     return
 
-
+def update_item_status(new_status, item_code):
+    
+    sql = """
+        update `tabItem` it set it.item_status = '%s'
+        where it.item_code = '%s'
+    """ %(new_status, item_code)
+    
+    
+    frappe.db.sql(sql)
+    
+    return
+    
+def update_item_status_all(new_status, old_status ):
+    
+    sql = """
+        update `tabItem` it set it.item_status = '%s'
+        where it.item_status = '%s'
+    """ %(new_status, old_status)
+    
+    
+    frappe.db.sql(sql)
+    
+    return
 
 
 def lookup_condition(con_db, func_db):
@@ -276,7 +326,7 @@ def lookup_condition(con_db, func_db):
     
     condition = "Used"
     
-    if con_db == "1":
+    if con_db == "0":
         condition = "Used"
     if con_db == "1":
         condition = "New"
@@ -314,18 +364,41 @@ def rid_html(txt):
     
 
 
-def get_item_records_by_item(item_code):
-    
-    entries = frappe.db.sql("""select
+
+def get_item_records_by_item_status():
         
-        where it.name = '""" + item_code + """'
+    entries = frappe.db.sql("""select
+        it.creation
+        , it.item_code, it.name, it.item_name, it.item_group
+        , it.brand, it.description, it.tech_details
+        , it.image, it.website_image, it.slideshow
+        , it.accessories_extras, it.power_cable_included, it.power_supply_included, it.remote_control_included, it.case_included
+        , it.condition, it.function_grade, it.grade_details
+        , it.warranty_period
+        , it.net_weight, it.length, it.width, it.height
+        , it.standard_rate as price
+        , it.delivery_type
+        , bin.actual_qty
+        
+        from `tabItem` it
+        
+        left join `tabBin` bin
+        on  bin.item_code = it.name
+        
+        left join `tabItem Price` ip
+        on ip.item_code = it.name
+        
+        where it.item_status = 'Pending eBay'
         """ , as_dict=1)
-    
+
     
     return entries
-    
+
 
 def get_item_records_by_creation(creation_date):
+    
+    
+    #TODO actual_qty is not taking into account unsubmitted PREC's
     
     entries = frappe.db.sql("""select
         it.creation
@@ -353,7 +426,6 @@ def get_item_records_by_creation(creation_date):
 
     
     return entries
-
 
 
 

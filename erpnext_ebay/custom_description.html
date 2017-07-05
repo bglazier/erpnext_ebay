@@ -1,4 +1,5 @@
 {% macro get_description_body(version, description, function_grade, grade_details, condition, tech_details, delivery_type, accessories_extras, power_cable_included, power_supply_included, remote_control_included, case_included, warranty_period) -%}
+
     
 	<style type="text/css">
 		table {
@@ -28,7 +29,7 @@
 	{{web_long_description or description or _("No description given") }}
 		
 	<br>
-	{% if tech_details %} {{tech_details}} {% endif%}
+	{% if tech_details is not none %} {{tech_details}} {% endif%}
 	
 	
 	
@@ -55,14 +56,13 @@
 
 	<br>
 	<br>
-
-	{% if grade_details or condition != '0' or function_grade != '0' %}
+	{% if grade_details is not none or grade_details !='' or condition != '0' or function_grade != '0' %}
 		<b>Grade</b>
 		<br>
 		<br>
 	{% endif %}
 	
-	{% if grade_details %} 
+	{% if grade_details is not none %} 
 		{{grade_details}} 
 	{% endif %}
 	
@@ -72,11 +72,11 @@
 		{{show_table(version, condition, function_grade)}} 
 	{% endif %}
 
-	<br>
-	<br>
+	<br><br>
+
 	<b>Shipping</b>
-	<br>
-	<br>
+		<br><br>
+
 		
 	{% if delivery_type == 'Standard Parcel' %}
 		
@@ -84,26 +84,34 @@
 		<br>
 
 		AB31-38, AB40-52, AB54-56, AB63 IV1-28, IV30-32, IV36-56, IV63 KA27-28 KW1-17 PA20-38, PA41-49, PA60-78 PH4-44, PH49-50 PO30-41 TR21-25 BT, GS, GY, HY, IM, JE, TDCU, ZE
-		
-		<br>
+		<br><br>
+
 		If you live in one of the above postcodes please enquire for a shipping quote.
+		<br><br>
+
 		Your item will be carefully packed and dispatched within 24 hours (Mon.-Fri.) of receiving payment.
-		
-		<br>
-		International buyers please contact us for an overseas shipping quote.
+		<br><br>
+
+		International buyers please feel free to order through eBay's Global Shipping Programme or contact us for an overseas shipping quote.
 		
 	{% endif %}
 	
 	{% if delivery_type == 'Collection Only' %}
 		For collection only.
+		<br><br>
+		International buyers please contact us for an overseas shipping quote.
+		
 	{% endif %}
 	
 	{% if delivery_type == 'Pallet' %}
 		Free shipping is not available on this product. This item is only suitable for Pallet delivery.
-		<br>
+		<br><br>
 		International buyers please contact us for an overseas shipping quote.
 	{% endif %}
 	
+	{% if delivery_type == 'No GSP' %}
+		International buyers please contact us for an overseas shipping quote.
+	{% endif %}
 	
 	<br>
 	<br>
@@ -114,8 +122,8 @@
 		Buy with confidence. If you wish to return the item, for whatever reason, you may do so within 45 days.
 	{% else %}
 		Buy with confidence. If you wish to return the item, for whatever reason, you may do so within 45 days.
-		<br>
-		This item also includes our {{warranty_period}} Day Limited Warranty (please see our terms and conditions for details).
+		<br><br>
+		This item also includes our {{warranty_period}} Day Limited Warranty (please contact us for our terms and conditions).
 	{% endif %}
 		
 
