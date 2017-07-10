@@ -31,15 +31,11 @@
 	<br>
 	{% if tech_details is not none %} {{tech_details}} {% endif%}
 	
-	
-	
-	<br>
-	<br>
+	<br><br>
+
 	<b>Accessories</b>
 		
 	<br>
-	
-	</br>
 	
 	
 	{% if power_cable_included %} <li>Power cable included</li> {% endif %}
@@ -52,10 +48,8 @@
 	
 		
 		
-	
+	<br><br>
 
-	<br>
-	<br>
 	{% if grade_details is not none or grade_details !='' or condition != '0' or function_grade != '0' %}
 		<b>Grade</b>
 		<br>
@@ -66,16 +60,17 @@
 		{{grade_details}} 
 	{% endif %}
 	
-	<br>
-	<br>
-	{% if condition != '0' and function_grade != '0' %} 
+	<br><br>
+
+	{% if condition != '0' or function_grade != '0' %} 
 		{{show_table(version, condition, function_grade)}} 
 	{% endif %}
 
 	<br><br>
 
 	<b>Shipping</b>
-		<br><br>
+	
+	<br><br>
 
 		
 	{% if delivery_type == 'Standard Parcel' %}

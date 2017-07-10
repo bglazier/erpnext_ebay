@@ -83,8 +83,8 @@ power_cable_included, power_supply_included, remote_control_included, case_inclu
     
 @frappe.whitelist()
 def change_pending_to_listed():
-        
-    update_item_status_all("Pending eBay", "Listed eBay" ):
+
+    update_item_status_all("Pending eBay", "Listed eBay")
 
 
 @frappe.whitelist()
@@ -128,7 +128,7 @@ def export_to_garage_sale_xml(creation_date):
     duration = 1000  # GTC = 1000
     handling_time = 1
     
-    write_to_undo_file("New file created on:" + today() + "\n")
+    write_to_undo_file("New file created on:" + str(date.today()) + "\n")
     
     root = ET.Element("items")
     
@@ -146,19 +146,20 @@ def export_to_garage_sale_xml(creation_date):
             
         title = ""
         
-        #if r.brand: title = r.brand + " "
-        #else: title = ""
-        
-        
         
         title += r.item_name
         item_code = r.name
         category = lookup_category(r.item_group)
         
         price = r.price
-        quantity = r.actual_qty + get_unsubmitted_prec_qty(item_code)
         
-        resize_images(item_code)
+        qty_unsubmit = get_unsubmitted_prec_qty(item_code)
+        if r.actual_qty:
+            quantity = r.actual_qty + qty_unsubmit
+        else:
+            quantity = qty_unsubmit 
+        
+        if not IS_TESTING: resize_images(item_code)
         #image = r.image
         ws_image = r.website_image
         ss_images_list = get_slideshow_records(r.slideshow)
@@ -239,15 +240,15 @@ def export_to_garage_sale_xml(creation_date):
         if USE_SERVER_IMAGES:
             for ssi in ss_images_list:
                 if exists(images_url + ssi.image):
-                if ssi.image:
-                    if URL_IMAGES:
-                        ET.SubElement(doc, "imageURL").text = images_url + ssi.image
+                    if ssi.image:
+                        if URL_IMAGES:
+                            ET.SubElement(doc, "imageURL").text = images_url + ssi.image
             
                         else:
                             throw('Problem with image' + ssi.image)
         
                         # IF there is no slideshow then try the ws_image
-                        if(!ssi):
+                        if(not ssi):
                             if (r.website_image != 'NULL'):
                                 ET.SubElement(doc, "imageURL").text = images_url + ws_image
 
@@ -287,8 +288,7 @@ def export_to_garage_sale_xml(creation_date):
             
         
         tree = ET.ElementTree(root)
-        today = date.today()
-        tree.write(garage_xml_path + creation_date + "_garageimportfile.xml")
+        tree.write(garage_xml_path + str(date.today()) + "_garageimportfile.xml")
         
         if AUTO_UPDATE_ITEM_STATUS:
             update_item_status('Listed eBay', item_code)
