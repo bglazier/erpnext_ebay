@@ -154,6 +154,8 @@ def export_to_garage_sale_xml(creation_date):
         price = r.price
         
         qty_unsubmit = get_unsubmitted_prec_qty(item_code)
+        if not qty_unsubmit: qty_unsubmit = 0
+        
         if r.actual_qty:
             quantity = r.actual_qty + qty_unsubmit
         else:
