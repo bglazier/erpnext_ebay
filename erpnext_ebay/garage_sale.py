@@ -17,10 +17,9 @@ import subprocess
 
 from ugscommon import *
 
-IS_TESTING = False
+IS_TESTING = True
 NO_IMAGES = True
 USE_SERVER_IMAGES = False
-AUTO_UPDATE_ITEM_STATUS = True
 
 
 #Save to public directory so one can download
@@ -133,9 +132,7 @@ def export_to_garage_sale_xml(creation_date):
     root = ET.Element("items")
     
     records = get_item_records_by_item_status()
-    
-    #records = get_item_records_by_creation(creation_date)
-    
+        
     for r in records:
         
         # There was a change is function_grade and condition defaults - need to allow for this by checking the changeover date
@@ -292,33 +289,32 @@ def export_to_garage_sale_xml(creation_date):
         tree = ET.ElementTree(root)
         tree.write(garage_xml_path + str(date.today()) + "_garageimportfile.xml")
         
-        if AUTO_UPDATE_ITEM_STATUS:
+        if r.item_status== 'Pending eBay': 
             update_item_status('Listed eBay', item_code)
-            write_to_undo_file("""update `tabItem` set it.item_status ='Pending eBay' where it.item_code = '""" + item_code + """';""")
+        if r.item_status== 'Pending eBay But Do Not Ship': 
+            update_item_status('Listed eBay But Do Not Ship', item_code)
+
+        write_to_undo_file("""update `tabItem` it set it.item_status ='""" + r.item_status + """' where it.item_code = '""" + item_code + """';""")
     
     return
 
 def update_item_status(new_status, item_code):
     
-    sql = """
-        update `tabItem` it set it.item_status = '%s'
-        where it.item_code = '%s'
-    """ %(new_status, item_code)
+        
+    ok = frappe.db.sql("""update `tabItem` it set it.item_status = %s where it.item_code = %s """, (new_status, item_code))
     
-    
-    frappe.db.sql(sql)
+    if not ok: print("Problem with query!!!!!!!!!!!!!!!!!!!!!!!")
     
     return
     
 def update_item_status_all(new_status, old_status ):
     
     sql = """
-        update `tabItem` it set it.item_status = '%s'
-        where it.item_status = '%s'
+        update `tabItem` it set it.item_status = %s where it.item_status = %s
     """ %(new_status, old_status)
     
     
-    frappe.db.sql(sql)
+    ok = frappe.db.sql(sql)
     
     return
 
@@ -381,6 +377,7 @@ def get_item_records_by_item_status():
         , it.standard_rate as price
         , it.delivery_type
         , bin.actual_qty
+        , it.item_status
         
         from `tabItem` it
         
