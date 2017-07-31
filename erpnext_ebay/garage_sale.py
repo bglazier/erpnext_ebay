@@ -92,13 +92,14 @@ def run_cron_create_xml(garagesale_export_date):
     #added to apps/frappe/frappe/hooks.py:  @TODO CRON DOES NOT WORK
     frappe.msgprint("Exporting all listings in Pending status")
     
+    '''''
     if garagesale_export_date =="":
         today = date.today()
         export_date = today.isoformat()
     else:
         export_date = garagesale_export_date
-    
-    export_to_garage_sale_xml(export_date)
+    '''
+    export_to_garage_sale_xml()
     
     
     return
@@ -118,7 +119,7 @@ def resize_images(item_code):
 
 
 
-def export_to_garage_sale_xml(creation_date):
+def export_to_garage_sale_xml():
     post_code = "NP4 0HZ"
     design = "Pro: Classic"
     layout = "thumb gallery"
