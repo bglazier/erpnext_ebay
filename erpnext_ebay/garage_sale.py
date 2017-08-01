@@ -87,7 +87,7 @@ def change_pending_to_listed():
 
 
 @frappe.whitelist()
-def run_cron_create_xml(garagesale_export_date):
+def run_cron_create_xml():
     
     #added to apps/frappe/frappe/hooks.py:  @TODO CRON DOES NOT WORK
     frappe.msgprint("Exporting all listings in Pending status")
