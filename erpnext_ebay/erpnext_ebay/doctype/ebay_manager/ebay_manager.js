@@ -12,7 +12,6 @@ frappe.ui.form.on('eBay Manager', {
 	//  method: functionname
 
 frappe.ui.form.on('eBay Manager', 'customer_sync', function(frm) {
-    //alert("Importing New Customers...");
 	
 	frappe.call({
 			method: "erpnext_ebay.sync_customers.sync",
@@ -36,10 +35,6 @@ frappe.ui.form.on('eBay Manager', 'create_garagesale', function(frm) {
 			args: {},
 			callback: function(r){}
 			});
-
-
-});
-
 
 
 });
