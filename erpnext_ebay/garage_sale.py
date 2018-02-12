@@ -14,10 +14,11 @@ import requests
 from jinja2 import Environment, PackageLoader
 import jinja2
 import subprocess
+import cgi
 
 from ugscommon import *
 
-IS_TESTING = False
+IS_TESTING = True
 NO_IMAGES = True
 USE_SERVER_IMAGES = False
 
@@ -35,51 +36,7 @@ images_url = 'http://www.universalresourcetrading.com'
 
 
 
-def render(tpl_path, context):
-    path, filename = os.path.split(tpl_path)
-    rendered = jinja2.Environment(
-        loader=jinja2.FileSystemLoader(path or './'), autoescape=False
-    ).get_template(filename).render(context)
-    
-    return rendered
-    
-    
-    
-    
 
-
-def jtemplate(version, description, function_grade, grade_details, condition, tech_details, delivery_type, accessories_extras, \
-power_cable_included, power_supply_included, remote_control_included, case_included, warranty_period):
-
-    
-    try:
-        context = {
-            'version': version,
-            'description': description,
-            'function_grade' : function_grade,
-            'grade_details' : grade_details,
-            'condition': condition,
-            'tech_details': tech_details,
-            'delivery_type': delivery_type,
-            'accessories_extras': accessories_extras,
-            'power_cable_included': power_cable_included,
-            'power_supply_included': power_supply_included,
-            'remote_control_included': remote_control_included,
-            'case_included': case_included,
-            'warranty_period': warranty_period
-        }
-        
-        result = render('/home/frappe/frappe-bench/apps/erpnext_ebay/erpnext_ebay/item_garage_sale.html', context)
-    
-    except:
-        raise
-        result = ""
-        
-
-    
-    return (result)
-
-    
 @frappe.whitelist()
 def change_pending_to_listed():
 
@@ -103,20 +60,9 @@ def run_cron_create_xml():
     
     
     return
-
-def write_to_undo_file(txt):
     
-    with open("/home/frappe/undo_status_change.sql", "a") as myfile:
-        myfile.write(txt)
-
-
-
-def resize_images(item_code):
-
-
-    subprocess.call(['mogrify', '-resize', '1024x768', item_code + '*.jpg'])
-
-
+    
+    
 
 
 def export_to_garage_sale_xml():
@@ -135,19 +81,13 @@ def export_to_garage_sale_xml():
     records = get_item_records_by_item_status()
         
     for r in records:
-        
-        # There was a change is function_grade and condition defaults - need to allow for this by checking the changeover date
-        if r.creation > datetime(2017, 06, 15):
-            version = 1
-        else: 
-            version = 0
             
         title = ""
         
         
         title += r.item_name
         item_code = r.name
-        category = lookup_category(r.item_group)
+        category = lookup_category(r.item_group, r.item_group_ebay)
         
         price = r.price
         
@@ -167,6 +107,7 @@ def export_to_garage_sale_xml():
         
         pounds, ounces = kg_to_imperial(r.net_weight)
         
+        version = 0
         
         body = "<![CDATA[<br></br>"
         body += jtemplate(version, r.description, r.function_grade, r.grade_details, r.condition, r.tech_details, r.delivery_type, r.accessories_extras, \
@@ -299,6 +240,62 @@ def export_to_garage_sale_xml():
     
     return
 
+
+    
+
+def render(tpl_path, context):
+    path, filename = os.path.split(tpl_path)
+    rendered = jinja2.Environment(
+        loader=jinja2.FileSystemLoader(path or './'), autoescape=False
+    ).get_template(filename).render(context)
+    
+    return rendered
+    
+    
+
+
+
+def jtemplate(version, description, function_grade, grade_details, condition, tech_details, delivery_type, accessories_extras, \
+power_cable_included, power_supply_included, remote_control_included, case_included, warranty_period):
+
+        
+    if accessories_extras:
+        ae = add_breaks(accessories_extras)
+    else: 
+        ae = ''
+    
+    try:
+        context = {
+            'version': version,
+            'description': description,
+            'function_grade' : function_grade,
+            'grade_details' : grade_details,
+            'condition': condition,
+            'tech_details': tech_details,
+            'delivery_type': delivery_type,
+            'accessories_extras': ae,
+            'power_cable_included': power_cable_included,
+            'power_supply_included': power_supply_included,
+            'remote_control_included': remote_control_included,
+            'case_included': case_included,
+            'warranty_period': warranty_period
+        }
+        
+        result = render('/home/frappe/frappe-bench/apps/erpnext_ebay/erpnext_ebay/item_garage_sale.html', context)
+    
+    except:
+        raise
+        result = ""
+        
+
+    
+    return (result)
+
+
+
+
+
+
 def update_item_status(new_status, item_code):
     
         
@@ -344,23 +341,21 @@ def lookup_condition(con_db, func_db):
     return condition
 
 
-def lookup_category(cat_db):
+def lookup_category(cat_db, ebay_cat_db):
     
     val = 0
     
     if cat_db:
         val = frappe.get_value("Item Group", str(cat_db), "ebay_category_code")
-
+    
+    if ebay_cat_db:
+        val = frappe.get_value("Item Group eBay", str(ebay_cat_db), "ebay_category_id")
+        
     
     return val
 
 
 
-def rid_html(txt):
-    
-    return txt
-    
-    
 
 
 
@@ -368,7 +363,7 @@ def get_item_records_by_item_status():
         
     entries = frappe.db.sql("""select
         it.creation
-        , it.item_code, it.name, it.item_name, it.item_group
+        , it.item_code, it.name, it.item_name, it.item_group, it.item_group_ebay
         , it.brand, it.description, it.tech_details
         , it.image, it.website_image, it.slideshow
         , it.accessories_extras, it.power_cable_included, it.power_supply_included, it.remote_control_included, it.case_included
@@ -395,37 +390,6 @@ def get_item_records_by_item_status():
     return entries
 
 
-def get_item_records_by_creation(creation_date):
-    
-    
-    #TODO actual_qty is not taking into account unsubmitted PREC's
-    
-    entries = frappe.db.sql("""select
-        it.creation
-        , it.item_code, it.name, it.item_name, it.item_group
-        , it.brand, it.description, it.tech_details
-        , it.image, it.website_image, it.slideshow
-        , it.accessories_extras, it.power_cable_included, it.power_supply_included, it.remote_control_included, it.case_included
-        , it.condition, it.function_grade, it.grade_details
-        , it.warranty_period
-        , it.net_weight, it.length, it.width, it.height
-        , it.standard_rate as price
-        , it.delivery_type
-        , bin.actual_qty
-        
-        from `tabItem` it
-        
-        left join `tabBin` bin
-        on  bin.item_code = it.name
-        
-        left join `tabItem Price` ip
-        on ip.item_code = it.name
-        
-        where it.creation >= '""" + creation_date + """'
-        """ , as_dict=1)
-
-    
-    return entries
 
 
 
@@ -505,3 +469,25 @@ def scp_files(local_files):
     client.transfer(local_path + local_file, remote_path + remote_file)
     
     return
+    
+def add_breaks(non_html):
+    
+    escaped = cgi.escape(non_html.rstrip()).replace("\n", "</li><li>")
+    non_html = "<li>%s</li>" % escaped
+    
+    return non_html
+        
+        
+def resize_images(item_code):
+
+
+    subprocess.call(['mogrify', '-resize', '1024x768', item_code + '*.jpg'])
+
+
+
+def write_to_undo_file(txt):
+    
+    with open("/home/frappe/undo_status_change.sql", "a") as myfile:
+        myfile.write(txt)
+
+
