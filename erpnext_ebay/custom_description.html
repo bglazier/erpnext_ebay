@@ -56,9 +56,11 @@
 
 	<br>
 	<br>
-	<b>Grade</b>
-	<br>
-	<br>
+	{% if grade_details is not none or grade_details !='' or condition != '0' or function_grade != '0' %}
+		<b>Grade</b>
+		<br>
+		<br>
+	{% endif %}
 	
 	{% if grade_details is not none %} 
 		{{grade_details}} 
@@ -66,7 +68,9 @@
 	
 	<br>
 	<br>
-	{{show_table(condition, function_grade)}} 
+	{% if condition != '0' and function_grade != '0' %} 
+		{{show_table(version, condition, function_grade)}} 
+	{% endif %}
 
 	<br><br>
 
@@ -130,38 +134,49 @@
 
 
 
-{%macro show_table(condition, function_grade) -%}
+{%macro show_table(version, condition, function_grade) -%}
     
 	<table id="grades">
-
-
-    <tr><th>Grade  </th><th>Condition</th><th>Function</th></tr>
 	
-    {% set c0 = "Not Applicable" %}
-    {% set c1 = 'New or as new' %}
-    {% set c2 = 'Used, in excellent condition' %}
-    {% set c3 = 'Used, in good condition but with some minor marks / wear' %}
-    {% set c4 = 'Used, in reasonable condition but with marks of use and/or wear throughout' %}
-    {% set c5 = 'Heavily used, with clear signs of use throughout. Possible damage to the item' %}
 	
-    {% set f0 = "Not Applicable" %}
-    {% set f1 = 'Item is working and has been fully refurbished' %}
-    {% set f2 = 'Item has been tested and is working' %}
-    {% set f3 = 'Item powers up but has not been tested further' %}
-    {% set f4 = 'Item has not been tested' %}
-    {% set f5 = 'Item does not appear to be working properly. It is sold for spares or repair only' %}
-
-
-    <tr>
-    <td>0</td>
-    {% if condition == '0' %} <td class="td_highlight"> {{c0}} </td>
-    {% else %}<td> {{c0}} </td>
+	{% if function_grade == '0' %}
+    	<tr><th>Grade  </th><th>Condition</th></tr>
+	{% else %}
+    	<tr><th>Grade  </th><th>Condition</th><th>Function</th></tr>
 	{% endif %}
+
+	{% if version == '0' %}
+
+    	{% set c0 = "Not Applicable" %}
+    	{% set c1 = 'New. Boxed in original packaging' %}
+    	{% set c2 = 'New or as new. ' %}
+    	{% set c3 = 'Minor cosmetic damage otherwise excellent condition' %}
+    	{% set c4 = 'Good condition. Some signs of use. Pissible limited damage. e.g dents or blemishes' %}
+    	{% set c5 = 'Heavily use. Scratches, often heavy or blemishes.' %}
 	
-    {% if function_grade == '0' %} <td class="td_highlight"> {{f0}} </td>
-    {% else %} <td> {{f0}} </td>
+    	{% set f0 = "Not Applicable" %}
+    	{% set f1 = 'Tested. Working. Reconditioned' %}
+    	{% set f2 = 'Tested. Working' %}
+    	{% set f3 = 'Powers up but has not been tested further' %}
+    	{% set f4 = 'Untested' %}
+    	{% set f5 = 'Not working - for spares or repair' %}
+
+	{% else %}
+	
+    	{% set c0 = "Not Applicable" %}
+    	{% set c1 = 'New or as new' %}
+    	{% set c2 = 'Used, in excellent condition' %}
+    	{% set c3 = 'Used, in good condition but with some minor marks / wear' %}
+    	{% set c4 = 'Used, in reasonable condition but with marks of use and/or wear throughout' %}
+    	{% set c5 = 'Heavily used, with clear signs of use throughout. Possible damage to the item' %}
+	
+    	{% set f0 = "Not Applicable" %}
+    	{% set f1 = 'Item is working and has been fully refurbished' %}
+    	{% set f2 = 'Item has been tested and is working' %}
+    	{% set f3 = 'Item powers up but has not been tested further' %}
+    	{% set f4 = 'Item has not been tested' %}
+    	{% set f5 = 'Item does not appear to be working properly. It is sold for spares or repair only' %}
 	{% endif %}
-    </tr>
 
 
 
@@ -171,9 +186,13 @@
     {% else %}<td> {{c1}} </td>
 	{% endif %}
 	
-    {% if function_grade == '1' %} <td class="td_highlight"> {{f1}} </td>
-    {% else %} <td> {{f1}} </td>
+	{% if function_grade != '0' %}
+    	{% if function_grade == '1' %} <td class="td_highlight"> {{f1}} </td>
+    	{% else %} <td> {{f1}} </td>
+		{% endif %}
 	{% endif %}
+	
+
     </tr>
 
     <tr>
@@ -182,9 +201,13 @@
     {% else %} <td> {{c2}} </td>
 	{% endif %}
 	
-    {% if function_grade == '2' %} <td class="td_highlight"> {{f2}} </td>
-    {% else %} <td> {{f2}} </td>
+	{% if function_grade != '0' %}
+    	{% if function_grade == '2' %} <td class="td_highlight"> {{f2}} </td>
+    	{% else %} <td> {{f2}} </td>
+		{% endif %}
 	{% endif %}
+	
+	
     </tr>
 
     <tr>
@@ -193,9 +216,13 @@
     {% else %} <td> {{c3}} </td>
 	{% endif %}
 	
-    {% if function_grade == '3' %} <td class="td_highlight"> {{f3}} </td>
-    {% else %} <td> {{f3}} </td>
+	{% if function_grade != '0' %}
+    	{% if function_grade == '3' %} <td class="td_highlight"> {{f3}} </td>
+    	{% else %} <td> {{f3}} </td>
+		{% endif %}
 	{% endif %}
+	
+	
     </tr>
 
     <tr>
@@ -204,9 +231,13 @@
     {% else %} <td> {{c4}} </td>
 	{% endif %}
 	
-    {% if function_grade == '4' %} <td class="td_highlight"> {{f4}} </td>
-    {% else %} <td> {{f4}} </td>
+	{% if function_grade != '0' %}
+    	{% if function_grade == '4' %} <td class="td_highlight"> {{f4}} </td>
+    	{% else %} <td> {{f4}} </td>
+		{% endif %}
 	{% endif %}
+	
+		
     </tr>
 
     <tr>
@@ -215,9 +246,14 @@
     {% else %} <td> {{c5}} </td>
 	{% endif %}
 	
-    {% if function_grade == '5' %} <td class="td_highlight"> {{f5}} </td>
-    {% else %} <td> {{f5}} </td>
+	{% if function_grade != '0' %}
+    	{% if function_grade == '5' %} <td class="td_highlight"> {{f5}} </td>
+    	{% else %} <td> {{f5}} </td>
+		{% endif %}
 	{% endif %}
+		
+		
+		
     </tr>
 
     </table>

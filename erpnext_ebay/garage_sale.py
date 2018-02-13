@@ -18,7 +18,7 @@ import cgi
 
 from ugscommon import *
 
-IS_TESTING = True
+IS_TESTING = False
 NO_IMAGES = True
 USE_SERVER_IMAGES = False
 
