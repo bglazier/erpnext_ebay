@@ -58,7 +58,7 @@ def show_list():
 				sku = item['SKU']
 			except:
 				sku = ''
-			price = item['BuyItNowPrice']
+			price = item['BuyItNowPrice']['value']
 			#description = item['Description']
 			#hit_count = item['HitCount']
 			site = item['Site']
