@@ -17,14 +17,19 @@ import frappe
 from frappe import msgprint,_
 from frappe.utils import cstr
 
-#from ebay_requests import get_orders
 from ebaysdk.exception import ConnectionError
 #from ebaysdk.finding import Connection as Finding
 from ebaysdk.trading import Connection as Trading
 
 import MySQLdb
 
-#import os
+
+# Utility function
+def better_print(*args, **kwargs):
+    with open ("/home/frappe/runoutput", "a") as f:
+        builtins.print (file=f, *args, **kwargs)
+
+print = better_print
 
 
 
@@ -37,10 +42,9 @@ def show_list():
 	page = 1
 	listings_dict = find_listings(page)
 	pages = int(listings_dict['PaginationResult']['TotalNumberOfPages'])
-	#totalEntries = int(listings_dict['PaginationResult']['TotalNumberOfEntries'])
-	#i = 0
 
-	frappe.msgprint(pages)
+	print('page',page)
+	print('pages',pages)
 
 	while pages >= page:
 
@@ -52,20 +56,19 @@ def show_list():
 			except:
 				sku = ''
 			price = item['BuyItNowPrice']
-			description = item['Description']
+			#description = item['Description']
 			#hit_count = item['HitCount']
 			site = item['Site']
-			title = item['Title']
-			#conv_title = title.encode('ascii', 'ignore').decode('ascii')  then  MySQLdb.escape_string(conv_title)
+			#title = item['Title']
+			#conv_title = title.encode('ascii', 'ignore').decode('ascii')
+			#new_title = MySQLdb.escape_string(conv_title)
+			print(ebay_id)
 			insert_ebay_listing(sku, ebay_id, qty, price)
-
-			#i += 1
 
 		page += 1
 		listings_dict = find_listings(page)
-
-	#print(totalEntries, i, duplicate_count)
-
+		print('page',page)
+		print('pages',pages)
 
 
 	
@@ -89,7 +92,6 @@ def find_listings(page):
 		
 		
 		# activelist = api.execute('GetMyeBaySelling', {'ActiveList': True,'DetailLevel': 'ReturnAll','PageNumber': page})
-
 
 		api_trading.execute('GetSellerList', api_request)
 		#products = products.dict()
