@@ -133,11 +133,13 @@ def get_myebay_selling_request(page):
 		#datetime.today().format('yyyy-mm-ddThh:mm:ss')
 		
 		api_request = {
-			"ActiveList":{"Include": True},
+		"ActiveList":{
+			"Include": True,
 			"Pagination": {
 				"EntriesPerPage": 100,
 				"PageNumber": page
-			},
+			}
+		},
 		'DetailLevel': 'ReturnAll'
 		}
 		
