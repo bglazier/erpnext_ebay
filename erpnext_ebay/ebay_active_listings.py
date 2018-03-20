@@ -36,17 +36,21 @@ def show_list():
 	
 	page = 1
 	listings_dict = find_listings(page)
-	pages = int(listings_dict['paginationOutput']['totalPages'])
-	totalEntries = int(listings_dict['paginationOutput']['totalEntries'])
+	pages = int(listings_dict['PaginationResult']['TotalNumberOfPages'])
+	totalEntries = int(listings_dict['PaginationResult']['TotalNumberOfEntries'])
 	i = 0
 
 	while pages >= page:
 
-		for item in listings_dict['itemArray']['item']:
-			ebay_id = item['itemId']
+		for item in listings_dict['ItemArray']['Item']:
+			ebay_id = item['ItemId']
 			qty = item['Quantity']
 			sku = item['SKU']
 			price = item['BuyItNowPrice']
+			description = item['Description']
+			hit_count = item['HitCount']
+			site = item['Site']
+			title = item['Title']
 			#conv_title = title.encode('ascii', 'ignore').decode('ascii')
 			#insert_ebay_table(ebay_id, qty, price, MySQLdb.escape_string(conv_title))
 
@@ -69,8 +73,8 @@ def find_listings(page):
 		api_trading = Trading(config_file='/home/frappe/ebay.yaml', warnings=True, timeout=20)
 		
 		api_request = {
-			'StartTimeFrom': "2018-08-30T00:00:00",
-			'StartTimeTo': "2020-11-01T00:00:00",
+			'EndTimeFrom': "2018-01-30T00:00:00",
+			'EndTimeTo': "2018-05-01T00:00:00",
 			"Pagination": {
 				"EntriesPerPage": 100,
 				"PageNumber": page
