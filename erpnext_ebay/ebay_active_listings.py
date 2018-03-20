@@ -45,7 +45,7 @@ def show_list():
 	page = 1
 	listings_dict = find_listings(page)
 	pages = int(listings_dict['PaginationResult']['TotalNumberOfPages'])
-	timestamp = int(listings_dict['Timestamp']
+	timestamp = int(listings_dict['Timestamp'])
 	
 	while pages >= page:
 
