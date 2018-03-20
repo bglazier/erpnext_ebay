@@ -146,7 +146,7 @@ def get_myebay_selling_request(page):
 		
 		# activelist = api.execute('GetMyeBaySelling', {'ActiveList': True,'DetailLevel': 'ReturnAll','PageNumber': page})
 
-		api_trading.execute('GetMyeBaySellingRequest', api_request)
+		api_trading.execute('GetMyeBaySelling', api_request)
 		products = api_trading.response.dict()
 	
 
