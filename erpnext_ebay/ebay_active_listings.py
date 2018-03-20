@@ -57,19 +57,21 @@ def show_list():
 			except:
 				sku = ''
 			price = item['BuyItNowPrice']['value']
-			print(item['BuyItNowPrice']['value'])
-			print(item['BuyItNowPrice'])
+			#THSI IS 0    	print(item['BuyItNowPrice']['value'])
+			#Example: {'_currencyID': 'USD', 'value': '0.0'}   print(item['BuyItNowPrice'])
 			curr_price = item['SellingStatus']['CurrentPrice']['value']
-			print(curr_price)
+			currency = item['SellingStatus']['CurrentPrice']['_currencyID']  # or ['Currency']
+			print(currency)
 			#converted_price = item['ListingDetails]['ConvertedBuyItNowPrice']['value']
 			#description = item['Description']
-			#hit_count = item['HitCount']
+			hit_count = 0 #item['HitCount']
+			watch_count = 0 #item['WatchCount']
+			question_count = 0 #item['TotalQuestionCount']
 			site = item['Site']
-			print(site)
 			#title = item['Title']
 			#conv_title = title.encode('ascii', 'ignore').decode('ascii')
 			#new_title = MySQLdb.escape_string(conv_title)
-			insert_ebay_listing(sku, ebay_id, qty, price)
+			insert_ebay_listing(sku, ebay_id, qty, curr_price, site, hit_count, watch_count, question_count)
 
 		page += 1
 		if pages >= page:
@@ -123,7 +125,11 @@ def create_ebay_listings_table():
 		`sku` varchar(20),
 		`ebay_id` varchar(38),
 		`qty` integer,
-		`price` decimal(18,6)
+		`price` decimal(18,6),
+		`site` varchar(6),
+		`hit_count` integer,
+		`watch_count` integer,
+		`question_count` integer
 		)
 	"""
 
@@ -134,12 +140,12 @@ def create_ebay_listings_table():
 	frappe.db.sql(sql2, auto_commit = True)
 	
 
-def insert_ebay_listing(sku, ebay_id, qty, price):
+def insert_ebay_listing(sku, ebay_id, qty, price, site, hits, watches, questions):
 	
 	sql = """
 	insert into `zEbayListings`
-	values('{sku}', {ebay_id}, {qty}, {price})
-	""".format(sku=sku, ebay_id=ebay_id, qty=qty, price=price)
+	values('{sku}', {ebay_id}, {qty}, {price}, {site}, {hit_count}, {watch_count}, {question_count})
+	""".format(sku=sku, ebay_id=ebay_id, qty=qty, price=price, site=site, hit_count=hits, watch_count=watches, question_count=questions)
 	
 	
 	frappe.db.sql(sql, auto_commit = True)
