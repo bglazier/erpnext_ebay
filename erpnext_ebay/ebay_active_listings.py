@@ -32,13 +32,15 @@ import MySQLdb
 @frappe.whitelist()
 def show_list():
 	
-	create_ebay_table()
+	create_ebay_listings_table()
 	
 	page = 1
 	listings_dict = find_listings(page)
 	pages = int(listings_dict['PaginationResult']['TotalNumberOfPages'])
-	totalEntries = int(listings_dict['PaginationResult']['TotalNumberOfEntries'])
-	i = 0
+	#totalEntries = int(listings_dict['PaginationResult']['TotalNumberOfEntries'])
+	#i = 0
+
+	frappe.msgprint(pages)
 
 	while pages >= page:
 
@@ -54,10 +56,10 @@ def show_list():
 			#hit_count = item['HitCount']
 			site = item['Site']
 			title = item['Title']
-			#conv_title = title.encode('ascii', 'ignore').decode('ascii')
-			#insert_ebay_table(ebay_id, qty, price, MySQLdb.escape_string(conv_title))
+			#conv_title = title.encode('ascii', 'ignore').decode('ascii')  then  MySQLdb.escape_string(conv_title)
+			insert_ebay_listing(sku, ebay_id, qty, price)
 
-			i += 1
+			#i += 1
 
 		page += 1
 		listings_dict = find_listings(page)
@@ -84,6 +86,10 @@ def find_listings(page):
 			},
 		'DetailLevel': 'ReturnAll'
 		}
+		
+		
+		# activelist = api.execute('GetMyeBaySelling', {'ActiveList': True,'DetailLevel': 'ReturnAll','PageNumber': page})
+
 
 		api_trading.execute('GetSellerList', api_request)
 		#products = products.dict()
@@ -101,7 +107,7 @@ def find_listings(page):
 
 
 
-def create_ebay_table():
+def create_ebay_listings_table():
 	
 	sql = """
 		create table if not exists `zEbayListings` (
@@ -119,7 +125,7 @@ def create_ebay_table():
 	frappe.db.sql(sql, auto_commit = True)
 	
 
-def insert_ebay_table(sku, ebay_id, qty, price):
+def insert_ebay_listing(sku, ebay_id, qty, price):
 	
 	sql = """
 	insert into `zEbayListings`
