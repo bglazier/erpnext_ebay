@@ -46,9 +46,6 @@ def show_list():
 	listings_dict = find_listings(page)
 	pages = int(listings_dict['PaginationResult']['TotalNumberOfPages'])
 
-	print('page',page)
-	print('pages',pages)
-
 	while pages >= page:
 
 		for item in listings_dict['ItemArray']['Item']:
@@ -69,9 +66,10 @@ def show_list():
 			insert_ebay_listing(sku, ebay_id, qty, price)
 
 		page += 1
-		listings_dict = find_listings(page)
-		print('page',page)
-		print('pages',pages)
+		if pages >= page:
+			listings_dict = find_listings(page)
+		else:
+			break
 
 
 	
