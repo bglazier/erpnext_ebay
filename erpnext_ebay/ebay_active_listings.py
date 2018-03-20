@@ -42,7 +42,7 @@ def show_list():
 	
 	page = 1
 	listings_dict = get_myebay_selling_request(page)
-	pages = int(listings_dict['PaginationResult']['TotalNumberOfPages'])
+	pages = int(listings_dict['ActiveList']['PaginationResult']['TotalNumberOfPages'])
 	#timestamp = listings_dict['Timestamp']
 	
 	while pages >= page:
