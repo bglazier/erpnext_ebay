@@ -16,6 +16,10 @@ import jinja2
 import subprocess
 import cgi
 
+from ebay_active_listings import show_list
+
+
+
 from ugscommon import *
 
 IS_TESTING = False
@@ -46,23 +50,30 @@ def change_pending_to_listed():
 @frappe.whitelist()
 def run_cron_create_xml():
     
+    
+    
     #added to apps/frappe/frappe/hooks.py:  @TODO CRON DOES NOT WORK
     frappe.msgprint("Exporting all listings in Pending status")
     
-    '''''
-    if garagesale_export_date =="":
-        today = date.today()
-        export_date = today.isoformat()
-    else:
-        export_date = garagesale_export_date
-    '''
+
     export_to_garage_sale_xml()
     
     
     return
     
     
-    
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 def export_to_garage_sale_xml():
