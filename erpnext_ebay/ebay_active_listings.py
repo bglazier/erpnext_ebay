@@ -65,7 +65,7 @@ def show_list():
 			hit_count = 0 #item['HitCount']
 			watch_count = 0 #item['WatchCount']
 			question_count = 0 #item['TotalQuestionCount']
-			site = item['Site']
+			site = '' #item['Site']
 			#title = item['Title']
 			#conv_title = title.encode('ascii', 'ignore').decode('ascii')
 			#new_title = MySQLdb.escape_string(conv_title)
