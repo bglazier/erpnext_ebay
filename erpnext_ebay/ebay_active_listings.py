@@ -45,7 +45,8 @@ def show_list():
 	page = 1
 	listings_dict = find_listings(page)
 	pages = int(listings_dict['PaginationResult']['TotalNumberOfPages'])
-
+	timestamp = int(listings_dict['Timestamp']
+	
 	while pages >= page:
 
 		for item in listings_dict['ItemArray']['Item']:
@@ -56,13 +57,18 @@ def show_list():
 			except:
 				sku = ''
 			price = item['BuyItNowPrice']['value']
+			print(item['BuyItNowPrice']['value'])
+			print(item['BuyItNowPrice'])
+			curr_price = item['SellingStatus']['CurrentPrice']['value']
+			print(curr_price)
+			#converted_price = item['ListingDetails]['ConvertedBuyItNowPrice']['value']
 			#description = item['Description']
 			#hit_count = item['HitCount']
 			site = item['Site']
+			print(site)
 			#title = item['Title']
 			#conv_title = title.encode('ascii', 'ignore').decode('ascii')
 			#new_title = MySQLdb.escape_string(conv_title)
-			print(ebay_id)
 			insert_ebay_listing(sku, ebay_id, qty, price)
 
 		page += 1
@@ -115,17 +121,17 @@ def create_ebay_listings_table():
 	sql = """
 		create table if not exists `zEbayListings` (
 		`sku` varchar(20),
-		`ebay_id` integer,
+		`ebay_id` varchar(38),
 		`qty` integer,
-		`price` float
+		`price` decimal(18,6)
 		)
 	"""
 
 	frappe.db.sql(sql, auto_commit = True)
 	
-	sql = """truncate table `zEbayListings` """
+	sql2 = """truncate table `zEbayListings` """
 	
-	frappe.db.sql(sql, auto_commit = True)
+	frappe.db.sql(sql2, auto_commit = True)
 	
 
 def insert_ebay_listing(sku, ebay_id, qty, price):
