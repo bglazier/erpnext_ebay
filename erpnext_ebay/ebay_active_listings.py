@@ -45,7 +45,10 @@ def show_list():
 		for item in listings_dict['ItemArray']['Item']:
 			ebay_id = item['ItemID']
 			qty = item['Quantity']
-			sku = item['SKU']
+			try:
+				sku = item['SKU']
+			except:
+				sku = ''
 			price = item['BuyItNowPrice']
 			description = item['Description']
 			#hit_count = item['HitCount']
