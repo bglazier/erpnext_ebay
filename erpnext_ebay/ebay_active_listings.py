@@ -43,12 +43,12 @@ def show_list():
 	while pages >= page:
 
 		for item in listings_dict['ItemArray']['Item']:
-			ebay_id = item['ItemId']
+			ebay_id = item['ItemID']
 			qty = item['Quantity']
 			sku = item['SKU']
 			price = item['BuyItNowPrice']
 			description = item['Description']
-			hit_count = item['HitCount']
+			#hit_count = item['HitCount']
 			site = item['Site']
 			title = item['Title']
 			#conv_title = title.encode('ascii', 'ignore').decode('ascii')
