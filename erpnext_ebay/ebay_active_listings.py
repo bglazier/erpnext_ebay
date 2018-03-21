@@ -138,7 +138,8 @@ def get_myebay_selling_request(page):
 			"Pagination": {
 				"EntriesPerPage": 100,
 				"PageNumber": page
-			}
+			},
+			"IncludeWatchCount": True
 		},
 		'DetailLevel': 'ReturnAll'
 		}
