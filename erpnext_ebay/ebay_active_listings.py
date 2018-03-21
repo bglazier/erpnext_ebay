@@ -70,7 +70,7 @@ def show_list():
 			#title = item['Title']
 			#conv_title = title.encode('ascii', 'ignore').decode('ascii')
 			#new_title = MySQLdb.escape_string(conv_title)
-			insert_ebay_listing(sku, ebay_id, qty, (curr_price/vat), site, hit_count, watch_count, question_count)
+			insert_ebay_listing(sku, ebay_id, qty, curr_price, site, hit_count, watch_count, question_count)
 
 		page += 1
 		if pages >= page:
