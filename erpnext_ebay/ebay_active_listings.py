@@ -50,7 +50,7 @@ def show_list():
 
 		for item in listings_dict['ActiveList']['ItemArray']['Item']:
 			ebay_id = item['ItemID']
-			qty = item['QuantityAvailable']
+			qty = int(item['QuantityAvailable'])
 			try:
 				sku = item['SKU']
 			except:
@@ -58,19 +58,18 @@ def show_list():
 			#price = item['BuyItNowPrice']['value']
 			#THSI IS 0    	print(item['BuyItNowPrice']['value'])
 			#Example: {'_currencyID': 'USD', 'value': '0.0'}   print(item['BuyItNowPrice'])
-			curr_price = item['SellingStatus']['CurrentPrice']['value']
+			curr_price = float(item['SellingStatus']['CurrentPrice']['value'])
+			curr_ex_vat = curr_price / 1.2
 			currency = item['SellingStatus']['CurrentPrice']['_currencyID']  # or ['Currency']
-			print(currency)
 			#converted_price = item['ListingDetails]['ConvertedBuyItNowPrice']['value']
 			#description = item['Description']
-			hit_count = 0 #item['HitCount']
-			watch_count = 0 #item['WatchCount']
-			question_count = 0 #item['TotalQuestionCount']
-			site = '' #item['Site']
+			hit_count = int(item['HitCount'])
+			watch_count = int(item['WatchCount'])
+			question_count = int(item['TotalQuestionCount'])
 			#title = item['Title']
 			#conv_title = title.encode('ascii', 'ignore').decode('ascii')
 			#new_title = MySQLdb.escape_string(conv_title)
-			insert_ebay_listing(sku, ebay_id, qty, curr_price, site, hit_count, watch_count, question_count)
+			insert_ebay_listing(sku, ebay_id, qty, curr_ex_vat, site, hit_count, watch_count, question_count)
 
 		page += 1
 		if pages >= page:
