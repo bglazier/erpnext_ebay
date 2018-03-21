@@ -38,6 +38,7 @@ print = better_print
 @frappe.whitelist()
 def show_list():
 	
+	vat = 1.2
 	create_ebay_listings_table()
 	
 	page = 1
@@ -49,12 +50,12 @@ def show_list():
 
 		for item in listings_dict['ActiveList']['ItemArray']['Item']:
 			ebay_id = item['ItemID']
-			qty = item['Quantity']
+			qty = item['QuantityAvailable']
 			try:
 				sku = item['SKU']
 			except:
 				sku = ''
-			price = item['BuyItNowPrice']['value']
+			#price = item['BuyItNowPrice']['value']
 			#THSI IS 0    	print(item['BuyItNowPrice']['value'])
 			#Example: {'_currencyID': 'USD', 'value': '0.0'}   print(item['BuyItNowPrice'])
 			curr_price = item['SellingStatus']['CurrentPrice']['value']
@@ -69,7 +70,7 @@ def show_list():
 			#title = item['Title']
 			#conv_title = title.encode('ascii', 'ignore').decode('ascii')
 			#new_title = MySQLdb.escape_string(conv_title)
-			insert_ebay_listing(sku, ebay_id, qty, curr_price, site, hit_count, watch_count, question_count)
+			insert_ebay_listing(sku, ebay_id, qty, (curr_price/vat), site, hit_count, watch_count, question_count)
 
 		page += 1
 		if pages >= page:
