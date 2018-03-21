@@ -63,7 +63,7 @@ def show_list():
 			currency = item['SellingStatus']['CurrentPrice']['_currencyID']  # or ['Currency']
 			#converted_price = item['ListingDetails]['ConvertedBuyItNowPrice']['value']
 			#description = item['Description']
-			hit_count = int(item['HitCount'])
+			hit_count = 0 #int(item['HitCount'])
 			watch_count = int(item['WatchCount'])
 			question_count = int(item['TotalQuestionCount'])
 			#title = item['Title']
