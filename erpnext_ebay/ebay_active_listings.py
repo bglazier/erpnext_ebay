@@ -69,6 +69,7 @@ def show_list():
 			#title = item['Title']
 			#conv_title = title.encode('ascii', 'ignore').decode('ascii')
 			#new_title = MySQLdb.escape_string(conv_title)
+			site = ''
 			insert_ebay_listing(sku, ebay_id, qty, curr_ex_vat, site, hit_count, watch_count, question_count)
 
 		page += 1
