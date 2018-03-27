@@ -64,7 +64,7 @@ def show_list():
 			#converted_price = item['ListingDetails]['ConvertedBuyItNowPrice']['value']
 			#description = item['Description']
 			hit_count = 0 #int(item['HitCount'])
-			watch_count = int(item['WatchCount'])
+			watch_count = 0 #int(item['WatchCount'])
 			question_count = int(item['TotalQuestionCount'])
 			#title = item['Title']
 			#conv_title = title.encode('ascii', 'ignore').decode('ascii')
