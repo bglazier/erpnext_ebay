@@ -1,3 +1,8 @@
+#
+# Gets the current active listings on ebay and syncs the prices to ErpNext
+#
+
+
 # Copyright (c) 2013, Universal Resource Trading Limited and contributors
 # For license information, please see license.txt
 
@@ -10,66 +15,93 @@ import __builtin__ as builtins
 import frappe
 from frappe import msgprint,_
 from frappe.utils import cstr
-import csv
-from datetime import date, datetime, time, timedelta
+#from datetime import date, datetime, time, timedelta
 
 
 
-from ugscommon import *
-from ugscommonsql import *
-from ugssettings import *
+#from ugscommon import *
+#from ugscommonsql import *
+#from ugssettings import *
+
+import sys
+sys.path.insert(0, "/home/frappe/frappe-bench/apps/erpnext_ebay/erpnext_ebay")
+from ebay_active_listings import generate_active_ebay_data
 
 
-
-
-def better_print(*args, **kwargs):
-    with open ("/home/frappe/price-sync", "a") as f:
-        builtins.print (file=f, *args, **kwargs)
-
-print = better_print
 
 
 @frappe.whitelist()
 def price_sync():
     
-    using_ebay_csv_update_prices()
+    generate_active_ebay_data()
+    sync_from_ebay_to_erpnext()
 
 
-def using_ebay_csv_update_prices():
-    price = 0.0
-    try:
-        fieldnames = ['Item ID', 'Custom label', 'Product ID type','Product ID value', 'Product ID value 2', 'Quantity available', 'Purchases', 'Bids','Price']
-        with open('/home/frappe/active_listings.csv','r') as csvfile:
-            reader = csv.DictReader(csvfile,fieldnames=fieldnames, delimiter=str(","), quotechar=str('"'))
-            for row in reader:
-                price_str = row['Price']
-                price_str = price_str.replace(",", "")
-                price = float(price_str)
-                
-                item_code = row['Custom label']
-                # Only process proper item codes
-                if item_code[:5] == "ITEM-" and price > 0.0:
-                    success = set_erp_price(item_code, price)
-                    if success:
-                        print("Updated item: " + item_code + " to price: " + str(price))
+
+
+def create_user_task(user, item_code, type, task_details):
     
-    except Exception as inst:
-        print("Unexpected error reading csv file:", inst)
-        raise
+    frappe.msgbox('Creating task now...')
     
-    return -1
+    subject = item_code + """ LISTING AMENDMENT REQUEST"""
+    today = datetime.today()
+    status = "Open"
     
+    if type == "Tested":
+        description = "The item did not pass QC and requires amendment as follows:" + task_details
+    if type == "QC Fail"
+        description = "The item has now been tested and requires amendment as follows:" + task_details
+    
+    
+    task = frappe.new_doc("Task")
+    #task.project = self.name
+
+    task.update({
+            "subject": subject,
+            "status": status,
+            "exp_start_date": today,
+            "exp_end_date": today,
+            "description": description
+    })
+
+    task.flags.ignore_links = True
+    task.flags.from_project = True
+    task.save(ignore_permissions = True)
+    task_names.append(task.name)    
+    # Need to lot to appraisals also
+
+
+
+def sync_from_ebay_to_erpnext():
+    
+    sql = """
+    select sku, price from `zEbayListings`
+    """
+    
+    records = frappe.db.sql(sql, as_dict=True)
+
+    for r in records:
+        set_erp_price(r.sku, r.price)
+
+
+
 
 # Simply updates Item Price given item code and price
 def set_erp_price(item_code, price):
     
-        
+    '''
+    # database contains two prices it.standard_rate and ip.price_list_rate
+    select ip.item_code, ip.price_list_rate, ip.selling, it.standard_rate from `tabItem Price` ip left join `tabItem` it on it.item_code = ip.item_code
+    where ip.price_list_rate <> it.standard_rate;
+    '''
+    
     sql = """update `tabItem Price` ip
             set ip.price_list_rate = %s 
-            where ip.item_code = '%s' """ %(float(price), item_code) 
-        
+            where ip.selling = 1 and ip.item_code = '%s' """ %(float(price), item_code) 
+
+    
     try:
-        frappe.db.sql(sql, as_dict=1)
+        frappe.db.sql(sql, auto_commit = True)
 
     
     except Exception as inst:
@@ -77,59 +109,24 @@ def set_erp_price(item_code, price):
         raise
         return False
     
-    return True
     
     
+    sql2 = """update `tabItem` it
+            set it.standard_rate = %s 
+            where it.item_code = '%s' """ %(float(price), item_code)
     
     
-    
-    
-    
-    
-# ALTERNATIVE METHOD    
-    
-def compare_ebay_prices():
-        
     try:
-        sql = """select ip.item_code, ip.price_list_rate
-        from `tabItem Price` ip
-        inner join `tabBin` bin
-        on  bin.item_code = ip.item_code
-        where bin.actual_qty > 0
-        """
-        
-        records = frappe.db.sql(sql, as_dict=1)
-        for r in records:
-            item = r.item_code
-            price = r.price_list_rate
-            ebay_price = get_ebay_price(item)
-            
-            if ebay_price == -1:
-                print("Item " + item + " Not found on eBay")
-            else:
-                if price != ebay_price:
-                    set_erp_price(item, ebay_price)            
-    
-    except Exception as inst:
-        print("Unexpected error ebay prices:", inst)
-        raise
-        return -1
+        frappe.db.sql(sql2, auto_commit = True)
 
-def get_ebay_price(item_code):
-    
-    try:
-        fieldnames = ['Item ID', 'Custom label', 'Product ID type','Product ID value', 'Product ID value 2', 'Quantity available', 'Purchases', 'Bids','Price']
-        with open('/home/frappe/active_listings.csv','r') as csvfile:
-            reader = csv.DictReader(csvfile,fieldnames=fieldnames, delimiter=str(","), quotechar=str('"'))
-            for row in reader:
-                if row['Custom label'] == item_code:
-                    return (row['Price'])
     
     except Exception as inst:
-        print("Unexpected error:", inst)
+        print("Unexpected error running price fix. Possible missing Item Price for item: ", item_code)
         raise
-    
-    return -1
-    
+        return False
     
     
+    return True
+
+
+

@@ -25,13 +25,26 @@ frappe.ui.form.on('eBay Manager', 'customer_sync', function(frm) {
 
 
 frappe.ui.form.on('eBay Manager', 'create_garagesale', function(frm) {
-    //alert("Importing New Customers...");
+	//alert("Importing New Customers...");
 	
 	//if export_date > get_today()
 	//	{frappe.msgprint("Invalid date")}
 	
 	frappe.call({
 			method: "erpnext_ebay.garage_sale.run_cron_create_xml",
+			args: {},
+			callback: function(r){}
+			});
+
+
+});
+
+
+frappe.ui.form.on('eBay Manager', 'price_sync', function(frm) {
+	alert("Copying eBay Prices to database...");
+	
+	frappe.call({
+			method: "erpnext_ebay.ebay_price_sync.price_sync",
 			args: {},
 			callback: function(r){}
 			});

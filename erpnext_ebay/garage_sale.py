@@ -3,26 +3,26 @@
 # For license information, please see license.txt
 
 from __future__ import unicode_literals
+from __future__ import print_function
+import __builtin__ as builtins
+
 import frappe, os, shutil #, nltk
 from frappe.model.document import Document
 from datetime import date, timedelta
 
 import xml.etree.cElementTree as ET
 import requests
-#import mechanize
 
 from jinja2 import Environment, PackageLoader
 import jinja2
 import subprocess
 import cgi
 
-from ebay_active_listings import show_list
+#from ebay_active_listings import show_list
 
+from ugscommon import get_unsubmitted_prec_qty
 
-
-from ugscommon import *
-
-IS_TESTING = False
+IS_TESTING = True
 NO_IMAGES = True
 USE_SERVER_IMAGES = False
 
@@ -35,41 +35,31 @@ if(IS_TESTING): garage_xml_path = '/home/frappe/frappe-bench/sites/erpnext.vm/pu
 site_files_path= '/home/frappe/frappe-bench/sites/site1.local/public/files/'
 if(IS_TESTING): site_files_path= '/home/frappe/frappe-bench/sites/erpnext.vm/public/files/'
 
-
 images_url = 'http://www.universalresourcetrading.com'
 
-
-
-
-@frappe.whitelist()
-def change_pending_to_listed():
-
-    update_item_status_all("Pending eBay", "Listed eBay")
 
 
 @frappe.whitelist()
 def run_cron_create_xml():
     
-    
-    
     #added to apps/frappe/frappe/hooks.py:  @TODO CRON DOES NOT WORK
-    frappe.msgprint("Exporting all listings in Pending status")
-    
-
+    frappe.msgprint("Exporting all listings in QC Passed status")
     export_to_garage_sale_xml()
     
-    
     return
+
+
+def change_status_to_garagesale(item_code):
     
+    sql = """
+    update `tabItem` it
+    set it.ebay_id = 'Awaiting Garagesale'
+    where it.item_code = '%s'
+    """%item_code
     
-
-
-
-
-
-
-
-
+    print('SQL',sql)
+    
+    frappe.db.sql(sql, auto_commit = True)
 
 
 
@@ -82,17 +72,23 @@ def export_to_garage_sale_xml():
     layout = "thumb gallery"
     decline = 0.9
     accept = 0.1
-    duration = 1000  # GTC = 1000
+    duration = 10  # GTC = 1000
     handling_time = 1
     
     write_to_undo_file("New file created on:" + str(date.today()) + "\n")
     
     root = ET.Element("items")
     
+    
+    
+    # Should run sync ebay_ids before running anything else
+    
     records = get_item_records_by_item_status()
-        
+    
+    print('RECS:', records)
+    
     for r in records:
-            
+        
         title = ""
         
         
@@ -108,7 +104,7 @@ def export_to_garage_sale_xml():
         if r.actual_qty:
             quantity = r.actual_qty + qty_unsubmit
         else:
-            quantity = qty_unsubmit 
+            quantity = qty_unsubmit
         
         if not IS_TESTING: resize_images(item_code)
         #image = r.image
@@ -167,18 +163,18 @@ def export_to_garage_sale_xml():
             doc.append(dom_ship_free)
             doc.append(dom_ship_24hour)
             # ALSO NEED TO DISABLE GSP MANUALLY !!!!!!
-            
+        
         
         if r.delivery_type == 'Pallet':
             doc.append(dom_ship_pallet)
-            
+        
         
         #if r.delivery_type == 'Collection Only':  No need for this as default is set
         
         if r.delivery_type == 'Standard Parcel':
             doc.append(dom_ship_free)
             doc.append(dom_ship_24hour)
-
+        
         
         #int_ship = ET.SubElement(doc, "internationalShippingService").text = ""
         #int_ship.set("serviceAdditionalFee", "0")
@@ -188,23 +184,23 @@ def export_to_garage_sale_xml():
         
         ET.SubElement(doc, "duration").text = str(duration)
         ET.SubElement(doc, "handlingTime").text = str(handling_time)
-
+        
         if USE_SERVER_IMAGES:
             for ssi in ss_images_list:
                 if exists(images_url + ssi.image):
                     if ssi.image:
                         if URL_IMAGES:
                             ET.SubElement(doc, "imageURL").text = images_url + ssi.image
-            
+                        
                         else:
                             throw('Problem with image' + ssi.image)
-        
+                        
                         # IF there is no slideshow then try the ws_image
                         if(not ssi):
                             if (r.website_image != 'NULL'):
                                 ET.SubElement(doc, "imageURL").text = images_url + ws_image
 
-
+        
         
         ET.SubElement(doc, "layout").text = layout
         #ET.SubElement(doc, "lotSize").text = "1"
@@ -237,22 +233,24 @@ def export_to_garage_sale_xml():
         ET.SubElement(doc, "title").text = title
         #ET.SubElement(doc, "variation").text = ""
         ET.SubElement(doc, "zipCode").text = post_code
-            
+        
         
         tree = ET.ElementTree(root)
         tree.write(garage_xml_path + str(date.today()) + "_garageimportfile.xml")
         
-        if r.item_status== 'Pending eBay': 
-            update_item_status('Listed eBay', item_code)
-        if r.item_status== 'Pending eBay But Do Not Ship': 
-            update_item_status('Listed eBay But Do Not Ship', item_code)
-
-        write_to_undo_file("""update `tabItem` it set it.item_status ='""" + r.item_status + """' where it.item_code = '""" + item_code + """';""")
+        #if r.item_status== 'Pending eBay':
+        #    update_item_status('Listed eBay', item_code)
+        #if r.item_status== 'Pending eBay But Do Not Ship':
+        #    update_item_status('Listed eBay But Do Not Ship', item_code)
+                
+        change_status_to_garagesale(item_code)
+        
+        write_to_undo_file("""update `tabItem` it set it.ebay_id = '' where it.item_code = '""" + item_code + """';""")
     
     return
 
-
     
+
 
 def render(tpl_path, context):
     path, filename = os.path.split(tpl_path)
@@ -262,17 +260,17 @@ def render(tpl_path, context):
     
     return rendered
     
-    
+
 
 
 
 def jtemplate(version, description, function_grade, grade_details, condition, tech_details, delivery_type, accessories_extras, \
 power_cable_included, power_supply_included, remote_control_included, case_included, warranty_period):
-
         
+    
     if accessories_extras:
         ae = add_breaks(accessories_extras)
-    else: 
+    else:
         ae = ''
     
     try:
@@ -297,8 +295,8 @@ power_cable_included, power_supply_included, remote_control_included, case_inclu
     except:
         raise
         result = ""
-        
 
+    
     
     return (result)
 
@@ -307,25 +305,7 @@ power_cable_included, power_supply_included, remote_control_included, case_inclu
 
 
 
-def update_item_status(new_status, item_code):
-    
-        
-    ok = frappe.db.sql("""update `tabItem` it set it.item_status = %s where it.item_code = %s """, (new_status, item_code))
-    
-    if not ok: print("Problem with query!!!!!!!!!!!!!!!!!!!!!!!")
-    
-    return
-    
-def update_item_status_all(new_status, old_status ):
-    
-    sql = """
-        update `tabItem` it set it.item_status = %s where it.item_status = %s
-    """ %(new_status, old_status)
-    
-    
-    ok = frappe.db.sql(sql)
-    
-    return
+
 
 
 def lookup_condition(con_db, func_db):
@@ -361,7 +341,7 @@ def lookup_category(cat_db, ebay_cat_db):
     
     if ebay_cat_db:
         val = frappe.get_value("Item Group eBay", str(ebay_cat_db), "ebay_category_id")
-        
+    
     
     return val
 
@@ -369,10 +349,9 @@ def lookup_category(cat_db, ebay_cat_db):
 
 
 
-
 def get_item_records_by_item_status():
-        
-    entries = frappe.db.sql("""select
+    
+    sql = """select
         it.creation
         , it.item_code, it.name, it.item_name, it.item_group, it.item_group_ebay
         , it.brand, it.description, it.tech_details
@@ -394,12 +373,15 @@ def get_item_records_by_item_status():
         left join `tabItem Price` ip
         on ip.item_code = it.name
         
-        where it.item_status = 'Pending eBay'
-        """ , as_dict=1)
-
+        where it.item_status = 'QC Passed'
+        and (it.ebay_id is Null or it.ebay_id ='')
+        and bin.actual_qty > 0
+    """
+        
+    entries = frappe.db.sql(sql, as_dict=1)
+    
     
     return entries
-
 
 
 
@@ -456,7 +438,6 @@ def list_files(path):
     # returns a list of names (with extension, without full path) of all files
     # in folder path
     
-    
     # requires import os
     
     files = []
@@ -471,7 +452,6 @@ def scp_files(local_files):
     # requires import scp
 
     
-    
     remote_file = local_files
     
     client = scp.Client(host=host, user=user, password=password)
@@ -480,7 +460,7 @@ def scp_files(local_files):
     client.transfer(local_path + local_file, remote_path + remote_file)
     
     return
-    
+
 def add_breaks(non_html):
     
     escaped = cgi.escape(non_html.rstrip()).replace("\n", "</li><li>")
@@ -488,10 +468,9 @@ def add_breaks(non_html):
     
     return non_html
         
-        
+
 def resize_images(item_code):
-
-
+    
     subprocess.call(['mogrify', '-resize', '1024x768', item_code + '*.jpg'])
 
 
