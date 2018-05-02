@@ -78,8 +78,7 @@ def generate_active_ebay_data():
         else:
             break
 
-@frappe.whitelist()
-def show_listOLD():
+def get_seller_listOLD():
     """This version uses get_seller_list which appears less effective than get myebay selling request"""
     
     create_ebay_listings_table()
@@ -246,7 +245,7 @@ def insert_ebay_listing(sku, ebay_id, qty, price,
 
 
 
-
+@frappe.whitelist()
 def revise_ebay_price(item_id, new_price):
     
     api_trading = Trading(config_file='/home/frappe/ebay.yaml', warnings=True, timeout=20)
@@ -287,10 +286,12 @@ def sync_ebay_ids():
 
     sql = """
     select * from (
-        SELECT t1.sku, t2.item_code, ifnull(t1.ebay_id, '') as live_ebay_id, ifnull(t2.ebay_id, '') as dead_ebay_id FROM `zEbayListings` t1
+        SELECT t1.sku, t2.item_code, ifnull(t1.ebay_id, '') as live_ebay_id, 
+        ifnull(t2.ebay_id, '') as dead_ebay_id FROM `zEbayListings` t1
         LEFT JOIN `tabItem` t2 ON t1.sku = t2.item_code
         UNION
-        SELECT t1.sku, t2.item_code, ifnull(t1.ebay_id, '') as live_ebay_id, ifnull(t2.ebay_id, '') as dead_ebay_id FROM `zEbayListings` t1
+        SELECT t1.sku, t2.item_code, ifnull(t1.ebay_id, '') as live_ebay_id, 
+        ifnull(t2.ebay_id, '') as dead_ebay_id FROM `zEbayListings` t1
         RIGHT JOIN `tabItem` t2 ON t1.sku = t2.item_code
     ) as t
     where t.live_ebay_id <> t.dead_ebay_id
@@ -309,6 +310,6 @@ def sync_ebay_ids():
             if (r.item_code):
                 set_item_ebay_id(r.sku, r.live_ebay_id)
             else:
-                msgprint('The ebay item cannot be found on ERPNEXT' + r.sku)
+                msgprint('The ebay item cannot be found on ERPNEXT so unable to record ebay id' + r.sku)
 
 
