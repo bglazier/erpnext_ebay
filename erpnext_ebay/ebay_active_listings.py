@@ -304,11 +304,11 @@ def sync_ebay_ids():
         # If not live id then clear any value on system
         if r.live_ebay_id == '':
             set_item_ebay_id(r.item_code, '')
-        else
+        else:
             # ok so item is live but id's don't match so update system with live version (but there must exist an item_code)
             if (r.item_code):
                 set_item_ebay_id(r.sku, r.live_ebay_id)
-            else
+            else:
                 msgprint('The ebay item cannot be found on ERPNEXT' + r.sku)
 
 
