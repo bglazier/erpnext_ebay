@@ -7,7 +7,9 @@ import os
 import sys
 #import datetime
 
-sys.path.insert(0, "/home/frappe/")
+
+# Need to add path to site1.local where ebay.yaml resides
+sys.path.insert(0, os.path.join(frappe.utils.get_bench_path(),'sites',frappe.get_site_path()))
 
 
 import frappe
@@ -40,7 +42,11 @@ def get_orders():
 
     try:
         # Initialize TradingAPI; default timeout is 20.
-        api = Trading(config_file='/home/frappe/ebay.yaml', warnings=True, timeout=20)
+        erpnext_app_path = frappe.get_app_path('erpnext')
+        print('PATH:::::::::::',erpnext_app_path)
+        print('SITE PATH', frappe.get_site_path())
+        
+        api = Trading(config_file='ebay.yaml', warnings=True, timeout=20)
         while True:
             # TradingAPI results are paginated, so loop until
             # all pages have been obtained
@@ -71,7 +77,7 @@ def get_order_transactions(order_id):
     
     try:
         
-        api = Trading(config_file='/home/frappe/ebay.yaml', warnings=True, timeout=20)
+        api = Trading(config_file='ebay.yaml', warnings=True, timeout=20)
         
         while True:
             

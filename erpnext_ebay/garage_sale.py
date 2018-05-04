@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 from __future__ import print_function
 import __builtin__ as builtins
 
-import frappe, os, shutil #, nltk
+import frappe, os, shutil
 from frappe.model.document import Document
 from datetime import date, timedelta
 
@@ -18,9 +18,9 @@ import jinja2
 import subprocess
 import cgi
 
-#from ebay_active_listings import show_list
-
 from ugscommon import get_unsubmitted_prec_qty
+import ugssettings.py
+
 
 IS_TESTING = True
 NO_IMAGES = True
@@ -53,11 +53,10 @@ def change_status_to_garagesale(item_code):
     
     sql = """
     update `tabItem` it
-    set it.ebay_id = 'Awaiting Garagesale'
+    set it.ebay_id = AWAITING_GARAGESALE_STATUS
     where it.item_code = '%s'
     """%item_code
     
-    print('SQL',sql)
     
     frappe.db.sql(sql, auto_commit = True)
 
@@ -84,9 +83,7 @@ def export_to_garage_sale_xml():
     # Should run sync ebay_ids before running anything else
     
     records = get_item_records_by_item_status()
-    
-    print('RECS:', records)
-    
+
     for r in records:
         
         title = ""
@@ -117,8 +114,10 @@ def export_to_garage_sale_xml():
         version = 0
         
         body = "<![CDATA[<br></br>"
-        body += jtemplate(version, r.description, r.function_grade, r.grade_details, r.condition, r.tech_details, r.delivery_type, r.accessories_extras, \
-        r.power_cable_included, r.power_supply_included, r.remote_control_included, r.case_included, r.warranty_period)
+        body += jtemplate(version, r.description, r.function_grade, r.grade_details, r.condition, \
+                r.tech_details, r.delivery_type, r.accessories_extras, \
+                r.power_cable_included, r.power_supply_included, r.remote_control_included, \
+                r.case_included, r.warranty_period)
         
         body += "<br><br>The price includes VAT and we can provide VAT invoices."
         body += "<br><br>Universities and colleges - purchase orders accepted - please contact us."
@@ -200,8 +199,8 @@ def export_to_garage_sale_xml():
                             if (r.website_image != 'NULL'):
                                 ET.SubElement(doc, "imageURL").text = images_url + ws_image
 
-        
-        
+
+
         ET.SubElement(doc, "layout").text = layout
         #ET.SubElement(doc, "lotSize").text = "1"
         if r.height: ET.SubElement(doc, "packageDepth").text = str(r.height)
