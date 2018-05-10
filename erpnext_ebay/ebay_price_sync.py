@@ -40,7 +40,7 @@ def price_sync():
 
 def sync_from_ebay_to_erpnext():
     
-    sql = """Ç
+    sql = """
     select el.sku, ifnull(el.price, 0.0) as ebay_price from `zEbayListings` el
     """
     
