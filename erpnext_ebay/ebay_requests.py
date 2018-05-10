@@ -2,14 +2,13 @@
 
 from __future__ import unicode_literals
 from __future__ import print_function
+import __builtin__ as builtins
 
 import os
 import sys
-#import datetime
 
 
-# Need to add path to site1.local where ebay.yaml resides
-sys.path.insert(0, os.path.join(frappe.utils.get_bench_path(),'sites',frappe.get_site_path()))
+path_to_yaml = os.path.join(os.sep, frappe.utils.get_bench_path(),'sites',frappe.get_site_path(), 'ebay.yaml')
 
 
 import frappe
@@ -17,6 +16,7 @@ from frappe import _
 
 from ebaysdk.exception import ConnectionError
 from ebaysdk.trading import Connection as Trading
+
 
 
 def get_orders():
@@ -46,7 +46,7 @@ def get_orders():
         print('PATH:::::::::::',erpnext_app_path)
         print('SITE PATH', frappe.get_site_path())
         
-        api = Trading(config_file='ebay.yaml', warnings=True, timeout=20)
+        api = Trading(config_file=path_to_yaml, warnings=True, timeout=20)
         while True:
             # TradingAPI results are paginated, so loop until
             # all pages have been obtained

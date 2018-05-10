@@ -19,22 +19,17 @@ import subprocess
 import cgi
 
 from ugscommon import get_unsubmitted_prec_qty
-import ugssettings.py
+import ugssettings
+from garage_sale import lookup_condition
 
 
-IS_TESTING = True
 NO_IMAGES = True
 USE_SERVER_IMAGES = False
 
 
 #Save to public directory so one can download
-garage_xml_path = '/home/frappe/frappe-bench/sites/site1.local/public/files/xml/'
-if(IS_TESTING): garage_xml_path = '/home/frappe/frappe-bench/sites/erpnext.vm/public/files/xml/'
-
-
-site_files_path= '/home/frappe/frappe-bench/sites/site1.local/public/files/'
-if(IS_TESTING): site_files_path= '/home/frappe/frappe-bench/sites/erpnext.vm/public/files/'
-
+garage_xml_path = os.path.join(os.sep, frappe.utils.get_bench_path(),'sites',frappe.get_site_path(), 'public', 'files', 'xml')
+site_files_path = os.path.join(os.sep, frappe.utils.get_bench_path(),'sites',frappe.get_site_path(), 'public', 'files')
 images_url = 'http://www.universalresourcetrading.com'
 
 
@@ -53,9 +48,9 @@ def change_status_to_garagesale(item_code):
     
     sql = """
     update `tabItem` it
-    set it.ebay_id = AWAITING_GARAGESALE_STATUS
-    where it.item_code = '%s'
-    """%item_code
+    set it.ebay_id = '{}'
+    where it.item_code = '{}'
+    """.format(ugssettings.AWAITING_GARAGESALE_STATUS, item_code)
     
     
     frappe.db.sql(sql, auto_commit = True)
@@ -103,7 +98,7 @@ def export_to_garage_sale_xml():
         else:
             quantity = qty_unsubmit
         
-        if not IS_TESTING: resize_images(item_code)
+        resize_images(item_code)
         #image = r.image
         ws_image = r.website_image
         ss_images_list = get_slideshow_records(r.slideshow)
@@ -142,7 +137,8 @@ def export_to_garage_sale_xml():
         ET.SubElement(doc, "buyItNowPrice").text = str(price)
         ET.SubElement(doc, "category").text = category
         #ET.SubElement(doc, "category2").text =
-        ET.SubElement(doc, "condition").text = lookup_condition(r.condition, r.function_grade)
+        condition_desc, condition_id = lookup_condition(r.condition, r.function_grade)
+        ET.SubElement(doc, "condition").text = str(condition_id)
         ET.SubElement(doc, "conditionDescription").text = r.grade_details
         ET.SubElement(doc, "convertDescriptionToHTML").text = "false"
         ET.SubElement(doc, "convertMarkdownToHTML").text = "false"
@@ -237,14 +233,10 @@ def export_to_garage_sale_xml():
         tree = ET.ElementTree(root)
         tree.write(garage_xml_path + str(date.today()) + "_garageimportfile.xml")
         
-        #if r.item_status== 'Pending eBay':
-        #    update_item_status('Listed eBay', item_code)
-        #if r.item_status== 'Pending eBay But Do Not Ship':
-        #    update_item_status('Listed eBay But Do Not Ship', item_code)
-                
+        
         change_status_to_garagesale(item_code)
         
-        write_to_undo_file("""update `tabItem` it set it.ebay_id = '' where it.item_code = '""" + item_code + """';""")
+        #write_to_undo_file("""update `tabItem` it set it.ebay_id = '' where it.item_code = '""" + item_code + """';""")
     
     return
 
@@ -289,7 +281,8 @@ power_cable_included, power_supply_included, remote_control_included, case_inclu
             'warranty_period': warranty_period
         }
         
-        result = render('/home/frappe/frappe-bench/apps/erpnext_ebay/erpnext_ebay/item_garage_sale.html', context)
+        
+        result = render(os.path.join(os.sep, frappe.get_app_path('erpnext_ebay'), 'item_garage_sale.html'), context)
     
     except:
         raise
@@ -308,14 +301,22 @@ power_cable_included, power_supply_included, remote_control_included, case_inclu
 
 
 def lookup_condition(con_db, func_db):
-    # options:  New, New other, Manufacturer refurbished, Seller refurbished, Used, For parts or not working
+    """ 
+    Given an erpNext condition grade
+    returns condition string and condition_id (int)
+    options:  New, New other, Manufacturer refurbished, Seller refurbished, 
+    Used, For parts or not working
+    see below for more details
+    """
     
     condition = "Used"
+    condition_id = 3000
     
     if con_db == "0":
         condition = "Used"
     if con_db == "1":
         condition = "New"
+        condition_id = 1000
     if con_db == "2":
         condition = "Used"
     if con_db == "3":
@@ -327,8 +328,63 @@ def lookup_condition(con_db, func_db):
     
     if func_db == "5":
         condition = "For parts or not working"
+        condition_id = 7000
+        
+        
+    """Note: ebays condition ids are:
+        
+        ID	Typical Name	Typical Definition
+        1000	New	
+                    A brand-new, unused, unopened, unworn, undamaged item. Most categories support 
+                    this condition (as long as condition is an applicable concept).
+        1500	New other (see details)	
+                    A brand-new new, unused item with no signs of wear. Packaging may be missing 
+                    or opened. The item may be a factory second or have defects.
+        1750	New with defects	
+                    A brand-new, unused, and unworn item. The item may have cosmetic defects, 
+                    and/or may contain mismarked tags (e.g., incorrect size tags from the 
+                    manufacturer). Packaging may be missing or opened. The item may be a new 
+                    factory second or irregular.
+        2000	Manufacturer refurbished	
+                    An item in excellent condition that has been professionally restored to working
+                    order by a manufacturer or manufacturer-approved vendor. 
+                    The item may or may not be in the original packaging.
+        2500	Seller refurbished	
+                    An item that has been restored to working order by the eBay seller or a third 
+                    party who is not approved by the manufacturer. This means the seller indicates 
+                    that the item is in full working order and is in excellent condition. The item 
+                    may or may not be in original packaging.
+        3000	Used	
+                    An item that has been used previously. The item may have some signs of cosmetic
+                    wear, but is fully operational and functions as intended. This item may be a 
+                    floor model or store return that has been used. Most categories support this 
+                    condition (as long as condition is an applicable concept).
+        4000	Very Good	An item that is used but still in very good condition. No obvious 
+                    damage to the cover or jewel case. No missing or damaged pages or liner notes. 
+                    The instructions (if applicable) are included in the box. May have very minimal 
+                    identifying marks on the inside cover. Very minimal wear and tear.
+        5000	Good	
+                    An item in used but good condition. May have minor external damage including 
+                    scuffs, scratches, or cracks but no holes or tears. For books, liner notes, or 
+                    instructions, the majority of pages have minimal damage or markings 
+                    and no missing pages.
+        6000	Acceptable	
+                    An item with obvious or significant wear, but still operational. For books, 
+                    liner notes, or instructions, the item may have some damage to the cover but 
+                    the integrity is still intact. Instructions and/or box may be missing. For 
+                    books, possible writing in margins, etc., but no missing pages or anything 
+                    that would compromise the legibility or understanding of the text.
+        7000	For parts or not working	
+                    An item that does not function as intended and is not fully operational. 
+                    This includes items that are defective in ways that render them difficult 
+                    to use, items that require service or repair, or items missing essential 
+                    components. Supported in categories where parts or non-working items are of 
+                    interest to people who repair or collect related items.
+        
+        
+        """
     
-    return condition
+    return condition, condition_id
 
 
 def lookup_category(cat_db, ebay_cat_db):
@@ -476,7 +532,7 @@ def resize_images(item_code):
 
 def write_to_undo_file(txt):
     
-    with open("/home/frappe/undo_status_change.sql", "a") as myfile:
+    with open("undo_status_change.sql", "a") as myfile:
         myfile.write(txt)
 
 
