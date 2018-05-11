@@ -87,7 +87,7 @@ def revise_generic_items(item_code):
             frappe.msgprint("Config file ebay.yaml file not found")
             raise
         
-        except: StandardError:
+        except StandardError:
             frappe.msgprint("There was a problem using the eBay Api")
             raise
         
@@ -145,7 +145,7 @@ def revise_ebay_price(item_code, new_price):
             frappe.msgprint("Config file ebay.yaml file not found")
             raise
         
-        except: StandardError:
+        except StandardError:
             frappe.msgprint("There was a problem using the eBay Api")
             raise
         

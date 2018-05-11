@@ -7,7 +7,7 @@ from __future__ import print_function
 import __builtin__ as builtins
 
 import frappe
-from frappe import msgprint,
+from frappe import msgprint
 from frappe.utils import cstr
 
 from jinja2 import Environment, PackageLoader
