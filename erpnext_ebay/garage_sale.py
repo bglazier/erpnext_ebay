@@ -20,7 +20,7 @@ import cgi
 
 from ugscommon import get_unsubmitted_prec_qty
 import ugssettings
-from garage_sale import lookup_condition
+#from garage_sale import lookup_condition
 
 
 NO_IMAGES = True
@@ -98,7 +98,7 @@ def export_to_garage_sale_xml():
         else:
             quantity = qty_unsubmit
         
-        resize_images(item_code)
+        #resize_images(item_code)
         #image = r.image
         ws_image = r.website_image
         ss_images_list = get_slideshow_records(r.slideshow)

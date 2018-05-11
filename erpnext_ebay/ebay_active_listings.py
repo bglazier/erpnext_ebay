@@ -9,11 +9,6 @@ import __builtin__ as builtins
 import sys
 import os.path
 
-sys.path.insert(0, "/usr/local/lib/python2.7/dist-packages/ebaysdk-2.1.4-py2.7.egg")
-sys.path.insert(0, "/usr/local/lib/python2.7/dist-packages/lxml-3.6.4-py2.7-linux-i686.egg")
-sys.path.insert(0, "/Library/Python/2.7/site-packages/ebaysdk-2.1.5-py2.7.egg")
-
-
 import datetime
 from types import MethodType
 import string
@@ -26,7 +21,7 @@ from ebaysdk.trading import Connection as Trading
 
 # Need to add path to sites1.local where ebay.yaml resides
 #sys.path.insert(0, os.path.join(os.sep, frappe.utils.get_bench_path(),'sites','site1.local'))
-path_to_yaml = os.path.join(os.sep, frappe.utils.get_bench_path(),'sites',frappe.get_site_path(), 'ebay.yaml')
+PATH_TO_YAML = os.path.join(os.sep, frappe.utils.get_bench_path(),'sites',frappe.get_site_path(), 'ebay.yaml')
 
 sys.path.insert(0,frappe.get_app_path('unigreenscheme')) 
 import ugssettings
@@ -88,7 +83,7 @@ def get_myebay_selling_request(page):
     #os.environ['REQUESTS_CA_BUNDLE'] = '/usr/local/lib/python2.7/dist-packages/certifi/cacert.pem'
     
     try:
-        api_trading = Trading(config_file=path_to_yaml, warnings=True, timeout=20)
+        api_trading = Trading(config_file=PATH_TO_YAML, warnings=True, timeout=20)
         
         #datetime.today().format('yyyy-mm-ddThh:mm:ss')
         

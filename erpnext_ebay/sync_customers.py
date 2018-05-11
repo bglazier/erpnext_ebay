@@ -1,6 +1,4 @@
 
-
-
 """Functions to read through eBay orders and load customers and addresses."""
 
 from __future__ import unicode_literals
@@ -8,9 +6,6 @@ from __future__ import print_function
 
 
 import sys
-sys.path.insert(0, "/usr/local/lib/python2.7/dist-packages/ebaysdk-2.1.4-py2.7.egg")
-
-sys.path.insert(0, "/usr/local/lib/python2.7/dist-packages/lxml-3.6.4-py2.7-linux-i686.egg")
 
 
 import datetime
