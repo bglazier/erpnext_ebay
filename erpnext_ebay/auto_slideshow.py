@@ -20,6 +20,28 @@ site_url = 'http://www.universaleresourcetrading.com'
 
 
 @frappe.whitelist(allow_guest=True)
+def view_slideshow_py(slideshow):
+
+    images_path = os.path.join(os.sep, frappe.utils.get_bench_path(),'sites',frappe.get_site_path(), 'public')
+
+    html = """<html><head></head><body>"""
+    html += """<h3>{}</h3>""".format(slideshow)
+    
+    sql = """select image from `tabWebsite Slideshow Item` where parent = '{}'""".format(slideshow)
+    records = frappe.db.sql(sql, as_dict= True)
+    
+    for r in records:
+        # html += """<img src="{}{}" height="250" width="300">""".format(images_path, r.image)
+        html += """<br><br>"""
+    
+    
+    html += """</body></html>"""    
+    print(html)
+        
+    return html
+
+
+@frappe.whitelist(allow_guest=True)
 def process_new_images(item_code):
     
     # Called from a button on item page
