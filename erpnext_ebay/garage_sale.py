@@ -57,9 +57,6 @@ def change_status_to_garagesale(item_code):
 
 
 
-
-
-
 def export_to_garage_sale_xml():
     post_code = "NP4 0HZ"
     design = "Pro: Classic"
@@ -231,7 +228,8 @@ def export_to_garage_sale_xml():
         
         
         tree = ET.ElementTree(root)
-        tree.write(garage_xml_path + str(date.today()) + "_garageimportfile.xml")
+        file_name = os.path.join(garage_xml_path, str(date.today()) + "_garageimportfile.xml")
+        tree.write(file_name)
         
         
         change_status_to_garagesale(item_code)
