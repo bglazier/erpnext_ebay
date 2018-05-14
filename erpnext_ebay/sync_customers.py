@@ -1,27 +1,21 @@
 
-"""Functions to read through eBay orders and load customers and addresses."""
-
 from __future__ import unicode_literals
 from __future__ import print_function
 
 
 import sys
-
-
 import datetime
 from types import MethodType
-
 import string
 
 import frappe
-from frappe import msgprint,_
+from frappe import msgprint, _
 from frappe.utils import cstr
 
 from ebay_requests import get_orders
 
 # Option to use eBay shipping address name as customer name.
 # eBay does not normally provide buyer name.
-# Don't say you weren't warned...
 assume_shipping_name_is_ebay_name = True
 
 # Maximum number of attempts to add duplicate address (by adding -1, -2 etc)
@@ -29,29 +23,28 @@ maximum_address_duplicates = 4
 
 
 @frappe.whitelist()
-def sync():    
+def sync():
     try:
         # Load orders from Ebay
         orders, num_days = get_orders()
-        
+
         # Create a synchronization log
         log_dict = {"doctype": "eBay sync log",
                     "ebay_sync_datetime": datetime.datetime.now(),
                     "ebay_sync_days": num_days,
                     "ebay_log_table": []}
         changes = []
-        
+
         try:
             # Load new customers
             for order in orders:
                 cust_details, address_details = extract_customer(order)
                 create_customer(cust_details, address_details, changes)
-            
-            # Not currently useful
+
             for order in orders:
                 order_details = extract_order_info(order, changes)
                 create_ebay_order(order_details, changes, order)
-        
+
         finally:
             # Save the log, regardless of how far we got
             for change in changes:
@@ -70,23 +63,23 @@ def sync():
 
 def extract_customer(order):
     """Process an order, and extract limited customer information.
-    
+
     order - a single order entry from the eBay TradingAPI.
-    
+
     Returns a tuple of two dictionarys.
     The first dictionary is ready to create a Customer Doctype entry.
     The second dictionary is ready to create an Address Doctype entry.
     The second dictionary could be replaced by None if there is no address.
     """
-    
-    
-    
+
+
+
     ebay_user_id = order['BuyerUserID']
-    
+
     is_pickup_order = 'PickupMethodSelected' in order
-    
+
     has_shipping_address = order['ShippingAddress']['Name'] is not None
-    
+
     if has_shipping_address:
         shipping_name = order['ShippingAddress']['Name']
         # Tidy up ShippingAddress name, if entirely lower/upper case and not
@@ -94,12 +87,12 @@ def extract_customer(order):
         if ((shipping_name.islower() or shipping_name.isupper()) and
                 ' ' in shipping_name):
             shipping_name = shipping_name.title()
-    
+
     if has_shipping_address and assume_shipping_name_is_ebay_name:
         customer_name = shipping_name
     else:
         customer_name = ebay_user_id
-    
+
     customer_dict = {
         "doctype": "Customer",
         "customer_name" : customer_name,
@@ -107,18 +100,18 @@ def extract_customer(order):
         "customer_group": _("Individual"),
         "territory": _("All Territories"),
         "customer_type": _("Individual")}
-    
+
     if has_shipping_address:
         # Attempt to get email address
         transactions = order['TransactionArray']['Transaction']
-        
+
         email_id = None
         email_ids = [x['Buyer']['Email'] for x in transactions]
         if email_ids.count(email_ids[0]) == len(email_ids):
             # All email_ids are identical
             if email_ids[0] != 'Invalid Request':
                 email_id = email_ids[0]
-        
+
         # Rest of the information
         postcode = order['ShippingAddress']['PostalCode']
         address_line1 = order['ShippingAddress']['Street1']
@@ -126,10 +119,10 @@ def extract_customer(order):
         country = order['ShippingAddress']['CountryName']
         if country is not None:
             country = country.title()
-            
+
             if country in ['UK', 'GB', 'Great Britain']:
                 country = 'United Kingdom'
-            
+
             country_query = frappe.db.get_value(
                 'Country', filters={'name': country}, fieldname='name')
             if country_query is None:
@@ -138,16 +131,16 @@ def extract_customer(order):
                 else:
                     address_line2 = country
                 country = None
-        
+
         # If we have a pickup order, there is no eBay AddressID (so make one)
         if is_pickup_order:
             ebay_address_id = (ebay_user_id + '_PICKUP_' +
                                address_line1.replace(' ', '_'))
         else:
             ebay_address_id = order['ShippingAddress']['AddressID']
-        
+
         # Prepare the address dictionary
-        if postcode is not None and country=='United Kingdom':
+        if postcode is not None and country == 'United Kingdom':
             postcode = sanitize_postcode(postcode)
         address_dict = {
             "doctype": "Address",
@@ -165,44 +158,41 @@ def extract_customer(order):
             "customer_name": customer_name}
     else:
         address_dict = None
-    
+
     return customer_dict, address_dict
 
 
 def extract_order_info(order, changes=None):
     """Process an order, and extract limited transaction information.
-    
     order - a single order entry from the eBay TradingAPI.
     changes - A sync log list to append to.
-    
     Returns dictionary for eBay order entries."""
-    
+
     country = "United Kingdom"
-    
+
     if changes is None:
         changes = []
-    
+
     ebay_user_id = order['BuyerUserID']
-    
-    
-    
+
+
     # Get customer information
     cust_fields = db_get_ebay_cust(
         ebay_user_id, fields=["name", "customer_name"],
         log=changes, none_ok=False)
-    
+
     # Get address information, if available
     if 'AddressID' in order['ShippingAddress']:
         ebay_address_id = order['ShippingAddress']['AddressID']
         country = order['ShippingAddress']['Country']
-        
+
         db_address_name = db_get_ebay_address(
             ebay_address_id, fields=["name"],
             log=changes, none_ok=False)["name"]
     else:
         ebay_address_id = None
         db_address_name = None
-    
+
     order_dict = {"doctype": "eBay order",
                   "name": order['OrderID'],
                   "ebay_order_id": order['OrderID'],
@@ -212,48 +202,48 @@ def extract_order_info(order, changes=None):
                   "customer_name": cust_fields["customer_name"],
                   "address": db_address_name,
                   "country": country
-                  #"item1": order['']
-              }
-    
+                 }
+
     return order_dict
 
+''''
 def get_order_transactions(order_id):
-    
-    
-    
-    return order_transaction_dict
 
+
+    return order_transaction_dict
+'''
 
 
 def create_customer(customer_dict, address_dict, changes=None):
     """Process an order and add the customer; add customer address.
     Does not duplicate entries where possible.
-    
+
     customer_dict - A dictionary ready to create a Customer doctype.
     address_dict - A dictionary ready to create an Address doctype (or None).
     changes - A sync log list to append to.
-    
-    Returns a list of dictionaries for eBay sync log entries."""
-    
+
+    Returns a list of dictionaries for eBay sync log entries.
+    """
+
     if changes is None:
         changes = []
-    
+
     updated_db = False
-    
+
     # First test if the customer already exists
     db_cust_name = None
     ebay_user_id = customer_dict['ebay_user_id']
     if address_dict is not None:
         ebay_address_id = address_dict['ebay_address_id']
-    
+
     cust_fields = db_get_ebay_cust(
         ebay_user_id, fields=["name", "customer_name"],
         log=changes, none_ok=True)
-    
+
     if cust_fields is None:
         # We don't have a customer with a matching ebay_user_id
         matched_non_eBay = False
-        
+
         # If we also have an address, check if we have a
         # matching postcode and name
         if address_dict is not None:
@@ -285,12 +275,12 @@ def create_customer(customer_dict, address_dict, changes=None):
                                  ebay_user_id + ' : ' +
                                  db_cust_customer_name_test)
                         changes.append({"ebay_change": "Located non-eBay user",
-                                       "ebay_user_id": ebay_user_id,
-                                       "customer_name": db_cust_customer_name,
-                                       "customer": db_cust_name,
-                                       "address": db_address_test,
-                                       "ebay_order": None})
-        
+                                        "ebay_user_id": ebay_user_id,
+                                        "customer_name": db_cust_customer_name,
+                                        "customer": db_cust_name,
+                                        "address": db_address_test,
+                                        "ebay_order": None})
+
         if not matched_non_eBay:
             msgprint('Adding a user: ' + ebay_user_id +
                      ' : ' + customer_dict['customer_name'])
@@ -312,18 +302,18 @@ def create_customer(customer_dict, address_dict, changes=None):
                        "customer": db_cust_name,
                        "address": None,
                        "ebay_order": None})
-    
+
     # Add customer if required
     if db_cust_name is None:
         frappe.get_doc(customer_dict).insert()
         updated_db = True
-    
+
     if address_dict is None:
         add_address = False
     else:
         address_fields = db_get_ebay_address(
             ebay_address_id, fields=["name"], log=changes, none_ok=True)
-        
+
         if address_fields is None:
             # Address does not exist; add address
             add_address = True
@@ -332,7 +322,7 @@ def create_customer(customer_dict, address_dict, changes=None):
             # Address does exist; do not add address
             add_address = False
             db_address_name = address_fields["name"]
-        
+
         # Test if there is already an identical address without the AddressID
         if not add_address:
             keys = ('address_line1', 'address_line2', 'city', 'pincode')
@@ -340,12 +330,12 @@ def create_customer(customer_dict, address_dict, changes=None):
             for key in keys:
                 if address_dict[key] is not None:
                     filters[key] = address_dict[key]
-            
+
             address_queries = frappe.db.get_values(
                 "Address",
                 filters=filters,
                 fieldname="name")
-            
+
             if len(address_queries) == 1:
                 # We have found a matching address; add eBay AddressID
                 db_address_name = address_queries[0][0]
@@ -353,7 +343,7 @@ def create_customer(customer_dict, address_dict, changes=None):
                 address_doc.ebay_address_id = ebay_address_id
                 address_doc.save()
                 updated_db = True
-        
+
         # Check that customer has a name, not just an eBay user id
         # If not, update with new name if assume_shipping_name_is_ebay_name
         if (db_cust_name is not None) and (assume_shipping_name_is_ebay_name):
@@ -367,10 +357,10 @@ def create_customer(customer_dict, address_dict, changes=None):
                                "ebay_user_id": ebay_user_id,
                                "customer_name": address_dict["customer_name"],
                                "customer": db_cust_name,
-                               "address": db_address_name,
-                               "ebay_order": None})
+                                "address": db_address_name,
+                                "ebay_order": None})
                 updated_db = True
-    
+
     # Add address if required
     if add_address:
         if db_cust_name is None:
@@ -385,12 +375,12 @@ def create_customer(customer_dict, address_dict, changes=None):
             dl = dlink_customer_address(address_doc.customer, address_doc.name)
             #dl.save(ignore_permissions=True)
             dl.insert()
-        
+
         except frappe.DuplicateEntryError as ex:
             # An address based on address_title autonaming already exists
                 # Get new doc, add a digit to the name and retry
             frappe.db.rollback()
-            for suffix_id in xrange(1,maximum_address_duplicates+1):
+            for suffix_id in xrange(1, maximum_address_duplicates+1):
                 address_doc = frappe.get_doc(address_dict)
                 # Hackily patch out autoname function and do it by hand
                 address_doc.autoname = MethodType(lambda self: None,
@@ -404,8 +394,8 @@ def create_customer(customer_dict, address_dict, changes=None):
                     dl = dlink_customer_address(address_doc.customer, address_doc.name)
                     #dl.save(ignore_permissions=True)
                     dl.insert()
-                    
-                    
+
+
                     break
                 except frappe.DuplicateEntryError:
                     frappe.db.rollback()
@@ -413,57 +403,58 @@ def create_customer(customer_dict, address_dict, changes=None):
             else:
                 raise ValueError('Too many duplicate entries of this address!')
         updated_db = True
-    
+
     # Commit changes to database
     if updated_db:
         frappe.db.commit()
-    
+
+
     return None
 
 
 def create_ebay_order(order_dict, changes, order):
     """Process an eBay order and add eBay order document.
     Does not duplicate entries where possible.
-    
+
     order_dict - A dictionary ready to create a eBay order doctype.
     changes - A sync log list to append to.
-    
+
     Returns a list of dictionaries for eBay sync log entries."""
-    
+
     if changes is None:
         changes = []
-    
+
     updated_db = False
-    
+
     ebay_order_id = order_dict['ebay_order_id']
     ebay_user_id = order_dict['ebay_user_id']
     ebay_address_id = order_dict['ebay_address_id']
-    
+
     #and the items
     #ebay_item_name = order_dict['item']
-    
-    
+
+
     order_fields = db_get_ebay_order(
         ebay_order_id, fields=["name"], log=changes, none_ok=True)
-    
+
     if order_fields is None:
         # Order does not exist, create eBay order
         db_cust_name = order_dict['customer']
         db_cust_customer_name = order_dict['customer_name']
         db_address_name = order_dict['address']
-        
+
         cust_queries = frappe.db.get_all(
             "Customer",
             filters={'ebay_user_id': ebay_user_id},
             fields=['name', 'customer_name'])
-        
+
         cust_fields = db_get_ebay_cust(
             ebay_user_id, fields=["name", "customer_name"],
             log=changes, none_ok=False)
-        
+
         db_cust_name = cust_fields['name']
         db_cust_customer_name = cust_fields['customer_name']
-        
+
         frappe.get_doc(order_dict).insert()
         msgprint('Adding eBay order: ' + ebay_user_id + ' : ' +
                  ebay_order_id)
@@ -480,12 +471,12 @@ def create_ebay_order(order_dict, changes, order):
             "Address",
             filters={'ebay_address_id': ebay_address_id},
             fields=['email_id'])
-        
+
         cust_email = cust_fields2['email_id']
         '''
-        create_sales_order(ebay_order_id, cust_fields["customer_name"],order,0)
-    
-    
+        create_sales_order(ebay_order_id, cust_fields["customer_name"], order, 0)
+
+
     else:
         # Order already exists
         # TODO Check if status of order has changed, and if so update??
@@ -502,23 +493,25 @@ def create_ebay_order(order_dict, changes, order):
                        "customer": cust_fields["name"],
                        "address": None,
                        "ebay_order": db_order_name})
-    
-    
-    
-    
+
+
+
+
     # Commit changes to database
     if updated_db:
         frappe.db.commit()
-    
+
+
     return None
 
 
 
 def create_sales_order(ebay_order_id, db_cust_name, order, ebay_settings):
-    
-    #TODO if exists then update.  si = frappe.db.get_value("Sales Invoice", {"ebay_order_id": ebay_order.get("id")}, "name")
+    """#TODO if exists then update.  si = frappe.db.get_value("Sales Invoice",
+     {"ebay_order_id": ebay_order.get("id")}, "name")
     #try:
-        
+    """
+
     si = False
     qty = 1
     creation_date = str(order['CreatedTime'])
@@ -527,20 +520,22 @@ def create_sales_order(ebay_order_id, db_cust_name, order, ebay_settings):
     item_list = []
     payments = []
     taxes = []
-        
+
+
     sum_inc_vat = 0.0
     sum_exc_vat = 0.0
     sum_vat = 0.0
     sum_paid = 0.0
-        
+
+
     # TODO
     # TransactionArray.Transaction.BuyerCheckoutMessage
     # TransactionArray.Transaction.FinalValueFee
     # isGSP = TransactionArray.Transaction.ContainingOrder.IsMultiLegShipping
     #TransactionArray.Transaction.ContainingOrder.MonetaryDetails.Payments.Payment.PaymentStatus
     # TransactionArray.Transaction.MonetaryDetails.Payments.Payment.PaymentStatus
-        
-        
+
+
     transactions = order['TransactionArray']['Transaction']
     for transaction in transactions:
         inc_vat = 0.0
@@ -548,17 +543,18 @@ def create_sales_order(ebay_order_id, db_cust_name, order, ebay_settings):
         vat = 0.0
         qty = 0
         item_rate = 0.0
-            
-        
+
+
         cust_email = transaction['Buyer']['Email']
-        
+
+
         # Vat Status
         #NoVATTax	VAT is not applicable
         #VATExempt	Residence in a country with VAT and user is registered as VAT-exempt
         #VATTax	Residence in a country with VAT and user is not registered as VAT-exempt
         #vat_status = transaction['Buyer']['VATStatus']
-        
-            
+
+
         transaction_id = transaction['TransactionID']
         qty = transaction['QuantityPurchased']
         sku = transaction['Item']['SKU']
@@ -567,42 +563,38 @@ def create_sales_order(ebay_order_id, db_cust_name, order, ebay_settings):
         item_title = transaction['Item']['Title']
         actual_shipping_cost = 0.0 # transaction['ActualShippingCost']
         # TODO create a line for any additional shipping costs
-            
 
 
-
-
-
-            
-            
-        inc_vat = float(transaction['TransactionPrice']['value']) #120
-        if inc_vat <= 0.0: break
-        exc_vat = float(inc_vat) / 1.2 # 100
+        inc_vat = float(transaction['TransactionPrice']['value'])
+        if inc_vat <= 0.0: 
+            break
+        exc_vat = float(inc_vat) / 1.2 
         vat = (exc_vat * 0.2) * float(qty) 
-        
+
+
         # If export to Rest of World then zero the vat
         country_name = "United Kingdom"
         country = order['ShippingAddress']['CountryName']
-        
-        
+
+
         income_account = "Sales - URTL"#determine_income_account(country_name)
-            
-            
+
+
         if income_account is not "Sales - URTL":
             vat = 0.0
             exc_vat = inc_vat
-            item_rate = round(inc_vat,2) 
+            item_rate = round(inc_vat, 2) 
         else:
             print("ITEM SALES YES")
-            item_rate = round(exc_vat,2)
-            
+            item_rate = round(exc_vat, 2)
+
+
         sum_inc_vat += inc_vat
         sum_exc_vat += exc_vat
         sum_vat += vat
         sum_paid += float(inc_vat * float(qty))
-                    
-
-            
+ 
+ 
         item_list.append(({
                 "item_code": sku,
                 "warehouse": "Mamhilad - URTL",
@@ -613,20 +605,26 @@ def create_sales_order(ebay_order_id, db_cust_name, order, ebay_settings):
                 "expense_account": "Cost of Goods Sold - URTL",
                 "cost_center": "Main - URTL"
          }))
-        
+
+
     # Taxes are a single line item not each transaction
-    #taxes.append(({"charge_type": "On Net Total", "description": "VAT 20%", "account_head": "VAT - URTL", "rate": "20"}))
+    #taxes.append(({"charge_type": "On Net Total", "description": 
+    # "VAT 20%", "account_head": "VAT - URTL", "rate": "20"}))
     if income_account is "Sales - URTL":
-    #    print("APPENDING VAT")
-        taxes.append(({"charge_type": "Actual", "description": "VAT 20%", "account_head": "VAT - URTL","rate": "20", "tax_amount": round(sum_vat,2) }))
-        
-        
+        taxes.append(({
+                    "charge_type": "Actual",
+                    "description": "VAT 20%",
+                    "account_head": "VAT - URTL",
+                    "rate": "20",
+                    "tax_amount": round(sum_vat,2) }))
+
+
     payments.append({"mode_of_payment": "Paypal", "amount": round(sum_paid,2)})
-        
-        
+
+
     create_sales_invoice(db_cust_name, cust_email, ebay_order_id, dt, item_list, payments, taxes)
-    
-    
+
+
     #except Exception as inst:
     #    print ("Sales invoice import fail") #+ db_cust_name
     
@@ -634,10 +632,10 @@ def create_sales_order(ebay_order_id, db_cust_name, order, ebay_settings):
 
 
 def determine_income_account(country):
-    
+
     if not country or country is "United Kingdom" or country is "":
         return "Sales - URTL"
-    
+
     if country == 'Germany' or country == 'Italy' or country == 'Poland' or country == 'France' or country == 'Romania' or country == 'Sweden' or country == 'Greece' or country == 'Spain' or country == 'Austria' or country == 'Hungary' or country == 'Bulgaria' or country == 'Finland' or country == 'Czech Republic' or country == 'Netherlands' or country == 'Croatia' or country == 'Lithuania' or country == 'Ireland' or country == 'Belgium' or country == 'Cyprus' or country == 'Slovakia' or country == 'Malta' or country == 'Portugal' or country == 'Estonia' or country == 'Slovenia' or country == 'Latvia' or country == 'Denmark' or country == 'Luxembourg':
         return "Sales - URTL"
     
@@ -645,8 +643,7 @@ def determine_income_account(country):
 
 
 def dlink_customer_address(customer, parent):
-    
-    
+
     d_link = frappe.get_doc({
         "doctype": "Dynamic Link",
         "parent": parent,
@@ -666,7 +663,8 @@ def dlink_customer_address(customer, parent):
 def create_sales_invoice(db_cust_name, cust_email, ebay_order_id, posting_date, item_list, payments, taxes):
 
     try:
-        
+
+
         si = frappe.get_doc({
                 "doctype": "Sales Invoice",
                 "naming_series": "SINV-",
@@ -691,39 +689,38 @@ def create_sales_invoice(db_cust_name, cust_email, ebay_order_id, posting_date, 
                 "notification_email_address": cust_email,
                 "notify_by_email": 1
             })
-        
-        
+
+
         if posting_date:
             si.set_posting_time = 1
         si.posting_date = posting_date 
-    
+
         si.insert()
         #si.submit()
-    
-    
-    
+
+
     except Exception as inst:
         print("Unexpected error", inst)
         raise
-    
+
     return
-    
+
 
 
 
 
 def sanitize_postcode(in_postcode):
     """Take a UK postcode and tidy it up (spacing and capitals)."""
-    
+
     postcode = in_postcode.strip().replace(' ', '').upper()
     if (6 > len(postcode) > 8):
         #print(in_postcode)
         raise ValueError('Unknown postcode type!')
         return in_postcode
-    
+
     # A single space always precedes the last three characters of a UK postcode
     postcode = postcode[:-3] + ' ' + postcode[-3:]
-    
+
     return postcode
 
 
@@ -763,7 +760,8 @@ def db_get_ebay_address(ebay_address_id, fields=None, log=None, none_ok=True):
 
 def db_get_ebay_order(ebay_order_id, fields=None, log=None, none_ok=True):
     """Shorthand function for db_get_ebay_doc for eBay order"""
-    
+
+
     return db_get_ebay_doc("eBay order", "ebay_order_id", ebay_order_id,
                            fields, log, none_ok)
 
@@ -782,17 +780,17 @@ def db_get_ebay_doc(doctype, ebay_id_name, ebay_id,
     """
     
     error_message = None
-    
+
     if fields is None:
         fields_search = ["name"]
     else:
         fields_search = fields
-    
+
     doc_queries = frappe.db.get_all(
         doctype,
         filters={ebay_id_name: ebay_id},
         fields=fields_search)
-    
+
     if len(doc_queries) == 1:
         if fields is None:
             db_doc_name = doc_queries[0]['name']
@@ -817,7 +815,7 @@ def db_get_ebay_doc(doctype, ebay_id_name, ebay_id,
             errstring = ebay_id_name + ' : ' + ebay_id
             sync_error(
                 log, doc_queries, error_message, customer_name=errstring)
-    
+
     return retval
 
 

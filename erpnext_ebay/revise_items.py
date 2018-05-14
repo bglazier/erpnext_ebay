@@ -14,7 +14,9 @@ from frappe.utils import cstr
 
 
 sys.path.insert(0, frappe.get_app_path('erpnext_ebay'))
-
+sys.path.insert(0, "/Users/ben/dev/ebaysdk-python/dist/ebaysdk-2.1.5-py2.7.egg")
+sys.path.insert(0, "/usr/local/lib/python2.7/dist-packages/ebaysdk-2.1.4-py2.7.egg")
+sys.path.insert(0, "/usr/local/lib/python2.7/dist-packages/lxml-3.6.4-py2.7-linux-i686.egg")
 
 from ebaysdk.exception import ConnectionError
 from ebaysdk.trading import Connection as Trading

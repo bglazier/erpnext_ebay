@@ -42,6 +42,7 @@ frappe.ui.form.on('eBay Manager', 'create_garagesale', function(frm) {
 
 frappe.ui.form.on('eBay Manager', 'price_sync', function(frm) {
 	
+    var r = ''
 	frappe.call({
 			method: "erpnext_ebay.ebay_price_sync.price_sync",
 			args: {},

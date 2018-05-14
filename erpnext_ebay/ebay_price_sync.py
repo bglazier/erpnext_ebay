@@ -10,32 +10,33 @@ import frappe
 from frappe import msgprint
 from frappe.utils import cstr
 
-from jinja2 import Environment, PackageLoader
-import jinja2
+#from jinja2 import Environment, PackageLoader
+#import jinja2
 
 from ebay_active_listings import generate_active_ebay_data
 import ugssettings
 
-
+''''
 def better_print(*args, **kwargs):
     with open("price_sync_to_erpnext_log.log", "a") as f:
         builtins.print (file=f, *args, **kwargs)
 
 print = better_print
-
+'''
 
 @frappe.whitelist(allow_guest=True)
 def price_sync():
     """Price sync is to be run if ErpNext prices are out of sync with eBay
     This should not happen going forward if prices are adjusted on ErpNext and then revised.
     """
-
+    
     frappe.msgprint("Syncing. Note: Did you run ebay active listing?")
     #generate_active_ebay_data()
     sync_from_ebay_to_erpnext()
-
+    
     frappe.msgprint("Finished price sync.")
-
+    
+    return 1
 
 
 def sync_from_ebay_to_erpnext():
@@ -48,7 +49,7 @@ def sync_from_ebay_to_erpnext():
     
     for r in records:
         # Note: The eBay prices stored in zEbayListings are ex vat
-        print('Syncing price for this item: ', r.sku)
+        #print('Syncing price for this item: ', r.sku)
         
         if r.ebay_price:
             new_price = r.ebay_price / ugssettings.VAT
@@ -61,7 +62,7 @@ def set_erp_price(item_code, price):
     
     '''
     # database contains two prices it.standard_rate and ip.price_list_rate
-    select ip.item_code, ip.price_list_rate, ip.selling, it.standard_rate from 
+    select ip.item_code, ip.price_list_rate, ip.selling, it.standard_rate from
     `tabItem Price` ip left join `tabItem` it on it.item_code = ip.item_code
     where ip.price_list_rate <> it.standard_rate;
     '''
@@ -69,7 +70,7 @@ def set_erp_price(item_code, price):
     sql = """update `tabItem Price` ip
             set ip.price_list_rate = {}
             where ip.selling = 1 and ip.item_code = '{}' """.format(float(price), item_code)
-   
+    
     
     try:
         frappe.db.sql(sql, auto_commit = True)
@@ -77,7 +78,7 @@ def set_erp_price(item_code, price):
     
     except Exception as inst:
         print("Unexpected error running price fix. Possible missing Item Price for item: ", item_code)
-
+    
     
     
     
@@ -92,7 +93,7 @@ def set_erp_price(item_code, price):
     
     except Exception as inst:
         print("Unexpected error running price fix. Possible missing Price for item: ", item_code)
-
+    
     
     return
 
