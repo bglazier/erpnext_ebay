@@ -507,9 +507,10 @@ def create_ebay_order(order_dict, changes, order):
 
 
 def create_sales_order(ebay_order_id, db_cust_name, order, ebay_settings):
-    """#TODO if exists then update.  si = frappe.db.get_value("Sales Invoice",
+    """
+    #TODO if exists then update.  si = frappe.db.get_value("Sales Invoice",
      {"ebay_order_id": ebay_order.get("id")}, "name")
-    #try:
+    
     """
 
     si = False
@@ -557,9 +558,15 @@ def create_sales_order(ebay_order_id, db_cust_name, order, ebay_settings):
 
         transaction_id = transaction['TransactionID']
         qty = transaction['QuantityPurchased']
-        sku = transaction['Item']['SKU']
-        # Only allow valid SKU
-        if len(sku) < 10: return
+        try:
+            sku = transaction['Item']['SKU']
+            # Only allow valid SKU
+        except KeyError:
+            #if len(sku) < 10: return
+            frappe.msgprint('Note" One of the items did not have an SKU')
+            sku = ''
+
+
         item_title = transaction['Item']['Title']
         actual_shipping_cost = 0.0 # transaction['ActualShippingCost']
         # TODO create a line for any additional shipping costs

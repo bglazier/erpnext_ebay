@@ -113,7 +113,7 @@ def get_myebay_selling_request(page):
 
 
 def create_ebay_listings_table():
-    """Set up the zEbayListings table"""
+    """Set up the zEbayListings temp table"""
 
     sql = """
         create table if not exists `zEbayListings` (
@@ -137,7 +137,7 @@ def create_ebay_listings_table():
 
 def insert_ebay_listing(sku, ebay_id, qty, price,
                         site, hits, watches, questions):
-    """insert ebay listings"""
+    """insert ebay listings into a temp table"""
 
     sql = """
     insert into `zEbayListings`
@@ -165,12 +165,20 @@ def insert_ebay_listing(sku, ebay_id, qty, price,
 
 # if item is on ebay then set the ebay_id field
 def set_item_ebay_id(item_code, ebay_id):
-    """Given an item_code set the ebay_id field to the live eBay ID"""
-
-    sql = """update `tabItem` it
+    """Given an item_code set the ebay_id field to the live eBay ID
+    also does not overwrite Awaiting Garagesale if ebay_id is blank
+    """
+    if ebay_id == '':
+        sql = """update `tabItem` it
             set it.ebay_id = '{}'
-            where it.item_code = '{}' """.format(ebay_id, item_code)
-
+            where it.item_code = '{}' 
+            and it.ebay_id <> '{}'
+            """.format(ebay_id, item_code, AWAITING_GARAGESALE_STATUS)
+    else:
+        sql = """update `tabItem` it
+            set it.ebay_id = '{}'
+            where it.item_code = '{}' 
+            """.format(ebay_id, item_code)
 
     try:
         frappe.db.sql(sql, auto_commit=True)
@@ -205,7 +213,7 @@ def sync_ebay_ids():
 
     for r in records:
 
-        # If not live id then clear any value on system
+        # If not live id then clear any value on system (unless Awaiting Garagaesale)
         if r.live_ebay_id == '':
             set_item_ebay_id(r.item_code, '')
         else:

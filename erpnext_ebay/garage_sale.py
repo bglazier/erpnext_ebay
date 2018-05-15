@@ -415,8 +415,9 @@ def get_item_records_by_item_status():
         , it.net_weight, it.length, it.width, it.height
         , it.standard_rate as price
         , it.delivery_type
-        , bin.actual_qty
+        , sum(bin.actual_qty) as actual_qty
         , it.item_status
+        , sum(sl.qty) as sum_sl
         
         from `tabItem` it
         
@@ -426,9 +427,15 @@ def get_item_records_by_item_status():
         left join `tabItem Price` ip
         on ip.item_code = it.name
         
+        left join `tabStock Locations` sl
+        on sl.item_code = it.item_code
+        
         where it.item_status = 'QC Passed'
         and (it.ebay_id is Null or it.ebay_id ='')
         and bin.actual_qty > 0
+        group by it.item_code
+        having sum(sl.qty) > 0 and sum(sl.qty) = sum(bin.actual_qty)
+        order by it.item_code
     """
         
     entries = frappe.db.sql(sql, as_dict=1)
