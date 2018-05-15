@@ -25,16 +25,21 @@ frappe.ui.form.on('eBay Manager', 'customer_sync', function(frm) {
 
 
 frappe.ui.form.on('eBay Manager', 'create_garagesale', function(frm) {
-	//alert("Importing New Customers...");
-	
-	//if export_date > get_today()
-	//	{frappe.msgprint("Invalid date")}
-	
-	frappe.call({
-			method: "erpnext_ebay.garage_sale.run_cron_create_xml",
-			args: {},
-			callback: function(r){}
-			});
+
+    
+    if (confirm('Have you a) relisted ended eBay listings?  b) Synced the Active eBay Listings?')) {
+        // Run it!
+    	frappe.call({
+    			method: "erpnext_ebay.garage_sale.run_cron_create_xml",
+    			args: {},
+    			callback: function(r){}
+    			});
+    } else {
+        // Do nothing!
+    }
+    
+    
+
 
 
 });
