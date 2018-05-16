@@ -48,12 +48,10 @@ def sync_from_ebay_to_erpnext():
     records = frappe.db.sql(sql, as_dict=True)
     
     for r in records:
-        # Note: The eBay prices stored in zEbayListings are ex vat
-        #print('Syncing price for this item: ', r.sku)
-        
+        # Note: The eBay prices stored in zEbayListings are ex vat        
         if r.ebay_price:
-            new_exc_price = r.ebay_price / ugssettings.VAT
-            set_erp_price(r.sku, new_exc_price, r.ebay_price)
+            inc_price = r.ebay_price * VAT
+            set_erp_price(r.sku, r.ebay_price, inc_price)
 
 
 
