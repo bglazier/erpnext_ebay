@@ -50,7 +50,7 @@ def sync_from_ebay_to_erpnext():
     for r in records:
         # Note: The eBay prices stored in zEbayListings are ex vat        
         if r.ebay_price:
-            inc_price = r.ebay_price * VAT
+            inc_price = r.ebay_price * ugssettings.VAT
             set_erp_price(r.sku, r.ebay_price, inc_price)
 
 
