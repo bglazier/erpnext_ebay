@@ -81,6 +81,8 @@ def export_to_garage_sale_xml():
 
     for r in records:
 
+        item_code = r.name
+
         qty_unsubmit = get_unsubmitted_prec_qty(item_code)
         if not qty_unsubmit: qty_unsubmit = 0
 
@@ -93,18 +95,15 @@ def export_to_garage_sale_xml():
         if quantity == r.sum_sl:
 
             title = ""
-
             title += r.item_name
-            item_code = r.name
             category = lookup_category(r.item_group, r.item_group_ebay)
 
             price = r.price
-
             if(not price):
                 price = 0.0
                 #TODO Probably better writing this to a LOG file and not exporting it?
             
-            ebay_price = price * VAT
+            ebay_price = price * ugssettings.VAT
 
         
 
