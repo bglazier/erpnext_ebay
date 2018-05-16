@@ -52,13 +52,13 @@ def sync_from_ebay_to_erpnext():
         #print('Syncing price for this item: ', r.sku)
         
         if r.ebay_price:
-            new_price = r.ebay_price / ugssettings.VAT
-            set_erp_price(r.sku, new_price)
+            new_exc_price = r.ebay_price / ugssettings.VAT
+            set_erp_price(r.sku, new_exc_price, r.ebay_price)
 
 
 
 # Simply updates Item Price given item code and price
-def set_erp_price(item_code, price):
+def set_erp_price(item_code, exc_price, inc_price):
     
     '''
     # database contains two prices it.standard_rate and ip.price_list_rate
@@ -69,7 +69,7 @@ def set_erp_price(item_code, price):
     
     sql = """update `tabItem Price` ip
             set ip.price_list_rate = {}
-            where ip.selling = 1 and ip.item_code = '{}' """.format(float(price), item_code)
+            where ip.selling = 1 and ip.item_code = '{}' """.format(float(exc_price), item_code)
     
     
     try:
@@ -84,11 +84,24 @@ def set_erp_price(item_code, price):
     
     sql2 = """update `tabItem` it
             set it.standard_rate = {}
-            where it.item_code = '{}' """.format(float(price), item_code)
+            where it.item_code = '{}' """.format(float(exc_price), item_code)
     
     
     try:
         frappe.db.sql(sql2, auto_commit = True)
+    
+    
+    except Exception as inst:
+        print("Unexpected error running price fix. Possible missing Price for item: ", item_code)
+    
+    
+    sql3 = """update `tabItem` it
+            set it.vat_inclusive_price = {}
+            where it.item_code = '{}' """.format(float(inc_price), item_code)
+    
+    
+    try:
+        frappe.db.sql(sql3, auto_commit = True)
     
     
     except Exception as inst:
