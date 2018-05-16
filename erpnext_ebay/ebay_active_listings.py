@@ -173,7 +173,7 @@ def set_item_ebay_id(item_code, ebay_id):
             set it.ebay_id = '{}'
             where it.item_code = '{}' 
             and it.ebay_id <> '{}'
-            """.format(ebay_id, item_code, AWAITING_GARAGESALE_STATUS)
+            """.format(ebay_id, item_code, 'Awaiting Garagesale')
     else:
         sql = """update `tabItem` it
             set it.ebay_id = '{}'
@@ -222,4 +222,4 @@ def sync_ebay_ids():
                 set_item_ebay_id(r.sku, r.live_ebay_id)
             else:
                 msgprint(
-                    'The ebay item cannot be found on ERPNEXT so unable to record ebay id' + r.sku)
+                    'The ebay item cannot be found on ERPNEXT so unable to record ebay id', r.live_ebay_id)
