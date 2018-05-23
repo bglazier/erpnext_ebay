@@ -27,7 +27,7 @@ frappe.ui.form.on('eBay Manager', 'customer_sync', function(frm) {
 frappe.ui.form.on('eBay Manager', 'create_garagesale', function(frm) {
 
     
-    if (confirm('Have you a) relisted ended eBay listings?  b) Synced the Active eBay Listings?')) {
+    if (confirm('Have you relisted ended eBay listings?')) {
         // Run it!
     	frappe.call({
     			method: "erpnext_ebay.garage_sale.run_cron_create_xml",

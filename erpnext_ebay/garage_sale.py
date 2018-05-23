@@ -6,21 +6,27 @@ from __future__ import unicode_literals
 from __future__ import print_function
 import __builtin__ as builtins
 
-import frappe, os, shutil
-from frappe.model.document import Document
+import os
+import shutil
+import cgi
+import urllib
+import subprocess
 from datetime import date, timedelta
+
+import frappe
+from frappe.model.document import Document
 
 import xml.etree.cElementTree as ET
 import requests
 
 from jinja2 import Environment, PackageLoader
 import jinja2
-import subprocess
-import cgi
-import urllib
+
+
 
 from ugscommon import get_unsubmitted_prec_qty
 import ugssettings
+#from ebay_active_listings import generate_active_ebay_data
 
 
 NO_IMAGES = True
@@ -36,19 +42,14 @@ site_files_path = (os.path.join(os.sep, frappe.utils.get_bench_path(), 'sites',
 images_url = 'http://www.universalresourcetrading.com'
 site_url = 'http://www.universalresourcetrading.com'
 
+footer = """<br><br>The price includes VAT and we can provide VAT invoices.\
+            <br><br>Universities and colleges - purchase orders accepted - please contact us."""
 
-@frappe.whitelist()
-def run_cron_create_xml():
-
-    frappe.msgprint("Exporting all listings in QC Passed status")
-    export_to_garage_sale_xml()
-
-    return
 
 
 def change_status_to_garagesale(item_code):
     """
-    Change the ebay_id field to note that item has been sent to Garagesale but may not be live on 
+    Change the ebay_id field to note that item has been sent to Garagesale but may not be live on
     eBay
     """
 
@@ -58,14 +59,20 @@ def change_status_to_garagesale(item_code):
     where it.item_code = '{}'
     """.format(ugssettings.AWAITING_GARAGESALE_STATUS, item_code)
 
-    frappe.db.sql(sql, auto_commit = True)
+    frappe.db.sql(sql, auto_commit=True)
 
 
 
-def export_to_garage_sale_xml():
+@frappe.whitelist()
+def run_cron_create_xml():
     """
     # NOTE Should run sync ebay_ids before running anything else so database is up to date
     """
+
+    frappe.msgprint("Exporting all listings in QC Passed status")
+
+    #Before doing anything sync the ebay_id to Erpnext
+    #generate_active_ebay_data()
 
     post_code = "NP4 0HZ"
     design = "Pro: Classic"
@@ -84,7 +91,8 @@ def export_to_garage_sale_xml():
         item_code = r.name
 
         qty_unsubmit = get_unsubmitted_prec_qty(item_code)
-        if not qty_unsubmit: qty_unsubmit = 0
+        if not qty_unsubmit:
+            qty_unsubmit = 0
 
         if r.actual_qty:
             quantity = r.actual_qty + qty_unsubmit
@@ -100,14 +108,13 @@ def export_to_garage_sale_xml():
             title += r.item_name
             category = lookup_category(r.item_group, r.item_group_ebay)
 
-            price = r.price
-            if(not price):
-                price = 0.0
-                #TODO Probably better writing this to a LOG file and not exporting it?
-            
-            ebay_price = price * ugssettings.VAT
+            # if an item_price use that otherwise try item.standard_rate (either case ifnull=0)
+            if r.item_price == 0.0:
+                ebay_price = r.price * ugssettings.VAT
+            else:
+                ebay_price = r.item_price * ugssettings.VAT
 
-        
+
 
             #resize_images(item_code)
             #image = r.image
@@ -120,21 +127,14 @@ def export_to_garage_sale_xml():
             version = 0
 
             body = "<![CDATA[<br></br>"
-            body += jtemplate(version, r.description, r.function_grade, r.grade_details, r.condition, \
-                    r.tech_details, r.delivery_type, r.accessories_extras, \
-                    r.power_cable_included, r.power_supply_included, r.remote_control_included, \
-                    r.case_included, r.warranty_period)
+            body += jtemplate(version, r.description, r.function_grade, r.grade_details,
+                              r.condition, r.tech_details, r.delivery_type, r.accessories_extras,
+                              r.power_cable_included, r.power_supply_included,
+                              r.remote_control_included, r.case_included, r.warranty_period)
 
-            body += "<br><br>The price includes VAT and we can provide VAT invoices."
-            body += "<br><br>Universities and colleges - purchase orders accepted - please contact us."
-            body += "<br><br>sku: " + r.item_code
+            body += footer
+            body += """<br><br>sku: {}""".format(item_code)
             body += "]]"
-
-
-            #quantity = 1
-            if(not quantity):
-                quantity = 1
-                # or break ??
 
             doc = ET.SubElement(root, "item")
 
@@ -152,11 +152,24 @@ def export_to_garage_sale_xml():
             ET.SubElement(doc, "description").text = body
             ET.SubElement(doc, "design").text = design
 
-            #EXAMPLE <domesticShippingService serviceAdditionalFee="2.00" serviceFee="12.00">UPS Ground</domesticShippingService>
-            dom_ship_free = ET.fromstring("""<domesticShippingService serviceAdditionalFee="0.00" serviceFee="0.00">Other Courier 3-5 days</domesticShippingService>""")
-            dom_ship_pallet = ET.fromstring("""<domesticShippingService serviceAdditionalFee="0.00" serviceFee="60.00">Other Courier 3-5 days</domesticShippingService>""")
-            dom_ship_collection = ET.fromstring("""<domesticShippingService serviceAdditionalFee="0.00" serviceFee="0.00">Collection in Person</domesticShippingService>""")
-            dom_ship_24hour = ET.fromstring("""<domesticShippingService serviceAdditionalFee="0.00" serviceFee="24.00">Other 24 Hour Courier</domesticShippingService>""")
+            #EXAMPLE <domesticShippingService serviceAdditionalFee="2.00" serviceFee="12.00">UPS
+            #Ground</domesticShippingService>
+            dom_ship_free = ET.fromstring("""<domesticShippingService serviceAdditionalFee="0.00"
+                                             serviceFee="0.00">Other Courier 3-5 days
+                                             </domesticShippingService>""")
+            dom_ship_pallet = ET.fromstring("""<domesticShippingService serviceAdditionalFee="0.00"
+                                               serviceFee="60.00">Other Courier 3-5 days
+                                               </domesticShippingService>""")
+            dom_ship_collection = ET.fromstring("""<domesticShippingService
+                                                   serviceAdditionalFee="0.00"
+                                                   serviceFee="0.00">
+                                                   Collection in Person
+                                                   </domesticShippingService>""")
+            dom_ship_24hour = ET.fromstring("""<domesticShippingService
+                                               serviceAdditionalFee="0.00"
+                                               serviceFee="24.00">
+                                               Other 24 Hour Courier
+                                               </domesticShippingService>""")
 
             # Make sure there is a domestic default
             doc.append(dom_ship_collection)
@@ -172,7 +185,7 @@ def export_to_garage_sale_xml():
 
 
             #if r.delivery_type == 'Collection Only':  No need for this as default is set
-        
+
             if r.delivery_type == 'Standard Parcel':
                 doc.append(dom_ship_free)
                 doc.append(dom_ship_24hour)
@@ -187,7 +200,8 @@ def export_to_garage_sale_xml():
 
             ET.SubElement(doc, "duration").text = str(duration)
             ET.SubElement(doc, "handlingTime").text = str(handling_time)
-        
+
+            """
             if USE_SERVER_IMAGES:
                 for ssi in ss_images_list:
                     if exists(images_url + ssi.image):
@@ -199,18 +213,21 @@ def export_to_garage_sale_xml():
 
                             # IF there is no slideshow then try the ws_image
                             if not ssi:
-                                if (r.website_image != 'NULL'):
+                                if r.website_image != 'NULL':
                                     ET.SubElement(doc, "imageURL").text = images_url + ws_image
-
+            """
 
 
             ET.SubElement(doc, "layout").text = layout
             #ET.SubElement(doc, "lotSize").text = "1"
-            if r.height: ET.SubElement(doc, "packageDepth").text = str(r.height)
-            if r.length: ET.SubElement(doc, "packageLength").text = str(r.length)
+            if r.height:
+                ET.SubElement(doc, "packageDepth").text = str(r.height)
+            if r.length:
+                ET.SubElement(doc, "packageLength").text = str(r.length)
             ET.SubElement(doc, "packageOunces").text = str(ounces)
             ET.SubElement(doc, "packagePounds").text = str(pounds)
-            if r.width: ET.SubElement(doc, "packageWidth").text = str(r.width)
+            if r.width:
+                ET.SubElement(doc, "packageWidth").text = str(r.width)
             #ET.SubElement(doc, "paymentInstructions").text = ""
             ET.SubElement(doc, "privateAuction").text = "false"
             ET.SubElement(doc, "quantity").text = str(quantity)
@@ -243,21 +260,22 @@ def export_to_garage_sale_xml():
             tree.write(file_name)
 
             change_status_to_garagesale(item_code)
-    
-    # Xml file created now download it
-    download_xml(site_url + '/files/xml/' + str(date.today()) + "_garageimportfile.xml", 
-                 str(date.today()) + "_garageimportfile.xml")
+
+    # Xml file created now download it (does not work properly)
+    #download_xml(site_url + '/files/xml/' + str(date.today()) + "_garageimportfile.xml",
+    #             str(date.today()) + "_garageimportfile.xml")
 
     return
 
 
 
 def download_xml(url, file_name):
+    """
+    Saves a file to local machine
+    """
 
-    
     urllib.urlretrieve(url, os.path.join(os.path.expanduser("~"), 'Downloads', file_name))
-    
-    
+
     print(url)
     print(os.path.join(os.path.expanduser("~"), 'Downloads', file_name))
 
@@ -265,7 +283,7 @@ def render(tpl_path, context):
     """
     render
     """
-    
+
     path, filename = os.path.split(tpl_path)
     rendered = jinja2.Environment(
         loader=jinja2.FileSystemLoader(path or './'), autoescape=False
@@ -277,8 +295,9 @@ def render(tpl_path, context):
 
 
 
-def jtemplate(version, description, function_grade, grade_details, condition, tech_details, delivery_type, accessories_extras, \
-power_cable_included, power_supply_included, remote_control_included, case_included, warranty_period):
+def jtemplate(version, description, function_grade, grade_details, condition, tech_details,
+              delivery_type, accessories_extras, power_cable_included, power_supply_included,
+              remote_control_included, case_included, warranty_period):
     """
     jtemplate
     """
@@ -306,14 +325,15 @@ power_cable_included, power_supply_included, remote_control_included, case_inclu
         }
 
 
-        result = render(os.path.join(os.sep, frappe.get_app_path('erpnext_ebay'), 'item_garage_sale.html'), context)
+        result = render(os.path.join(os.sep, frappe.get_app_path('erpnext_ebay'),
+                                     'item_garage_sale.html'), context)
 
     except:
         raise
         result = ""
 
 
-    return (result)
+    return result
 
 
 
@@ -324,17 +344,17 @@ power_cable_included, power_supply_included, remote_control_included, case_inclu
 
 
 def lookup_condition(con_db, func_db):
-    """ 
+    """
     Given an erpNext condition grade
     returns condition string and condition_id (int)
-    options:  New, New other, Manufacturer refurbished, Seller refurbished, 
+    options:  New, New other, Manufacturer refurbished, Seller refurbished,
     Used, For parts or not working
     see below for more details
     """
-    
+
     condition = "Used"
     condition_id = 3000
-    
+
     if con_db == "0":
         condition = "Used"
     if con_db == "1":
@@ -348,12 +368,12 @@ def lookup_condition(con_db, func_db):
         condition = "Used"
     if con_db == "5":
         condition = "Used"
-    
+
     if func_db == "5":
         condition = "For parts or not working"
         condition_id = 7000
-        
-        
+
+
     """Note: ebays condition ids are:
         
         ID	Typical Name	Typical Definition
@@ -403,10 +423,10 @@ def lookup_condition(con_db, func_db):
                     to use, items that require service or repair, or items missing essential 
                     components. Supported in categories where parts or non-working items are of 
                     interest to people who repair or collect related items.
-        
-        
+
+
         """
-    
+
     return condition, condition_id
 
 
@@ -420,7 +440,7 @@ def lookup_category(cat_db, ebay_cat_db):
 
     if cat_db:
         val = frappe.get_value("Item Group", str(cat_db), "ebay_category_code")
-    
+
     if ebay_cat_db:
         val = frappe.get_value("Item Group eBay", str(ebay_cat_db), "ebay_category_id")
 
@@ -434,23 +454,43 @@ def lookup_category(cat_db, ebay_cat_db):
 def get_item_records_by_item_status():
     """
     Gets all the QC Passed items that are not on eBay
-    TODO needs to allow for unsubmitted PREC quantities
+
+    #having sum(sl.qty) > 0 and sum(sl.qty) = sum(bin.actual_qty) WILL NOT WORK WITH DRAFT PREC
+    # Therefore See alternative method in main function using get_unsubmitted_prec
     """
-    
+
     sql = """select
-        it.creation
-        , it.item_code, it.name, it.item_name, it.item_group, it.item_group_ebay
-        , it.brand, it.description, it.tech_details
-        , it.image, it.website_image, it.slideshow
-        , it.accessories_extras, it.power_cable_included, it.power_supply_included, it.remote_control_included, it.case_included
-        , it.condition, it.function_grade, it.grade_details
-        , it.warranty_period
-        , it.net_weight, it.length, it.width, it.height
-        , it.standard_rate as price
-        , it.delivery_type
-        , sum(bin.actual_qty) as actual_qty
-        , it.item_status
-        , sum(sl.qty) as sum_sl
+        it.creation,
+        it.item_code,
+        it.name,
+        it.item_name,
+        it.item_group,
+        it.item_group_ebay,
+        it.brand,
+        it.description,
+        it.tech_details,
+        it.image,
+        it.website_image,
+        it.slideshow,
+        it.accessories_extras,
+        it.power_cable_included,
+        it.power_supply_included,
+        it.remote_control_included,
+        it.case_included,
+        it.condition,
+        it.function_grade,
+        it.grade_details,
+        it.warranty_period,
+        ifnull(it.net_weight,0.0),
+        ifnull(it.length, 0.0),
+        ifnull(it.width, 0.0),
+        ifnull(it.height,0.0),
+        it.delivery_type,
+        ifnull(it.standard_rate,0.0) as price,
+        ifnull(ip.price_list_rate,0.0) as item_price,
+        sum(ifnull(bin.actual_qty, 0.0)) as actual_qty,
+        it.item_status,
+        sum(ifnull(sl.qty, 0.0)) as sum_sl
         
         from `tabItem` it
         
@@ -463,15 +503,15 @@ def get_item_records_by_item_status():
         left join `tabStock Locations` sl
         on sl.item_code = it.item_code
         
-        where it.item_status = 'QC Passed'
+        where 
+        it.item_status = 'QC Passed'
         and (it.ebay_id is Null or it.ebay_id ='')
-        and bin.actual_qty > 0
-        group by it.item_code
+        and ip.selling = 1
         
+        group by it.item_code
         order by it.item_code
     """
-    #having sum(sl.qty) > 0 and sum(sl.qty) = sum(bin.actual_qty) WILL NOT WORK WITH DRAFT PREC
-    # See alternative method in main function using get_unsubmitted_prec
+
 
     entries = frappe.db.sql(sql, as_dict=1)
 
@@ -481,16 +521,19 @@ def get_item_records_by_item_status():
 
 
 
-def get_slideshow_records(parent):
-    
+def get_slideshow_records(ss_name):
+    """
+    Returns slideshow records for an item5p98'\
+    """
     records = []
-    if (parent!= None):
-        records = frappe.db.sql("""select
-        wsi.image
-        from `tabWebsite Slideshow Item` wsi
+    if parent != None:
+        records = frappe.db.sql("""
+            select
+            wsi.image
+            from `tabWebsite Slideshow Item` wsi
         
-        where wsi.parent = '""" + parent + """'
-        """ , as_dict=1)
+            where wsi.parent = '""" + ss_name + """'
+            """, as_dict=1)
 
     return records
 
@@ -500,33 +543,48 @@ def get_slideshow_records(parent):
 '''UTILITIES'''
 
 def kg_to_imperial(kg):
-    
+    """
+    Convert Kg to imperial
+    """
     ounces = kg * 35.27396195
     pounds = kg * 2.2046226218
     ounces = ounces - (pounds * 12.0)
-    
+
     return pounds, ounces
 
 
 def first_lower(s):
+    """
+    Changes first char in string to lowercase
+    """
+    
     if not s:
         return ""
     return s[0].lower() + s[1:]
 
 
 def exists(path):
+    """
+    Check if path exists
+    """
+    
     r = requests.head(path)
     return r.status_code == requests.codes.ok
 
 
 def add_breaks(non_html):
+    """
+    Replace linebreak with <li> 
+    """
     
     escaped = cgi.escape(non_html.rstrip()).replace("\n", "</li><li>")
     non_html = "<li>%s</li>" % escaped
-    
+
     return non_html
-        
+
 
 def resize_image(item_code):
-
+    """
+    Use mogrify to resize images for an item_code
+    """
     subprocess.call(['mogrify', '-resize', '1024x768', item_code + '.jpg'])
