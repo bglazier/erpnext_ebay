@@ -90,20 +90,12 @@ def run_cron_create_xml():
     for r in records:
 
         item_code = r.name
-
-        qty_unsubmit = r.unsubmitted_prec_qty  #get_unsubmitted_prec_qty(item_code)
-        if not qty_unsubmit:
-            qty_unsubmit = 0
-
-        if r.actual_qty:
-            quantity = r.actual_qty + qty_unsubmit
-        else:
-            quantity = qty_unsubmit
+        quantity = r.actual_qty + r.unsubmitted_prec_qty
 
         # Don't run if quantity not matching stock locations qty
         # Items only come through if ebay_id is Null or blank - no need to exclude e.g Awaiting
         # Garagesale (see sql query)
-        if quantity == r.sum_sl:
+        if quantity > 0.0 and quantity == r.sum_sl:
 
             title = ""
             title += r.item_name
@@ -114,8 +106,6 @@ def run_cron_create_xml():
                 ebay_price = r.price * ugssettings.VAT
             else:
                 ebay_price = r.item_price * ugssettings.VAT
-
-
 
 
             #resize_images(item_code)
@@ -497,14 +487,14 @@ def get_item_records_by_item_status():
         sum(ifnull(bin.actual_qty, 0.0)) as actual_qty,
         it.item_status,
         sum(ifnull(sl.qty, 0.0)) as sum_sl,
-        (
+        ifnull((
             select ifnull(sum(pri.received_qty), 0.0)
             from `tabPurchase Receipt Item` pri
             where pri.docstatus = 0
             and pri.docstatus = 0
             and pri.item_code = it.item_code
             group by pri.item_code
-        ) as unsubmitted_prec_qty
+        ),0.0) as unsubmitted_prec_qty
         
         from `tabItem` it
         
@@ -524,12 +514,12 @@ def get_item_records_by_item_status():
         
         and (actual_qty > 0 or 
         (
-            select ifnull(sum(pri.received_qty), 0.0) as unsubmitted_prec_qty
-            from `tabPurchase Receipt Item` pri
-            where pri.docstatus = 0
-            and pri.docstatus = 0
-            and pri.item_code = it.item_code
-            group by pri.item_code
+        select ifnull(sum(pri.received_qty), 0.0)
+        from `tabPurchase Receipt Item` pri
+        where pri.docstatus = 0
+        and pri.docstatus = 0
+        and pri.item_code = it.item_code
+        group by pri.item_code
         ) >0)
 
         group by it.item_code
