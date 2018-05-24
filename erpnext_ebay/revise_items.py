@@ -72,7 +72,7 @@ def revise_generic_items(item_code):
         condition_id_text, condition_id = lookup_condition(condition, 0)
 
         new_gsp = (delivery_type == 'Standard Parcel')
-        )
+
 
 
         try:
@@ -80,14 +80,14 @@ def revise_generic_items(item_code):
 
             #EXAMPLE api.execute('ReviseItem',{'Item':{'ItemID':ItemID},'Title':words}
             api_trading.execute('ReviseItem',{
-                                    'Item':{'ItemID': ebay_id},
-                                    'GlobalShipping': new_gsp,
-                                    'Title': item_name,
-                                    'Description': body,
-                                    'ConditionDescription': condition_description,
-                                    'ConditionID': condition_id 
-                                }
-                                )
+                'Item':{'ItemID': ebay_id},
+                'GlobalShipping': new_gsp,
+                'Title': item_name,
+                'Description': body,
+                'ConditionDescription': condition_description,
+                'ConditionID': condition_id
+                }
+                )
 
 
         except ConnectionError:

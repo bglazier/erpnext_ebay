@@ -47,6 +47,7 @@ footer = """<br><br>The price includes VAT and we can provide VAT invoices.\
 
 
 
+
 def change_status_to_garagesale(item_code):
     """
     Change the ebay_id field to note that item has been sent to Garagesale but may not be live on
@@ -72,7 +73,7 @@ def run_cron_create_xml():
     frappe.msgprint("Exporting all listings in QC Passed status")
 
     #Before doing anything sync the ebay_id to Erpnext
-    #generate_active_ebay_data()
+    generate_active_ebay_data()
 
     post_code = "NP4 0HZ"
     design = "Pro: Classic"
@@ -90,7 +91,7 @@ def run_cron_create_xml():
 
         item_code = r.name
 
-        qty_unsubmit = get_unsubmitted_prec_qty(item_code)
+        qty_unsubmit = r.unsubmitted_prec_qty  #get_unsubmitted_prec_qty(item_code)
         if not qty_unsubmit:
             qty_unsubmit = 0
 
@@ -113,6 +114,7 @@ def run_cron_create_xml():
                 ebay_price = r.price * ugssettings.VAT
             else:
                 ebay_price = r.item_price * ugssettings.VAT
+
 
 
 
@@ -264,6 +266,9 @@ def run_cron_create_xml():
     # Xml file created now download it (does not work properly)
     #download_xml(site_url + '/files/xml/' + str(date.today()) + "_garageimportfile.xml",
     #             str(date.today()) + "_garageimportfile.xml")
+
+    frappe.msgprint("Export completed.")
+
 
     return
 
@@ -459,7 +464,8 @@ def get_item_records_by_item_status():
     # Therefore See alternative method in main function using get_unsubmitted_prec
     """
 
-    sql = """select
+    sql2 = """
+        select
         it.creation,
         it.item_code,
         it.name,
@@ -490,7 +496,15 @@ def get_item_records_by_item_status():
         ifnull(ip.price_list_rate,0.0) as item_price,
         sum(ifnull(bin.actual_qty, 0.0)) as actual_qty,
         it.item_status,
-        sum(ifnull(sl.qty, 0.0)) as sum_sl
+        sum(ifnull(sl.qty, 0.0)) as sum_sl,
+        (
+            select ifnull(sum(pri.received_qty), 0.0)
+            from `tabPurchase Receipt Item` pri
+            where pri.docstatus = 0
+            and pri.docstatus = 0
+            and pri.item_code = it.item_code
+            group by pri.item_code
+        ) as unsubmitted_prec_qty
         
         from `tabItem` it
         
@@ -508,13 +522,21 @@ def get_item_records_by_item_status():
         and (it.ebay_id is Null or it.ebay_id ='')
         and ip.selling = 1
         
+        and (actual_qty > 0 or 
+        (
+            select ifnull(sum(pri.received_qty), 0.0) as unsubmitted_prec_qty
+            from `tabPurchase Receipt Item` pri
+            where pri.docstatus = 0
+            and pri.docstatus = 0
+            and pri.item_code = it.item_code
+            group by pri.item_code
+        ) >0)
+
         group by it.item_code
         order by it.item_code
     """
 
-
-    entries = frappe.db.sql(sql, as_dict=1)
-
+    entries = frappe.db.sql(sql2, as_dict=1)
 
     return entries
 
@@ -523,10 +545,10 @@ def get_item_records_by_item_status():
 
 def get_slideshow_records(ss_name):
     """
-    Returns slideshow records for an item5p98'\
+    Returns slideshow records for an item
     """
     records = []
-    if parent != None:
+    if ss_name != None:
         records = frappe.db.sql("""
             select
             wsi.image
@@ -546,10 +568,14 @@ def kg_to_imperial(kg):
     """
     Convert Kg to imperial
     """
-    ounces = kg * 35.27396195
-    pounds = kg * 2.2046226218
-    ounces = ounces - (pounds * 12.0)
-
+    
+    try:
+        ounces = kg * 35.27396195
+        pounds = kg * 2.2046226218
+        ounces = ounces - (pounds * 12.0)
+    except:
+        pounds = 0.0
+        ounces = 0.0
     return pounds, ounces
 
 
