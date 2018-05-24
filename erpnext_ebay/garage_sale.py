@@ -26,7 +26,7 @@ import jinja2
 
 from ugscommon import get_unsubmitted_prec_qty
 import ugssettings
-#from ebay_active_listings import generate_active_ebay_data
+from ebay_active_listings import generate_active_ebay_data
 
 
 NO_IMAGES = True
