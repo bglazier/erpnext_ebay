@@ -22,8 +22,8 @@ site_files_path = os.path.join(os.sep, frappe.utils.get_bench_path(), 'sites',
                                frappe.get_site_path(), 'public', 'files')
 
 
-#temp_site_files_path= '/home/uploads/'
-temp_site_files_path= '/Users/ben/uploads/'
+temp_site_files_path= os.path.join(os.sep, 'home', 'uploads')
+#temp_site_files_path= os.path.join(os.sep, 'Users', 'ben', 'uploads')
 
 site_url = 'http://www.universaleresourcetrading.com'
 
@@ -71,7 +71,7 @@ def process_new_images(item_code):
 
     # Get user
     current_user = frappe.db.get_value("User", frappe.session.user, ["username"])
-    temp_images_directory = temp_site_files_path + current_user + '/'
+    temp_images_directory = os.path.join(os.sep, temp_site_files_path, current_user)
 
     # If slideshow exists then quit
     slideshow_code = 'SS-' + item_code
@@ -92,17 +92,20 @@ def process_new_images(item_code):
     idx = 0
     for src in file_list:
         #os.rename(temp_images_directory + src, temp_images_directory + item_code + '-' + str(idx) + '.jpg')
-        shutil.move(temp_images_directory + src, temp_images_directory + item_code + '-' + str(idx) + '.jpg')
+        fn = item_code + '-' + str(idx) + '.jpg'
+        shutil.move(os.path.join(os.sep, temp_images_directory, src), os.path.join(os.sep, temp_images_directory, fn))
         idx += 1
 
     # move all the files to  site_files_path 
     new_file_list = list_files(temp_images_directory)
     for fname in new_file_list:
         #no point copying as on server anyway 
-        shutil.move(temp_images_directory + fname, site_files_path + '/' + fname)
+        site_filename = os.path.join(os.sep, site_files_path, fname)
+        temp_filename = os.path.join(os.sep, temp_images_directory, fname)
+        shutil.move(temp_filename, site_filename)
 
         # Now auto resize the image
-        resize_image(site_files_path + '/' +  fname)
+        resize_image(site_filename)
 
     # create the WS_IMAGE from the first photo - no need for slideshow if only 1 image
     #NOW DONE VIA SCRIPT frappe.db.set_value("Item", item_code, "website_image", '/files/' + item_code + '-0' + '.jpg')

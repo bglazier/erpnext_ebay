@@ -73,7 +73,7 @@ def run_cron_create_xml():
     frappe.msgprint("Exporting all listings in QC Passed status")
 
     #Before doing anything sync the ebay_id to Erpnext
-    generate_active_ebay_data()
+    #generate_active_ebay_data()
 
     post_code = "NP4 0HZ"
     design = "Pro: Classic"
@@ -247,8 +247,9 @@ def run_cron_create_xml():
 
 
             tree = ET.ElementTree(root)
-            file_name = os.path.join(garage_xml_path, '/' + str(date.today()) + "_garageimportfile.xml")
+            file_name = (os.path.join(os.sep, garage_xml_path, str(date.today()) + "_garageimportfile.xml"))
             # must create xml directory for this to work
+            print('FILENAME', file_name)
             tree.write(file_name)
 
             change_status_to_garagesale(item_code)
