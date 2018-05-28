@@ -247,7 +247,7 @@ def run_cron_create_xml():
 
 
             tree = ET.ElementTree(root)
-            file_name = os.path.join(garage_xml_path, str(date.today()) + "_garageimportfile.xml")
+            file_name = os.path.join(garage_xml_path, '/' + str(date.today()) + "_garageimportfile.xml")
             # must create xml directory for this to work
             tree.write(file_name)
 
@@ -599,8 +599,3 @@ def add_breaks(non_html):
     return non_html
 
 
-def resize_image(item_code):
-    """
-    Use mogrify to resize images for an item_code
-    """
-    subprocess.call(['mogrify', '-resize', '1024x768', item_code + '.jpg'])
