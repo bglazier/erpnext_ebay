@@ -78,6 +78,11 @@ app_license = "MIT"
 #	}
 # }
 
+# Override the 'write_file' event so that we can modify images as
+# they are uploaded
+
+write_file = "erpnext_ebay.auto_slideshow.ugs_save_file_on_filesystem_hook"
+
 # Scheduled Tasks
 # ---------------
 
