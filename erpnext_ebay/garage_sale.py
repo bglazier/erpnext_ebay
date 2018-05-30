@@ -7,6 +7,7 @@ from __future__ import print_function
 import __builtin__ as builtins
 
 import os
+from inspect import cleandoc
 import shutil
 import cgi
 import urllib
@@ -146,22 +147,18 @@ def run_cron_create_xml():
 
             #EXAMPLE <domesticShippingService serviceAdditionalFee="2.00" serviceFee="12.00">UPS
             #Ground</domesticShippingService>
-            dom_ship_free = ET.fromstring("""<domesticShippingService serviceAdditionalFee="0.00"
-                                             serviceFee="0.00">Other Courier 3-5 days
-                                             </domesticShippingService>""")
-            dom_ship_pallet = ET.fromstring("""<domesticShippingService serviceAdditionalFee="0.00"
-                                               serviceFee="60.00">Other Courier 3-5 days
-                                               </domesticShippingService>""")
-            dom_ship_collection = ET.fromstring("""<domesticShippingService
-                                                   serviceAdditionalFee="0.00"
-                                                   serviceFee="0.00">
-                                                   Collection in Person
-                                                   </domesticShippingService>""")
-            dom_ship_24hour = ET.fromstring("""<domesticShippingService
-                                               serviceAdditionalFee="0.00"
-                                               serviceFee="24.00">
-                                               Other 24 Hour Courier
-                                               </domesticShippingService>""")
+            dom_ship_free = ET.fromstring("".join(["""<domesticShippingService """,
+                                                           """serviceAdditionalFee="0.00"  """,
+                                                           """serviceFee="0.00">Other Courier 3-5 days</domesticShippingService>"""]))
+            dom_ship_pallet = ET.fromstring("".join(["""<domesticShippingService """,
+                                                     """serviceAdditionalFee="0.00" """,
+                                                     """serviceFee="60.00">Other Courier 3-5 days</domesticShippingService>"""]))
+            dom_ship_collection = ET.fromstring("".join(["""<domesticShippingService """
+                                                         """serviceAdditionalFee="0.00" """
+                                                         """serviceFee="0.00">Collection in Person</domesticShippingService>"""]))
+            dom_ship_24hour = ET.fromstring("".join(["""<domesticShippingService """,
+                                                     """serviceAdditionalFee="0.00" """,
+                                                     """serviceFee="24.00">Other 24 Hour Courier</domesticShippingService>"""]))
 
             # Make sure there is a domestic default
             doc.append(dom_ship_collection)
@@ -227,9 +224,14 @@ def run_cron_create_xml():
             if r.warranty_period == "45" or r.warranty_period == "None":
                 ET.SubElement(doc, "returnPolicyDescription").text = "Buy with confidence. If you wish to return the item, for whatever reason, you may do so within 45 days."
             else:
-                ET.SubElement(doc, "returnPolicyDescription").text = "Buy with confidence. If you wish to return the item, for whatever reason, you may do so within 45 days. \
-                This item also includes our Limited Warranty (please see our terms and conditions for details)."
-                #This item also includes our " + r.warranty_period + " Day Limited Warranty (please see our terms and conditions for details)."
+                ET.SubElement(doc, "returnPolicyDescription").text = "".join([
+                             """Buy with confidence. If you wish to return the item, """,
+                             """for whatever reason, you may do so within 45 days. """,
+                             """This item also includes our Limited Warranty """,
+                             """(please see our terms and conditions for details)."""
+                             ])
+                # TODO This item also includes our " + r.warranty_period + " Day Limited Warranty 
+                # (please see our terms and conditions for details)."
 
 
             ET.SubElement(doc, "returnsAccepted").text = "true"
@@ -511,7 +513,7 @@ def get_item_records_by_item_status():
         where 
         it.item_status = 'QC Passed'
         and (it.ebay_id is Null or it.ebay_id ='')
-        and ip.selling = 1
+        
         
         and (actual_qty > 0 or 
         (
@@ -526,6 +528,8 @@ def get_item_records_by_item_status():
         group by it.item_code
         order by it.item_code
     """
+    
+    #LIMIT to IP and ip.selling = 1
 
     entries = frappe.db.sql(sql2, as_dict=1)
 
