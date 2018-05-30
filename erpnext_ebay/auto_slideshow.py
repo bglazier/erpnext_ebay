@@ -10,20 +10,17 @@ import subprocess
 from datetime import date
 import xml.etree.cElementTree as ET
 
-
 import frappe
 from frappe.model.document import Document
 
-
-#from ugssettings import resize_images
-
-
-site_files_path = os.path.join(os.sep, frappe.utils.get_bench_path(), 'sites',
-                               frappe.get_site_path(), 'public', 'files')
+site_files_path = os.path.join(frappe.utils.get_bench_path(), 'sites',
+                               frappe.get_site_path())
+public_site_files_path = os.path.join(site_files_path, 'public', 'files')
+private_site_files_path = os.path.join(site_files_path, 'private', 'files')
 
 
-temp_site_files_path= os.path.join(os.sep, 'home', 'uploads')
-#temp_site_files_path= os.path.join(os.sep, 'Users', 'ben', 'uploads')
+uploads_path= os.path.join(os.sep, 'home', 'uploads')
+#uploads_path= os.path.join(os.sep, 'Users', 'ben', 'uploads')
 
 site_url = 'http://www.universaleresourcetrading.com'
 
@@ -36,6 +33,34 @@ def resize_image(filename):
     subprocess.call(['mogrify', '-auto-orient', '-resize', '1728x1728>', filename])
 
 
+def ugs_save_file_on_filesystem_hook(*args, **kwargs):
+    """Intercept all write_file events, and mogrify images
+        
+    Replaces the standard write_file event. Obtains the filename, content_type
+    etc. Calls the normal backup 'save_file_on_filesystem' with all arguments.
+    If we do not handle the attachment specially, this function is entirely
+    transparent. However, we can handle specific file types as we see fit - in
+    this case we mogrify JPG and JPEG images. save_file_on_filesystem does
+    strange things, so we need to reconstruct the filename using analagous
+    logic - this could break in future with Frappe changes."""
+
+    ret = frappe.utils.file_manager.save_file_on_filesystem(*args, **kwargs)
+    
+    file_name = ret['file_name']
+    #file_url = ret['file_url'] # Not a consistent file system identifier
+    
+    if ('is_private' in kwargs) and kwargs['is_private']:
+        file_path = os.path.join(private_site_files_path, file_name)
+    else:
+        file_path = os.path.join(public_site_files_path, file_name)
+    
+    extension = os.path.splitext(file_name)[1].lower()
+    
+    if extension in ('.jpg', '.jpeg'):
+        # Resize and autoorient this image
+        resize_image(file_path)
+    
+    return ret
 
 
 @frappe.whitelist(allow_guest=True)
@@ -59,6 +84,7 @@ def view_slideshow_py(slideshow):
 
     return html
 
+
 @frappe.whitelist(allow_guest=True)
 def process_new_images(item_code):
     
@@ -68,10 +94,9 @@ def process_new_images(item_code):
     # Check docstatus - if not saved quit
 
 
-
     # Get user
     current_user = frappe.db.get_value("User", frappe.session.user, ["username"])
-    temp_images_directory = os.path.join(os.sep, temp_site_files_path, current_user)
+    temp_images_directory = os.path.join(uploads_path, current_user)
 
     # If slideshow exists then quit
     slideshow_code = 'SS-' + item_code
@@ -96,12 +121,12 @@ def process_new_images(item_code):
         shutil.move(os.path.join(os.sep, temp_images_directory, src), os.path.join(os.sep, temp_images_directory, fn))
         idx += 1
 
-    # move all the files to  site_files_path 
+    # move all the files to public_site_files_path 
     new_file_list = list_files(temp_images_directory)
     for fname in new_file_list:
         #no point copying as on server anyway 
-        site_filename = os.path.join(os.sep, site_files_path, fname)
-        temp_filename = os.path.join(os.sep, temp_images_directory, fname)
+        site_filename = os.path.join(public_site_files_path, fname)
+        temp_filename = os.path.join(temp_images_directory, fname)
         shutil.move(temp_filename, site_filename)
 
         # Now auto resize the image
@@ -126,13 +151,12 @@ def process_new_images(item_code):
     return True
 
 
-
-
 def is_exists_slideshow(item_code, slideshow_code):
     if not frappe.db.get_value("Item", item_code, "slideshow", slideshow_code):
         return False
     else:
         return True
+
 
 def create_slideshow(item_name):
 
@@ -172,9 +196,6 @@ def create_slideshow_items(parent, file_list):
     return
 
 
-
-
-
 '''PROCESS ALL EXISTING PHOTOS PRIOR TO USING NEW PROCESS'''
 
 def create_slideshows_from_archive_photos():
@@ -190,20 +211,6 @@ def create_slideshows_from_archive_photos():
     
     
     return
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 '''UTILITIES'''
