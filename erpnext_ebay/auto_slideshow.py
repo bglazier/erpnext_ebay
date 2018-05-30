@@ -4,7 +4,7 @@
 
 from __future__ import unicode_literals
 
-import os
+import os, re, operator
 import shutil
 import subprocess
 from datetime import date
@@ -23,6 +23,8 @@ uploads_path= os.path.join(os.sep, 'home', 'uploads')
 #uploads_path= os.path.join(os.sep, 'Users', 'ben', 'uploads')
 
 site_url = 'http://www.universaleresourcetrading.com'
+
+re_digitsearch = re.compile('([0-9]+)')
 
 
 def resize_image(filename):
@@ -107,7 +109,13 @@ def process_new_images(item_code):
 
 
     # Images should already be uploaded onto local temp directory
+    # Sort these images into a 'natural' order
     file_list = list_files(temp_images_directory)
+    file_dict = {}
+    for file in file_list:
+        file_dict[file] = tuple(int(x) if x.isdigit() else x
+                                for x in re_digitsearch.split(file))
+    file_list.sort(key=lambda x: file_dict[x])
     
     if(len(file_list) == 0): 
         frappe.throw(("There are no images to process. Please upload images first."))
@@ -115,14 +123,16 @@ def process_new_images(item_code):
 
     # Rename the files to ITEM-XXX
     idx = 0
+    new_files_list = []
     for src in file_list:
         #os.rename(temp_images_directory + src, temp_images_directory + item_code + '-' + str(idx) + '.jpg')
         fn = item_code + '-' + str(idx) + '.jpg'
         shutil.move(os.path.join(os.sep, temp_images_directory, src), os.path.join(os.sep, temp_images_directory, fn))
+        new_files_list.append(fn)
         idx += 1
 
     # move all the files to public_site_files_path 
-    new_file_list = list_files(temp_images_directory)
+    #new_file_list = list_files(temp_images_directory)
     for fname in new_file_list:
         #no point copying as on server anyway 
         site_filename = os.path.join(public_site_files_path, fname)
