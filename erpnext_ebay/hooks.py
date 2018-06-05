@@ -11,12 +11,32 @@ app_email = "ben@benjaminglazier.com"
 app_version = "0.0.1"
 app_license = "MIT"
 
+#fixtures = ["Custom Field", "Custom Script", "Property Setter", "Print Format"]
+# This is only needed for core doctypes
+#fixtures = ["Print Format", {
+#	"doctype": "Print Format",
+#	"filters":	{
+#		"name": ["in", ("Receipt of Goods Uni Version", "Data Destruction Certificate")]
+#	}
+#}]
+#fixtures = ["Property Setter", {"doctype": "Property Setter",
+                                #"filters": {
+                                            #"name": ["in", ("Receipt of Goods-default_print_format",)]
+                                           #}
+                               #}
+           #]
+
+# Add custom scripts
+doctype_js = {
+	"Item": "custom_scripts/item.js"
+}
+
 # Includes in <head>
 # ------------------
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/erpnext_ebay/css/erpnext_ebay.css"
-# app_include_js = "/assets/erpnext_ebay/js/erpnext_ebay.js"
+app_include_js = "/assets/erpnext_ebay/js/erpnext_ebay.js"
 
 # include js, css files in header of web template
 # web_include_css = "/assets/erpnext_ebay/css/erpnext_ebay.css"
