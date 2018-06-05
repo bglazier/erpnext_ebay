@@ -62,6 +62,11 @@ cur_frm.cscript.auto_create_slideshow = function(doc, cdt, cdn) {
     });
     d.num_images = 0;
     d.$modal = d.$wrapper.find('.modal-dialog').parent();
+    d.$modal.on('hidden.bs.modal', function (e) {
+        d.$modal.empty();
+        d.$modal.remove();
+    })
+    d.$modal.attr('id', 'ss_modal');
     d.$modal.attr('data-keyboard', false);
     d.$modal.attr('data-backdrop', "static");
 
@@ -75,14 +80,24 @@ cur_frm.cscript.auto_create_slideshow = function(doc, cdt, cdn) {
     d.show();
 
     cur_frm.slideshow_dialog = d;
-    cur_frm.rte_id = "rte_" + item_code + "_" + frappe.session.user;
+    
+    // If an rte_id for this form does not already exist, create one 
+    if (!cur_frm.rte_id) {
+        rand_id = Math.floor(Math.random() * 100000) + 1;
+        cur_frm.rte_id = "rte_" + frappe.session.user + "_" + rand_id;
+    }
+    
+    // Set a tag matching this item and dialog
+    rand_id = Math.floor(Math.random() * 100000) + 1;
+    cur_frm.slideshow_dialog.tag = item_code + "_" + rand_id;
     
     // Call the server - process the images
     frappe.call({
         method: 'erpnext_ebay.auto_slideshow.process_new_images',
         args: {
             item_code: item_code,
-            rte_id: cur_frm.rte_id
+            rte_id: cur_frm.rte_id,
+            tag: cur_frm.slideshow_dialog.tag
         },
         callback: function(r) {
             if (r.message == "success") {
@@ -98,8 +113,6 @@ cur_frm.cscript.auto_create_slideshow = function(doc, cdt, cdn) {
                 frappe.msgprint("There has been a problem. " +
                    "Please manually set up slideshow and website image.");
                 cur_frm.slideshow_dialog.hide();
-                cur_frm.slideshow_dialog.$modal.empty();
-                cur_frm.slideshow_dialog.$modal.remove();
 
             }
         }
@@ -109,9 +122,13 @@ cur_frm.cscript.auto_create_slideshow = function(doc, cdt, cdn) {
 
 // Update slideshow window
 // This is called as auto_slideshow proceeds to update the modal dialog box
-cur_frm.cscript.update_slideshow = function(JSON_args) {
+cur_frm.cscript.update_slideshow = function(tag, JSON_args) {
+    // Check we have the right tag
+    if (tag != cur_frm.slideshow_dialog.tag) return;
+    
     var base_url = frappe.urllib.get_base_url()
     var args = JSON.parse(JSON_args);
+    
     switch(args.command) {
         case "set_image_number":
             // This is done once the number of images is known, to create

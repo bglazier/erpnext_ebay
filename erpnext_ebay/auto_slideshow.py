@@ -30,6 +30,23 @@ site_url = 'http://www.universaleresourcetrading.com'
 re_digitsearch = re.compile('([0-9]+)')
 
 
+def realtime_eval(rte_id, tag, event, msg):
+    """
+    Use publish_realtime to run javascript code using custom event handler.
+
+    rte_id: persistent id for the current form
+    tag: communications tag specific to one series of communications
+    event: name of custom event to trigger on client.
+    msg: JSON serializable object (e.g. dict) to push to client.
+    """
+
+    rte_msg = json.dumps(msg)
+    js = "erpnext_ebay_realtime_event('{}', '{}', '{}', '{}');"
+    js = js.format(rte_id, tag, event, rte_msg)
+    frappe.publish_realtime(event='eval_js', message=js,
+                            user=frappe.session.user)
+
+
 def resize_image(filename):
     """
     Use mogrify to resize images for an item_code
@@ -91,7 +108,7 @@ def view_slideshow_py(slideshow):
 
 
 @frappe.whitelist(allow_guest=True)
-def process_new_images(item_code, rte_id):
+def process_new_images(item_code, rte_id, tag):
     """Read images from 'uploads' folder, sort and rename them, resize and
     auto-orient them, copy them to the site public images folder and finally
     create a website slideshow.
@@ -133,14 +150,9 @@ def process_new_images(item_code, rte_id):
         return False
 
     # Update the number of images to process
-    rte_msg = {'command': 'set_image_number',
-               'n_images': n_files}
-    rte_msg = json.dumps(rte_msg)
-
-    js = "erpnext_ebay_realtime_event('{}', 'update_slideshow', '{}');"
-    js = js.format(rte_id, rte_msg)
-    frappe.publish_realtime(event='eval_js', message=js,
-                            user=frappe.session.user)
+    msg = {'command': 'set_image_number',
+           'n_images': n_files}
+    realtime_eval(rte_id, tag, 'update_slideshow', msg)
 
     # Rename the files to ITEM-XXX
     new_file_list = []
@@ -158,41 +170,30 @@ def process_new_images(item_code, rte_id):
 
         # Now auto resize the image
         resize_image(site_filename)
-        
+
         # Url (relative to hostname) of file
         file_url = os.path.join('files', os.path.basename(site_filename))
 
         # Now update the slideshow
-        rte_msg = {'command': 'new_image',
-                   'img_id': i+1,
-                   'n_images': n_files,
-                   'file_url': file_url}
-        rte_msg = json.dumps(rte_msg)
-
-        js = "erpnext_ebay_realtime_event('{}', 'update_slideshow', '{}');"
-        js = js.format(rte_id, rte_msg)
-        frappe.publish_realtime(event='eval_js', message=js,
-                                user=frappe.session.user)
+        msg = {'command': 'new_image',
+               'img_id': i+1,
+               'n_images': n_files,
+               'file_url': file_url}
+        realtime_eval(rte_id, tag, 'update_slideshow', msg)
 
     # create the WS_IMAGE from the first photo - no need for slideshow if only 1 image
     #NOW DONE VIA SCRIPT frappe.db.set_value("Item", item_code, "website_image", '/files/' + item_code + '-0' + '.jpg')
 
     if create_slideshow(slideshow_code):
         create_slideshow_items(slideshow_code, new_file_list)
-
     else:
         frappe.msgprint("There was a problem creating the slideshow. " +
                         "You will need to do this manually")
         return False
 
     # Allow the slideshow to close and update to show completion
-    rte_msg = {'command': 'done'}
-    rte_msg = json.dumps(rte_msg)
-
-    js = "erpnext_ebay_realtime_event('{}', 'update_slideshow', '{}');"
-    js = js.format(rte_id, rte_msg)
-    frappe.publish_realtime(event='eval_js', message=js,
-                            user=frappe.session.user)
+    msg = {'command': 'done'}
+    realtime_eval(rte_id, tag, 'update_slideshow', msg)
 
     return "success"
 
