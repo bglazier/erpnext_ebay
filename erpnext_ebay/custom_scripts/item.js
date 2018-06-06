@@ -173,11 +173,6 @@ cur_frm.cscript.view_slideshow = function(frm, cdt, cdn) {
         
         // Increase the width from 600px to 1000px
         d.$wrapper.find('.modal-dialog').css('width', '1000px');
-
-        // Add a margin for the scrollbar
-        console.log(d.$wrapper);
-        d.$wrapper.attr('style', 'overflow: auto;');
-        d.$wrapper.attr('style', 'overflow-y: auto;');
         
         // Add the main table
         var html = '<div id="slideshow_table"></div>';
