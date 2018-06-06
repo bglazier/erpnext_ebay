@@ -74,7 +74,7 @@ def run_cron_create_xml():
     frappe.msgprint("Exporting all listings in QC Passed status")
 
     #Before doing anything sync the ebay_id to Erpnext
-    #generate_active_ebay_data()
+    generate_active_ebay_data()
 
     post_code = "NP4 0HZ"
     design = "Pro: Classic"
