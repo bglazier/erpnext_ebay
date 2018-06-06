@@ -1,47 +1,5 @@
 // Extend core Item doctype 
 
-/*
-// Auto create slideshow
-cur_frm.cscript.auto_create_slideshow = function(doc, cdt, cdn) {
-
-    var item_code = doc.name;
-    if (doc) {
-
-        if (doc.__islocal) {
-            frappe.msgprint(__("Please save the document before auto-creating slideshow."));
-            return;
-        }
-    }
-
-    frappe.call({
-        method: 'erpnext_ebay.auto_slideshow.process_new_images',
-        args: {
-            item_code: item_code
-        },
-        callback: function(r) {
-            if (r) {
-                cur_frm.set_value("slideshow", "SS-" + item_code);
-
-                // Cannot do this - as field is type "Attach"
-                //cur_frm.set_value("website_image", "/files/" + item_code + "-0" + ".jpg");
-
-        //cur_frm.set_df_property('website_image','options' "/files/" + item_code + "-0" + ".jpg");
-                //cur_frm.refresh_field("website_image");
-
-
-                frappe.msgprint("Hopefully slideshow created.");
-
-            } else {
-                frappe.msgprint("Problem. Please manually set up slideshow and website image.");
-
-            }
-        }
-    })
-
-}
-*/
-
-
 // Auto create slideshow
 cur_frm.cscript.auto_create_slideshow = function(doc, cdt, cdn) {
     
@@ -63,10 +21,10 @@ cur_frm.cscript.auto_create_slideshow = function(doc, cdt, cdn) {
     d.num_images = 0;
     d.$modal = d.$wrapper.find('.modal-dialog').parent();
     d.$modal.on('hidden.bs.modal', function (e) {
+        // Ensure the modal is deleted on exit
         d.$modal.empty();
         d.$modal.remove();
     })
-    d.$modal.attr('id', 'ss_modal');
     d.$modal.attr('data-keyboard', false);
     d.$modal.attr('data-backdrop', "static");
 
@@ -126,7 +84,7 @@ cur_frm.cscript.update_slideshow = function(tag, JSON_args) {
     // Check we have the right tag
     if (tag != cur_frm.slideshow_dialog.tag) return;
     
-    var base_url = frappe.urllib.get_base_url()
+    var base_url = frappe.urllib.get_base_url();
     var args = JSON.parse(JSON_args);
     
     switch(args.command) {
@@ -139,12 +97,16 @@ cur_frm.cscript.update_slideshow = function(tag, JSON_args) {
             table = $("#slideshow_table");
             var img_id = 1;
             for (i = 0; i < n_rows; i++) {
+                // Loop over the rows
                 var new_row = table.append('<div class="row"></div>');
                 for (j = 0; j < 3; j++) {
+                    // Loop over the 3 elements in a row
                     var new_col = $(
-                        '<div class="col-sm-4 border" ' +
+                        '<div class="col-lg-4 border" ' +
                         'style="min-height: 100px; text-align: center;"></div>'
                     );
+                    // Add spinning icons for unprocessed images
+                    // Different icon for currently processed image
                     if (img_id == 1) {
                         loader_gif = base_url + 
                             "/assets/erpnext_ebay/img/ajax-loader2.gif";
@@ -152,7 +114,7 @@ cur_frm.cscript.update_slideshow = function(tag, JSON_args) {
                         loader_gif = base_url +
                             "/assets/erpnext_ebay/img/ajax-loader.gif";
                     }
-                    var img = $('<img src="' + loader_gif + '"></img>');
+                    var img = $('<img src="' + loader_gif + '" />');
                     img.attr({'id': 'ss_img_' + img_id});
                     new_col.append(img);
                     new_col.appendTo(new_row);
@@ -164,6 +126,7 @@ cur_frm.cscript.update_slideshow = function(tag, JSON_args) {
 
         case "new_image":
             // This is done as each new image arrives
+            // Add the new photo and upload the animated GIF for the next image
             var img_id = parseInt(args.img_id);
             var n_images = parseInt(args.n_images);
             $("#ssimg_id").html(args.img_id);
@@ -191,28 +154,84 @@ cur_frm.cscript.update_slideshow = function(tag, JSON_args) {
 
 // View slideshow
 cur_frm.cscript.view_slideshow = function(frm, cdt, cdn) {
-  if (frm.slideshow)
-  {
-    frappe.call({
-        method: 'erpnext_ebay.auto_slideshow.view_slideshow_py',
-        args: {
-            slideshow: frm.slideshow
-        },
-        callback: function(r) {
-            if (r) {
-                frappe.msgprint(r, 'View Slideshow');
-            } else {
-                frappe.msgprint("Fatal Error getting Slideshow details.");
-            }
-        }
-    });
-  }
-  else
-  {
-      frappe.msgprint("There is no Website Slideshow for this Item");
-  }
+    var base_url = frappe.urllib.get_base_url();
+    
+    if (frm.slideshow) {
+    
+        // Create the dialog
+        var d = new frappe.ui.Dialog({
+            'fields': [
+                {'fieldname': 'ht', 'fieldtype': 'HTML'}
+            ],
+        });
+        d.$modal = d.$wrapper.find('.modal-dialog').parent();
+        d.$modal.on('hidden.bs.modal', function (e) {
+            // Ensure the modal is deleted on exit
+            d.$modal.empty();
+            d.$modal.remove();
+        })
+        
+        // Increase the width from 600px to 1000px
+        d.$wrapper.find('.modal-dialog').css('width', '1000px');
 
-  }
+        // Add a margin for the scrollbar
+        console.log(d.$wrapper);
+        d.$wrapper.attr('style', 'overflow: auto;');
+        d.$wrapper.attr('style', 'overflow-y: auto;');
+        
+        // Add the main table
+        var html = '<div id="slideshow_table"></div>';
+        d.fields_dict.ht.$wrapper.html(html);
+        d.set_title('Viewing slideshow ' + frm.slideshow);
+        d.show();
+
+        frappe.call({
+            // Call server-side view_slideshow
+            // Get the list of images and format into a 2 column
+            // Bootstrap layout with clickable links and filenames
+            method: 'erpnext_ebay.auto_slideshow.view_slideshow_py',
+            args: {
+                slideshow: frm.slideshow
+            },
+            callback: function(r) {
+                if (r.message) {
+
+                    table = $("#slideshow_table");
+                    var img = "";
+                    var cur_row = $('<div class="row"></div>');
+                    table.append(cur_row);
+
+                    var in_row = 0;
+                    for (i = 0; i < r.message.length; i++) {
+                        img = r.message[i];
+                        if (in_row == 2) {
+                            cur_row = $('<div class="row"></div>');
+                            table.append(cur_row);
+                            in_row = 0;
+                        }
+                        element = $(
+                            '<div class="col-lg-6" ' +
+                            'style="padding: 5px">' +
+                            '<div class="col-lg-12 border" ' +
+                            'style="text-align: center; padding: 0px">' +
+                            '<a href="'+img+'">' +
+                            '<img src="'+img+'" /></a>' +
+                            '<p>'+img+'</p>' +
+                            '</div></div>');
+                        cur_row.append(element);
+                        in_row++;
+                    }
+                    
+                } else {
+                    frappe.msgprint("Fatal Error getting Slideshow details.");
+                }
+            }
+        });
+    } else {
+        frappe.msgprint("There is no Website Slideshow for this Item.");
+    }
+
+}
 
 
 // Revise items
