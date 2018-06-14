@@ -49,10 +49,29 @@ def realtime_eval(rte_id, tag, event, msg):
 
 def resize_image(filename):
     """
-    Use mogrify to resize images for an item_code
-    mogrify -resize -auto-orient 1728x1728
+    Use mogrify to resize images
+    Uses the below command:
+
+    mogrify -resize -auto-orient LxL> filename
+
+    Resizes, rotates according to EXIF information, and resizes to fit into
+    an L x L size box (trailing '>' symbol means that images will never
+    be enlarged). The image size is taken from the ebay_image_size setting
+    in Ebay_Settings_Manager.
     """
-    subprocess.call(['mogrify', '-auto-orient', '-resize', '1728x1728>', filename])
+
+    image_size = frappe.db.get_value(
+        'eBay Manager Settings', filters=None, fieldname='ebay_image_size')
+
+    try:
+        if image_size < 1:
+            frappe.throw('Invalid image size: ' + str(image_size))
+    except TypeError:
+        frappe.throw('Invalid type in ebay_image_size')
+
+    size_string = '{}x{}>'.format(image_size, image_size)
+    subprocess.call(
+        ['mogrify', '-auto-orient', '-resize', size_string, filename])
 
 
 def ugs_save_file_on_filesystem_hook(*args, **kwargs):
@@ -109,10 +128,10 @@ def process_new_images(item_code, rte_id, tag):
     """
 
     # Get user
-    current_user = frappe.db.get_value("User", frappe.session.user, ["username"])
-    temp_images_directory = os.path.join(uploads_path, current_user)
+    current_user = frappe.db.get_value(
+        "User", frappe.session.user, ["username"])
+    upload_images_directory = os.path.join(uploads_path, current_user)
 
-    # If slideshow exists then quit
     slideshow_code = 'SS-' + item_code
 
     # Check that no slideshow exists for this item, and that we don't have
@@ -126,9 +145,9 @@ def process_new_images(item_code, rte_id, tag):
                         " already exists.")
         return False
 
-    # Images should already be uploaded onto local temp directory
+    # Images should already be uploaded onto local uploads directory
     # Sort these images into a 'natural' order
-    file_list = list_files(temp_images_directory)
+    file_list = list_files(upload_images_directory)
     n_files = len(file_list)
     file_dict = {}
     for file in file_list:
@@ -146,38 +165,38 @@ def process_new_images(item_code, rte_id, tag):
            'n_images': n_files}
     realtime_eval(rte_id, tag, 'update_slideshow', msg)
 
-    # Rename the files to ITEM-XXX
     new_file_list = []
-    for i, src in enumerate(file_list):
-        fn = item_code + '-' + str(i) + '.jpg'
-        shutil.move(os.path.join(os.sep, temp_images_directory, src),
-                    os.path.join(os.sep, temp_images_directory, fn))
-        new_file_list.append(fn)
+    file_sizes = []
 
-    # move all the files to public_site_files_path
-    for i, fname in enumerate(new_file_list):
-        site_filename = os.path.join(public_site_files_path, fname)
-        temp_filename = os.path.join(temp_images_directory, fname)
-        shutil.move(temp_filename, site_filename)
+    # Rename the files to ITEM-XXXXX-Y and move all the files to
+    # public_site_files_path
+    w = len(str(n_files)) 
+    for i, fname in enumerate(file_list, 1):
+        new_fname = item_code + '-{num:0{width}}.jpg'.format(num=i, width=w)
+        new_file_list.append(new_fname)
+
+        upload_fpath = os.path.join(upload_images_directory, fname)
+        site_fpath = os.path.join(public_site_files_path, new_fname)
+        shutil.move(upload_fpath, site_fpath)
 
         # Now auto resize the image
-        resize_image(site_filename)
+        resize_image(site_fpath)
 
         # Url (relative to hostname) of file
-        file_url = os.path.join('files', os.path.basename(site_filename))
+        file_url = os.path.join('files', new_fname)
+
+        # File size
+        file_sizes.append(os.path.getsize(site_fpath))
 
         # Now update the slideshow
         msg = {'command': 'new_image',
-               'img_id': i+1,
+               'img_id': i,
                'n_images': n_files,
                'file_url': file_url}
         realtime_eval(rte_id, tag, 'update_slideshow', msg)
 
-    # create the WS_IMAGE from the first photo - no need for slideshow if only 1 image
-    #NOW DONE VIA SCRIPT frappe.db.set_value("Item", item_code, "website_image", '/files/' + item_code + '-0' + '.jpg')
-
     if create_slideshow(slideshow_code):
-        create_slideshow_items(slideshow_code, new_file_list)
+        create_slideshow_items(slideshow_code, new_file_list, file_sizes)
     else:
         frappe.msgprint("There was a problem creating the slideshow. " +
                         "You will need to do this manually")
@@ -201,42 +220,64 @@ def process_new_images(item_code, rte_id, tag):
     #return bool(frappe.db.get_value("Item", item_code, "slideshow", slideshow_code))
 
 
-def create_slideshow(item_name):
+def create_slideshow(slideshow_name):
+    """Create the doc for the Website Slideshow.
+    
+    Returns the slideshow doc.
+    """
 
-    slideshow_dict = {"doctype": "Website Slideshow",
-                      "slideshow_name": item_name,
-                      "docstatus": 0,
-                      "idx": 0}
+    ss = frappe.get_doc({"doctype": "Website Slideshow",
+                         "slideshow_name": slideshow_name,
+                         "docstatus": 0,
+                         "idx": 0})
 
-    sshow = frappe.get_doc(slideshow_dict)
-    sshow.insert(ignore_permissions=True)
-
-    if sshow:
-        return True
-    else:
-        return False
+    ss.insert(ignore_permissions=True)
+    return ss
 
 
-def create_slideshow_items(parent, file_list):
-    idx = 0
-    filename = ''
+def create_slideshow_items(parent, file_list, file_sizes):
+    """Creates the docs for the website slideshow items and the files.
 
-    for i in file_list:
-        filename = '/files/' + i
+    Creating the docs for the Website Slideshow Items is necessary for
+    the website slideshow to work.
+    Creating the docs for the Files is not required, but it is what Frappe
+    does so we can replicate that. The files are also attached to the Website
+    Slideshow rather than the individual Items.
+    However: creating individual File docs means that deleting the Website
+    Slideshow deletes the files.
 
-        slideshowitem_dict = {
+    For now: this is deliberately 'broken'.
+    """
+
+    idx = 1
+    for fname, fsize in zip(file_list, file_sizes):
+        filename = '/files/' + fname
+
+        s = frappe.get_doc({
             "doctype": "Website Slideshow Item",
             "parent": parent,
             "parentfield": "slideshow_items",
             "parenttype": "Website Slideshow",
             "image": filename,
             "idx": idx
-            #TODO #"heading": 'TEST',
-            #TODO"description": 'TEST'
-            }
+            })
         idx += 1
-        sshowitems = frappe.get_doc(slideshowitem_dict)
-        sshowitems.insert(ignore_permissions=True)
+        s.insert(ignore_permissions=True)
+
+        # Disabled as we don't want to delete the files if the
+        # Website Slideshow is deleted.
+        #f = frappe.get_doc({
+            #"doctype": "File",
+            #"file_url": filename,
+            #"file_name": fname,
+            #"attached_to_doctype": "Website Slideshow",
+            #"attached_to_name": parent,
+            #"attached_to_field": None,
+            #"folder": 'Home/Attachments',
+            #"file_size": fsize,
+            #"is_private": 0
+        #})
+        #f.insert(ignore_permissions=True)
 
     return
 
