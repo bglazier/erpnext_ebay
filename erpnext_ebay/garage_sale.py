@@ -127,6 +127,9 @@ def run_cron_create_xml():
 
             body += footer
             body += """<br><br>sku: {}""".format(item_code)
+            body += """<br>approx weight: {}""".format(r.net_weight)
+            body += """<br>approx l x w x h: {} x {} x {}""".format(r.length, r.width, r.height)
+            
             body += "]]"
 
             doc = ET.SubElement(root, "item")
@@ -241,7 +244,7 @@ def run_cron_create_xml():
             #ET.SubElement(doc, "siteName").text = ""
             ET.SubElement(doc, "SKU").text = item_code
             #ET.SubElement(doc, "startingBid").text = ""
-            #ET.SubElement(doc, ****storCaterogry).text = ""
+            #ET.SubElement(doc, ****storCategory).text = ""
             #ET.SubElement(doc, "subTitle").text = sub_title
             ET.SubElement(doc, "title").text = title
             #ET.SubElement(doc, "variation").text = ""
@@ -480,10 +483,10 @@ def get_item_records_by_item_status():
         it.function_grade,
         it.grade_details,
         it.warranty_period,
-        ifnull(it.net_weight,0.0),
-        ifnull(it.length, 0.0),
-        ifnull(it.width, 0.0),
-        ifnull(it.height,0.0),
+        ifnull(it.net_weight,0.0) as net_weight,
+        ifnull(it.length, 0.0) as length,
+        ifnull(it.width, 0.0) as width,
+        ifnull(it.height,0.0) as height,
         it.delivery_type,
         ifnull(it.standard_rate,0.0) as price,
         ifnull(ip.price_list_rate,0.0) as item_price,
