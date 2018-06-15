@@ -58,19 +58,13 @@ cur_frm.cscript.auto_create_slideshow = function(doc, cdt, cdn) {
             tag: cur_frm.slideshow_dialog.tag
         },
         callback: function(r) {
-            if (r.message == "success") {
-                cur_frm.set_value("slideshow", "SS-" + item_code);
-
-                // Cannot do this - as field is type "Attach"
-                //cur_frm.set_value("website_image", "/files/" + item_code + "-0" + ".jpg");
-
-        //cur_frm.set_df_property('website_image','options' "/files/" + item_code + "-0" + ".jpg");
-                //cur_frm.refresh_field("website_image");
+            if (r.message.success) {
+                cur_frm.reload_doc();
 
             } else {
+                cur_frm.slideshow_dialog.hide();
                 frappe.msgprint("There has been a problem. " +
                    "Please manually set up slideshow and website image.");
-                cur_frm.slideshow_dialog.hide();
 
             }
         }

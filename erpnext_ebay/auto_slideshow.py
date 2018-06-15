@@ -47,31 +47,43 @@ def realtime_eval(rte_id, tag, event, msg):
                             user=frappe.session.user)
 
 
-def resize_image(filename):
+def resize_image(filename, out=None, thumbnail=False):
     """
-    Use mogrify to resize images
-    Uses the below command:
+    Use convert or mogrify to resize images
+    Uses one of the below commands:
 
     mogrify -resize -auto-orient LxL> filename
+    convert -resize -auto-orient LxL> filename out
 
     Resizes, rotates according to EXIF information, and resizes to fit into
     an L x L size box (trailing '>' symbol means that images will never
-    be enlarged). The image size is taken from the ebay_image_size setting
-    in Ebay_Settings_Manager.
+    be enlarged). The image size is taken from the ebay_image_size or
+    ebay_thumbnail_size setting in Ebay_Settings_Manager.
+    
+    If out is set, the resized version is output to a new file (convert).
+    Otherwise the modification takes place on the original file (mogrify).
     """
 
-    image_size = frappe.db.get_value(
-        'eBay Manager Settings', filters=None, fieldname='ebay_image_size')
+    if thumbnail:
+        image_size = frappe.db.get_value(
+            'eBay Manager Settings', filters=None,
+            fieldname='ebay_thumbnail_size')
+    else:
+        image_size = frappe.db.get_value(
+            'eBay Manager Settings', filters=None,
+            fieldname='ebay_image_size')
 
-    try:
-        if image_size < 1:
-            frappe.throw('Invalid image size: ' + str(image_size))
-    except TypeError:
-        frappe.throw('Invalid type in ebay_image_size')
+    if image_size < 1:
+        frappe.throw('Invalid image size: ' + str(image_size))
 
     size_string = '{}x{}>'.format(image_size, image_size)
-    subprocess.call(
-        ['mogrify', '-auto-orient', '-resize', size_string, filename])
+    if out is not None:
+        subprocess.call(
+            ['convert', '-auto-orient', '-resize', size_string,
+             filename, out])
+    else:
+        subprocess.call(
+            ['mogrify', '-auto-orient', '-resize', size_string, filename])
 
 
 def ugs_save_file_on_filesystem_hook(*args, **kwargs):
@@ -127,6 +139,8 @@ def process_new_images(item_code, rte_id, tag):
     Server-side part of auto-slideshow, called from a button on item page.
     """
 
+    ret_val = {'success': False}
+
     # Get user
     current_user = frappe.db.get_value(
         "User", frappe.session.user, ["username"])
@@ -158,7 +172,7 @@ def process_new_images(item_code, rte_id, tag):
     if(n_files == 0):
         frappe.msgprint("There are no images to process. " +
                         "Please upload images first.")
-        return False
+        return ret_val
 
     # Update the number of images to process
     msg = {'command': 'set_image_number',
@@ -200,29 +214,44 @@ def process_new_images(item_code, rte_id, tag):
     else:
         frappe.msgprint("There was a problem creating the slideshow. " +
                         "You will need to do this manually")
-        return False
+        return ret_val
+
+    # For now, assume the first image is the primary image
+    # Note this is the idx which is one-indexed, not zero-indexed.
+    idx_main_image = 1
+
+    # Update the website slideshow
+    frappe.db.set_value('Item', item_code, 'slideshow', slideshow_code)
+
+    # Update the item image
+    file_name = new_file_list[idx_main_image-1]
+    image_url = os.path.join(
+        'files', new_file_list[idx_main_image-1])
+    frappe.db.set_value('Item', item_code, 'image', image_url)
+
+    # Set up website image
+    web_url, thumb_url = create_website_image(file_name, item_code)
+
+    # Set the website image and thumbnail
+    frappe.db.set_value('Item', item_code, 'website_image', web_url)
+    frappe.db.set_value('Item', item_code, 'thumbnail', thumb_url)
+
+    # Add a comment to the Item
+    comment = frappe.get_doc("Item", item_code).add_comment(
+        "Attachment",
+        "Auto Create Slideshow: Website slideshow {}".format(slideshow_code))
 
     # Allow the slideshow to close and update to show completion
     msg = {'command': 'done'}
     realtime_eval(rte_id, tag, 'update_slideshow', msg)
 
-    return "success"
-
-
-#def is_exists_slideshow(item_code, slideshow_code):
-    #"""Check if a slideshow exists for this item and slideshow code."""
-    ##if not frappe.db.get_value("Item", item_code, "slideshow", slideshow_code):
-        ##return False
-    ##else:
-        ##return True
-    #print("is_exists_slideshow: ", item_code, slideshow_code)
-    #print(frappe.db.get_value("Item", item_code, "slideshow", slideshow_code))
-    #return bool(frappe.db.get_value("Item", item_code, "slideshow", slideshow_code))
+    ret_val['success'] = True
+    return ret_val
 
 
 def create_slideshow(slideshow_name):
     """Create the doc for the Website Slideshow.
-    
+
     Returns the slideshow doc.
     """
 
@@ -282,33 +311,88 @@ def create_slideshow_items(parent, file_list, file_sizes):
     return
 
 
+def create_website_image(fname, item):
+    """Create a symbolic link and a thumbnail, and set up file docs,
+    ready to use as a Website Image.
+    """
+
+    # Create a symbolic link and a thumbnail for the website image
+    path, ext = os.path.splitext(fname)
+    web_fname = path + '_web' + ext
+    thumb_fname = path + '_thumb' + ext
+
+    # Full paths to original file, web image symlink and thumbnail
+    file_fpath = os.path.join(public_site_files_path, fname)
+    web_fpath = os.path.join(public_site_files_path, web_fname)
+    thumb_fpath = os.path.join(public_site_files_path, thumb_fname)
+
+    # URLs on website for web image symlink and thumbnail
+    web_url = os.path.join('files', web_fname)
+    thumb_url = os.path.join('files', thumb_fname)
+
+    # Create the symbolic link and create the thumbnail
+    os.symlink(file_fpath, web_fpath)
+    resize_image(file_fpath, out=thumb_fpath, thumbnail=True)
+
+    # Document for web image
+    f = frappe.get_doc({
+        "doctype": "File",
+        "file_url": web_url,
+        "file_name": web_fname,
+        "attached_to_doctype": "Item",
+        "attached_to_name": item,
+        "attached_to_field": None,
+        "folder": 'Home/Attachments',
+        "file_size": os.path.getsize(web_fpath),
+        "is_private": 0
+    })
+    f.insert(ignore_permissions=True)
+
+    # Document for the thumbnail is not required.
+    ## Document for thumbnail image
+    #f = frappe.get_doc({
+        #"doctype": "File",
+        #"file_url": thumb_url,
+        #"file_name": thumb_fname,
+        #"attached_to_doctype": "Item",
+        #"attached_to_name": item,
+        #"attached_to_field": None,
+        #"folder": 'Home/Attachments',
+        #"file_size": os.path.getsize(thumb_fpath),
+        #"is_private": 0
+    #})
+    #f.insert(ignore_permissions=True)
+
+    return web_url, thumb_url
+
+
 '''PROCESS ALL EXISTING PHOTOS PRIOR TO USING NEW PROCESS'''
 
 
-def create_slideshows_from_archive_photos():
-    # TODO need to test this
-    dlist = list_directories(images_path)
+#def create_slideshows_from_archive_photos():
+    ## TODO need to test this
+    #dlist = list_directories(images_path)
 
-    for l in dlist:
-        file_list = list_files(l)
-        for f in file_list:
-            item_name = f
-            create_slideshow('SS' + item_name)
-            create_slideshow_items('SS' + parent, file_list)
+    #for l in dlist:
+        #file_list = list_files(l)
+        #for f in file_list:
+            #item_name = f
+            #create_slideshow('SS' + item_name)
+            #create_slideshow_items('SS' + parent, file_list)
 
-    return
+    #return
 
 
 '''UTILITIES'''
 
 
-def list_directories(path):
+#def list_directories(path):
 
-    # requires import os
+    ## requires import os
 
-    directories = filter(os.path.isdir, os.listdir(path))
+    #directories = filter(os.path.isdir, os.listdir(path))
 
-    return directories
+    #return directories
 
 
 def list_files(path):
@@ -324,15 +408,15 @@ def list_files(path):
     return files
 
 
-def scp_files(local_files):
-    # THIS IS OF NO USE AS FILES ARE NOT LOCAL !!?? Unless scp using static ip address?
-    # requires import scp
+#def scp_files(local_files):
+    ## THIS IS OF NO USE AS FILES ARE NOT LOCAL !!?? Unless scp using static ip address?
+    ## requires import scp
 
-    remote_file = local_files
+    #remote_file = local_files
 
-    client = scp.Client(host=host, user=user, password=password)
+    #client = scp.Client(host=host, user=user, password=password)
 
-    # and then
-    client.transfer(local_path + local_file, remote_path + remote_file)
+    ## and then
+    #client.transfer(local_path + local_file, remote_path + remote_file)
 
-    return
+    #return
