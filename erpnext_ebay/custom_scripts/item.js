@@ -170,9 +170,12 @@ cur_frm.cscript.view_slideshow = function(frm, cdt, cdn) {
         
         // Add the main table
         var html = '<div id="slideshow_table"></div>';
+        html += "<p>"+  frm.item_group_ebay + "</p>";
+
         d.fields_dict.ht.$wrapper.html(html);
         d.set_title('Viewing slideshow ' + frm.slideshow);
         d.show();
+
 
         frappe.call({
             // Call server-side view_slideshow
