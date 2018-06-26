@@ -2,16 +2,17 @@
 
 // Auto create slideshow
 cur_frm.cscript.auto_create_slideshow = function(doc, cdt, cdn) {
-    
-    var item_code = doc.name;
-    // Check document is saved
-    if (doc) {
-        if (doc.__islocal) {
-            frappe.msgprint(__("Please save the document before auto-creating slideshow."));
-            return;
-        }
-    }
-    
+
+    // Save document before auto creating slideshow
+    cur_frm.save("Save",
+        function(r) { cur_frm.cscript._auto_create_slideshow(cdn); }
+        );
+    };
+
+cur_frm.cscript._auto_create_slideshow = function(cdn) {
+
+    var item_code = cdn
+
     // Create the dialog
     var d = new frappe.ui.Dialog({
         'fields': [
@@ -63,13 +64,14 @@ cur_frm.cscript.auto_create_slideshow = function(doc, cdt, cdn) {
 
             } else {
                 cur_frm.slideshow_dialog.hide();
-                frappe.msgprint("There has been a problem. " +
-                   "Please manually set up slideshow and website image.");
+                frappe.msgprint(
+                    "There has been a problem. " +
+                    "Please manually set up slideshow and website image.");
 
             }
         }
-    })
-}
+    });
+};
 
 
 // Update slideshow window
@@ -127,7 +129,7 @@ cur_frm.cscript.update_slideshow = function(tag, JSON_args) {
             var file_url = base_url + '/' + args.file_url
             $("#ss_img_" + img_id).attr('src', file_url);
             var loader_gif = base_url +
-                            "/assets/erpnext_ebay/img/ajax-loader2.gif";
+                "/assets/erpnext_ebay/img/ajax-loader2.gif";
             if (img_id < n_images) {
                 $("#ss_img_"+(img_id+1)).attr('src', loader_gif);
             }
@@ -143,7 +145,7 @@ cur_frm.cscript.update_slideshow = function(tag, JSON_args) {
             d.$modal.data('bs.modal').options.keyboard = 'true';
             break;
     }
-}
+};
 
 
 // View slideshow
@@ -169,13 +171,13 @@ cur_frm.cscript.view_slideshow = function(frm, cdt, cdn) {
         d.$wrapper.find('.modal-dialog').css('width', '1000px');
         
         // Add the main table
-        var html = '<div id="slideshow_table"></div>';
-        html += "<p>"+  frm.item_group_ebay + "</p>";
+        var item_group_ebay = frm.item_group_ebay || '(not defined)';
+        var html = "<p>Ebay item group: " + item_group_ebay + "</p>";
+        html += '<div id="slideshow_table"></div>';
 
         d.fields_dict.ht.$wrapper.html(html);
         d.set_title('Viewing slideshow ' + frm.slideshow);
         d.show();
-
 
         frappe.call({
             // Call server-side view_slideshow
@@ -223,7 +225,7 @@ cur_frm.cscript.view_slideshow = function(frm, cdt, cdn) {
         frappe.msgprint("There is no Website Slideshow for this Item.");
     }
 
-}
+};
 
 
 // Revise items
