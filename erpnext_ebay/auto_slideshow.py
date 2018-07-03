@@ -331,7 +331,14 @@ def create_website_image(fname, item):
     thumb_url = os.path.join('files', thumb_fname)
 
     # Create the symbolic link and create the thumbnail
-    os.symlink(file_fpath, web_fpath)
+    try:
+        os.symlink(file_fpath, web_fpath)
+    except OSError:
+        if os.path.islink(web_fpath):
+            os.remove(web_fpath)
+            os.symlink(file_fpath, web_fpath)
+        else:
+            raise
     resize_image(file_fpath, out=thumb_fpath, thumbnail=True)
 
     # Document for web image
