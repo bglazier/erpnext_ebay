@@ -17,7 +17,7 @@ from datetime import date, timedelta
 import frappe
 from frappe.model.document import Document
 
-import xml.etree.cElementTree as ET
+import xml.etree.ElementTree as ET
 import requests
 
 from jinja2 import Environment, PackageLoader
@@ -31,7 +31,7 @@ from ebay_active_listings import generate_active_ebay_data
 
 
 NO_IMAGES = True
-USE_SERVER_IMAGES = False
+USE_SERVER_IMAGES = True
 
 
 #Save to public directory so one can download
@@ -89,14 +89,15 @@ def run_cron_create_xml():
     records = get_item_records_by_item_status()
 
     for r in records:
-
         item_code = r.name
+        print(item_code)
+        
         quantity = r.actual_qty + r.unsubmitted_prec_qty
 
         # Don't run if quantity not matching stock locations qty
         # Items only come through if ebay_id is Null or blank - no need to exclude e.g Awaiting
         # Garagesale (see sql query)
-        if quantity > 0.0 and quantity == r.sum_sl:
+        if quantity > 0.0 and item_code =='ITEM-05907': #and quantity == r.sum_sl:
 
             title = ""
             title += r.item_name
@@ -141,12 +142,21 @@ def run_cron_create_xml():
             ET.SubElement(doc, "category").text = category
             #ET.SubElement(doc, "category2").text =
             condition_desc, condition_id = lookup_condition(r.condition, r.function_grade)
-            ET.SubElement(doc, "condition").text = str(condition_id)
+            ET.SubElement(doc, "condition").text = str(condition_desc)
             ET.SubElement(doc, "conditionDescription").text = r.grade_details
             ET.SubElement(doc, "convertDescriptionToHTML").text = "false"
             ET.SubElement(doc, "convertMarkdownToHTML").text = "false"
             ET.SubElement(doc, "description").text = body
             ET.SubElement(doc, "design").text = design
+            
+            
+            brand = ET.fromstring("""<customSpecific> <specificName>Brand</specificName> <specificValue>{}</specificValue></customSpecific>""".format(r.brand))
+            doc.append(brand)
+            
+            #brand = ET.SubElement(doc, "customSpecific", "specificName"='Brand', "specificValue" = '{}').format(r.brand)
+            #brand.set("specificName", "Brand")
+            #brand.set("specificValue", "{}").format(r.brand)
+            
 
             #EXAMPLE <domesticShippingService serviceAdditionalFee="2.00" serviceFee="12.00">UPS
             #Ground</domesticShippingService>
@@ -163,13 +173,17 @@ def run_cron_create_xml():
                                                      """serviceAdditionalFee="0.00" """,
                                                      """serviceFee="24.00">Other 24 Hour Courier</domesticShippingService>"""]))
 
+
             # Make sure there is a domestic default
             doc.append(dom_ship_collection)
 
             if r.delivery_type == 'No GSP':
                 doc.append(dom_ship_free)
                 doc.append(dom_ship_24hour)
-                # ALSO NEED TO DISABLE GSP MANUALLY !!!!!!
+            #else:
+                #ET.SubElement(doc, "internationalShippingService").text = "Global Shipping"
+                #gsp = ET.fromstring("""<customSpecific> <specificName>Use Global Shipping Program</specificName> <specificValue>true</specificValue></customSpecific>""")
+                #doc.append(gsp)
 
 
             if r.delivery_type == 'Pallet':
@@ -187,28 +201,23 @@ def run_cron_create_xml():
             #int_ship = ET.SubElement(doc, "internationalShippingService").text = ""
             #int_ship.set("serviceAdditionalFee", "0")
             #int_ship.set("serviceFee","0")
-
+            
 
 
             ET.SubElement(doc, "duration").text = str(duration)
             ET.SubElement(doc, "handlingTime").text = str(handling_time)
 
-            """
             if USE_SERVER_IMAGES:
                 for ssi in ss_images_list:
-                    if exists(images_url + ssi.image):
-                        if ssi.image:
-                            if URL_IMAGES:
-                                ET.SubElement(doc, "imageURL").text = images_url + ssi.image
-                            else:
-                                throw('Problem with image' + ssi.image)
-
+                    print(ssi)
+                    if ssi.image and exists(images_url + ssi.image):
+                        ET.SubElement(doc, "imageURL").text = images_url + ssi.image
+                        '''''
                             # IF there is no slideshow then try the ws_image
                             if not ssi:
                                 if r.website_image != 'NULL':
                                     ET.SubElement(doc, "imageURL").text = images_url + ws_image
-            """
-
+                        '''
 
             ET.SubElement(doc, "layout").text = layout
             #ET.SubElement(doc, "lotSize").text = "1"
@@ -254,7 +263,6 @@ def run_cron_create_xml():
             tree = ET.ElementTree(root)
             file_name = (os.path.join(os.sep, garage_xml_path, str(date.today()) + "_garageimportfile.xml"))
             # must create xml directory for this to work
-            print('FILENAME', file_name)
             tree.write(file_name)
 
             change_status_to_garagesale(item_code)
