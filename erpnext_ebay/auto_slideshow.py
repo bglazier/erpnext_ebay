@@ -52,14 +52,14 @@ def resize_image(filename, out=None, thumbnail=False):
     Use convert or mogrify to resize images
     Uses one of the below commands:
 
-    mogrify -resize -auto-orient LxL> filename
-    convert -resize -auto-orient LxL> filename out
+    mogrify -auto-orient -resize LxL> filename
+    convert -auto-orient -resize LxL> filename out
 
     Resizes, rotates according to EXIF information, and resizes to fit into
     an L x L size box (trailing '>' symbol means that images will never
     be enlarged). The image size is taken from the ebay_image_size or
     ebay_thumbnail_size setting in Ebay_Settings_Manager.
-    
+
     If out is set, the resized version is output to a new file (convert).
     Otherwise the modification takes place on the original file (mogrify).
     """
@@ -152,12 +152,12 @@ def process_new_images(item_code, rte_id, tag):
     # an existing slideshow with a matching name ('SS-ITEM-?????')
     if frappe.db.get_value("Item", item_code, "slideshow", slideshow_code):
         frappe.msgprint("A website slideshow is already set for this item.")
-        return False
+        return ret_val
 
     if frappe.db.exists("Website Slideshow", slideshow_code):
         frappe.msgprint("A website slideshow with the name " + slideshow_code +
                         " already exists.")
-        return False
+        return ret_val
 
     # Images should already be uploaded onto local uploads directory
     # Sort these images into a 'natural' order
@@ -331,7 +331,14 @@ def create_website_image(fname, item):
     thumb_url = os.path.join('files', thumb_fname)
 
     # Create the symbolic link and create the thumbnail
-    os.symlink(file_fpath, web_fpath)
+    try:
+        os.symlink(file_fpath, web_fpath)
+    except OSError:
+        if os.path.islink(web_fpath):
+            os.remove(web_fpath)
+            os.symlink(file_fpath, web_fpath)
+        else:
+            raise
     resize_image(file_fpath, out=thumb_fpath, thumbnail=True)
 
     # Document for web image
