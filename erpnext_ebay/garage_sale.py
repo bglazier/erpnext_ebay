@@ -97,7 +97,7 @@ def run_cron_create_xml():
         # Don't run if quantity not matching stock locations qty
         # Items only come through if ebay_id is Null or blank - no need to exclude e.g Awaiting
         # Garagesale (see sql query)
-        if quantity > 0.0 and item_code =='ITEM-05907': #and quantity == r.sum_sl:
+        if quantity > 0.0 and quantity == r.sum_sl:
 
             title = ""
             title += r.item_name
@@ -161,8 +161,8 @@ def run_cron_create_xml():
             #EXAMPLE <domesticShippingService serviceAdditionalFee="2.00" serviceFee="12.00">UPS
             #Ground</domesticShippingService>
             dom_ship_free = ET.fromstring("".join(["""<domesticShippingService """,
-                                                           """serviceAdditionalFee="0.00"  """,
-                                                           """serviceFee="0.00">Other Courier 3-5 days</domesticShippingService>"""]))
+                                                   """serviceAdditionalFee="0.00"  """,
+                                                   """serviceFee="0.00">Other Courier 3-5 days</domesticShippingService>"""]))
             dom_ship_pallet = ET.fromstring("".join(["""<domesticShippingService """,
                                                      """serviceAdditionalFee="0.00" """,
                                                      """serviceFee="60.00">Other Courier 3-5 days</domesticShippingService>"""]))
@@ -174,27 +174,24 @@ def run_cron_create_xml():
                                                      """serviceFee="24.00">Other 24 Hour Courier</domesticShippingService>"""]))
 
 
-            # Make sure there is a domestic default
-            doc.append(dom_ship_collection)
-
             if r.delivery_type == 'No GSP':
                 doc.append(dom_ship_free)
                 doc.append(dom_ship_24hour)
-            #else:
-                #ET.SubElement(doc, "internationalShippingService").text = "Global Shipping"
-                #gsp = ET.fromstring("""<customSpecific> <specificName>Use Global Shipping Program</specificName> <specificValue>true</specificValue></customSpecific>""")
-                #doc.append(gsp)
-
+                ET.SubElement(doc, "useGlobalShipping").text = "false"
 
             if r.delivery_type == 'Pallet':
                 doc.append(dom_ship_pallet)
+                ET.SubElement(doc, "useGlobalShipping").text = "false"
 
-
-            #if r.delivery_type == 'Collection Only':  No need for this as default is set
+            if r.delivery_type == 'Collection Only':
+                doc.append(dom_ship_collection)
+                ET.SubElement(doc, "useGlobalShipping").text = "false"
 
             if r.delivery_type == 'Standard Parcel':
                 doc.append(dom_ship_free)
                 doc.append(dom_ship_24hour)
+                ET.SubElement(doc, "useGlobalShipping").text = "true"
+                
 
 
 
@@ -290,7 +287,7 @@ def download_xml(url, file_name):
 
 def render(tpl_path, context):
     """
-    render
+    rende
     """
 
     path, filename = os.path.split(tpl_path)
