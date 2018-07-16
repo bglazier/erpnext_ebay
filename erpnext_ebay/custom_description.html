@@ -32,8 +32,6 @@
     {% if tech_details is not none %} {{tech_details}} {% endif%}
     
     
-    
-    <br></br>
     <br></br>
     <b>Accessories</b>
         
@@ -54,29 +52,24 @@
     
 
     <br></br>
-    <br></br>
     {% if grade_details is not none or grade_details !='' or condition != '0' or function_grade != '0' %}
         <b>Grade</b>
-        <br></br>
         <br></br>
     {% endif %}
     
     {% if grade_details is not none %} 
         {{grade_details}} 
         <br></br>
-        <br></br>
     {% endif %}
     
     {% if condition != '0' and function_grade != '0' %} 
         {{show_table(version, condition, function_grade)}} 
-        <br></br>
         <br></br>
     {% endif %}
 
 
 
     <b>Shipping</b>
-        <br></br>
         <br></br>
 
         
@@ -87,14 +80,11 @@
 
         AB31-38, AB40-52, AB54-56, AB63 IV1-28, IV30-32, IV36-56, IV63 KA27-28 KW1-17 PA20-38, PA41-49, PA60-78 PH4-44, PH49-50 PO30-41 TR21-25 BT, GS, GY, HY, IM, JE, TDCU, ZE
         <br></br>
-        <br></br>
 
         If you live in one of the above postcodes please enquire for a shipping quote.
         <br></br>
-        <br></br>
 
         Your item will be carefully packed and dispatched within 24 hours (Mon.-Fri.) of receiving payment.
-        <br></br>
         <br></br>
 
         International buyers please feel free to contact us for an overseas shipping quote, or order through eBay's Global Shipping Programme (if made available).
@@ -104,14 +94,12 @@
     {% if delivery_type == 'Collection Only' %}
         For collection only.
         <br></br>
-        <br></br>
         International buyers please contact us for an overseas shipping quote.
         
     {% endif %}
     
     {% if delivery_type == 'Pallet' %}
         Free shipping is not available on this product. This item is only suitable for Pallet delivery.
-        <br></br>
         <br></br>
         International buyers please contact us for an overseas shipping quote.
     {% endif %}
@@ -121,16 +109,13 @@
     {% endif %}
     
     <br></br>
-    <br></br>
 
     <b>Return Policy</b>
-    <br></br>
     <br></br>
     {% if warranty_period == 45 or warranty_period == None or warranty_period == 'None' %}
         Buy with confidence. If you wish to return the item, for whatever reason, you may do so within 45 days.
     {% else %}
         Buy with confidence. If you wish to return the item, for whatever reason, you may do so within 45 days.
-        <br></br>
         <br></br>
         This item also includes our {{warranty_period}} Day Limited Warranty (please contact us for our terms and conditions).
     {% endif %}

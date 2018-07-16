@@ -35,8 +35,7 @@ USE_SERVER_IMAGES = True
 
 
 #Save to public directory so one can download
-garage_xml_path = (os.path.join(os.sep, frappe.utils.get_bench_path(), 'sites',
-                                frappe.get_site_path(), 'public', 'files', 'xml'))
+garage_xml_path = (os.path.join(os.sep, frappe.utils.get_bench_path(), 'garagesale')
 site_files_path = (os.path.join(os.sep, frappe.utils.get_bench_path(), 'sites',
                                 frappe.get_site_path(), 'public', 'files'))
 
@@ -48,6 +47,21 @@ footer = """<br><br>The price includes VAT and we can provide VAT invoices.\
 
 
 
+def get_draft_sales(item_code):
+    
+    sql = """
+    select ifnull(qty, 0)
+    from `tabSales Invoice Item` sii
+    
+    left join `tabSales Invoice` si
+    on si.name = sii.parent
+    
+    where si.docstatus = 0
+    and sii.item_code = '{}'
+    """.format(item_code)
+    result = frappe.db.sql(sql)
+    
+    return result[0][0]
 
 def change_status_to_garagesale(item_code):
     """
@@ -92,7 +106,7 @@ def run_cron_create_xml():
         item_code = r.name
         print(item_code)
         
-        quantity = r.actual_qty + r.unsubmitted_prec_qty
+        quantity = r.actual_qty + r.unsubmitted_prec_qty - get_draft_sales(item_code)
 
         # Don't run if quantity not matching stock locations qty
         # Items only come through if ebay_id is Null or blank - no need to exclude e.g Awaiting
@@ -128,7 +142,7 @@ def run_cron_create_xml():
 
             body += footer
             body += """<br><br>sku: {}""".format(item_code)
-            body += """<br>approx weight: {}""".format(r.net_weight)
+            body += """<br>approx (unit) weight: {}""".format(r.weight_per_unit)
             body += """<br>approx l x w x h: {} x {} x {}""".format(r.length, r.width, r.height)
             
             body += "]]"
@@ -477,7 +491,7 @@ def get_item_records_by_item_status():
         it.description,
         it.tech_details,
         it.image,
-        it.website_image,
+        it.website_image,x
         it.slideshow,
         it.accessories_extras,
         it.power_cable_included,
@@ -488,7 +502,7 @@ def get_item_records_by_item_status():
         it.function_grade,
         it.grade_details,
         it.warranty_period,
-        ifnull(it.net_weight,0.0) as net_weight,
+        ifnull(it.weight_per_unit,0.0) as weight_per_unitxs,
         ifnull(it.length, 0.0) as length,
         ifnull(it.width, 0.0) as width,
         ifnull(it.height,0.0) as height,
@@ -552,13 +566,16 @@ def get_slideshow_records(ss_name):
     """
     records = []
     if ss_name != None:
-        records = frappe.db.sql("""
+        sql =("""
             select
             wsi.image
             from `tabWebsite Slideshow Item` wsi
         
-            where wsi.parent = '""" + ss_name + """'
-            """, as_dict=1)
+            where wsi.parent = '{}'
+            order by wsi.idx
+            """.format(ss_name)
+
+        records = frappe.db.sql(sql, as_dict=1)
 
     return records
 
