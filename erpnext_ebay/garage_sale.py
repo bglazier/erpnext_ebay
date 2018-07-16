@@ -565,7 +565,7 @@ def get_slideshow_records(ss_name):
     """
     records = []
     if ss_name != None:
-        sql =("""
+        sql ="""
             select
             wsi.image
             from `tabWebsite Slideshow Item` wsi
