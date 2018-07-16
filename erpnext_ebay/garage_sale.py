@@ -22,6 +22,7 @@ import requests
 
 from jinja2 import Environment, PackageLoader
 import jinja2
+import pymysql
 
 
 
@@ -49,7 +50,7 @@ footer = """<br><br>The price includes VAT and we can provide VAT invoices.\
 def get_draft_sales(item_code):
     
     sql = """
-    select ifnull(qty, 0)
+    select ifnull(sum(qty), 0)
     from `tabSales Invoice Item` sii
     
     left join `tabSales Invoice` si
@@ -87,7 +88,7 @@ def run_cron_create_xml():
     frappe.msgprint("Exporting all listings in QC Passed status")
 
     #Before doing anything sync the ebay_id to Erpnext
-    generate_active_ebay_data()
+    #generate_active_ebay_data()
 
     post_code = "NP4 0HZ"
     design = "Pro: Classic"
@@ -162,9 +163,12 @@ def run_cron_create_xml():
             ET.SubElement(doc, "description").text = body
             ET.SubElement(doc, "design").text = design
             
-            
-            brand = ET.fromstring("""<customSpecific> <specificName>Brand</specificName> <specificValue>{}</specificValue></customSpecific>""".format(r.brand))
-            doc.append(brand)
+            try:
+                st = """<customSpecific> <specificName>Brand</specificName> <specificValue>{}</specificValue></customSpecific>""".format(pymysql.escape_string(r.brand))
+                brand = ET.fromstring(st)
+                doc.append(brand)
+            except:
+                print('Problem with this brand: ',r.brand)
             
             #brand = ET.SubElement(doc, "customSpecific", "specificName"='Brand', "specificValue" = '{}').format(r.brand)
             #brand.set("specificName", "Brand")
@@ -486,7 +490,7 @@ def get_item_records_by_item_status():
         it.item_name,
         it.item_group,
         it.item_group_ebay,
-        it.brand,
+        ifnull(it.brand, '') as brand,
         it.description,
         it.tech_details,
         it.image,
@@ -501,7 +505,7 @@ def get_item_records_by_item_status():
         it.function_grade,
         it.grade_details,
         it.warranty_period,
-        ifnull(it.weight_per_unit,0.0) as weight_per_unitxs,
+        ifnull(it.weight_per_unit,0.0) as weight_per_unit,
         ifnull(it.length, 0.0) as length,
         ifnull(it.width, 0.0) as width,
         ifnull(it.height,0.0) as height,
