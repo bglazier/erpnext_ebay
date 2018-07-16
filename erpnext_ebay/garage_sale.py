@@ -490,7 +490,7 @@ def get_item_records_by_item_status():
         it.description,
         it.tech_details,
         it.image,
-        it.website_image,x
+        it.website_image,
         it.slideshow,
         it.accessories_extras,
         it.power_cable_included,
