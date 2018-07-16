@@ -50,7 +50,7 @@ footer = """<br><br>The price includes VAT and we can provide VAT invoices.\
 def get_draft_sales(item_code):
     
     sql = """
-    select ifnull(sum(qty), 0)
+    select ifnull(sum(qty), 0) as qty
     from `tabSales Invoice Item` sii
     
     left join `tabSales Invoice` si
@@ -144,7 +144,6 @@ def run_cron_create_xml():
             body += """<br><br>sku: {}""".format(item_code)
             body += """<br>approx (unit) weight: {}""".format(r.weight_per_unit)
             body += """<br>approx l x w x h: {} x {} x {}""".format(r.length, r.width, r.height)
-            
             body += "]]"
 
             doc = ET.SubElement(root, "item")
@@ -163,6 +162,7 @@ def run_cron_create_xml():
             ET.SubElement(doc, "description").text = body
             ET.SubElement(doc, "design").text = design
             
+
             try:
                 st = """<customSpecific> <specificName>Brand</specificName> <specificValue>{}</specificValue></customSpecific>""".format(pymysql.escape_string(r.brand))
                 brand = ET.fromstring(st)
@@ -194,20 +194,20 @@ def run_cron_create_xml():
             if r.delivery_type == 'No GSP':
                 doc.append(dom_ship_free)
                 doc.append(dom_ship_24hour)
-                ET.SubElement(doc, "useGlobalShipping").text = "false"
+                #ET.SubElement(doc, "useGlobalShipping").text = "false"
 
             if r.delivery_type == 'Pallet':
                 doc.append(dom_ship_pallet)
-                ET.SubElement(doc, "useGlobalShipping").text = "false"
+                #ET.SubElement(doc, "useGlobalShipping").text = "false"
 
             if r.delivery_type == 'Collection Only':
                 doc.append(dom_ship_collection)
-                ET.SubElement(doc, "useGlobalShipping").text = "false"
+                #ET.SubElement(doc, "useGlobalShipping").text = "false"
 
             if r.delivery_type == 'Standard Parcel':
                 doc.append(dom_ship_free)
                 doc.append(dom_ship_24hour)
-                ET.SubElement(doc, "useGlobalShipping").text = "true"
+                #ET.SubElement(doc, "useGlobalShipping").text = "true"
                 
 
 
