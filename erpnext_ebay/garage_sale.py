@@ -39,8 +39,8 @@ USE_SERVER_IMAGES = True
 garage_xml_path = (os.path.join(os.sep, frappe.utils.get_bench_path(), 'garagesale'))
 site_files_path = (os.path.join(os.sep, frappe.utils.get_bench_path(), 'sites', frappe.get_site_path(), 'public', 'files'))
 
-images_url = 'http://www.universalresourcetrading.com'
-site_url = 'http://www.universalresourcetrading.com'
+images_url = 'https://shop.unigreenscheme.co.uk'
+site_url = 'https://shop.unigreenscheme.co.uk'
 
 footer = """<br><br>The price includes VAT and we can provide VAT invoices.\
             <br><br>Universities and colleges - purchase orders accepted - please contact us."""
