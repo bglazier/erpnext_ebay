@@ -37,7 +37,8 @@ USE_SERVER_IMAGES = True
 
 #Save to public directory so one can download
 garage_xml_path = (os.path.join(os.sep, frappe.utils.get_bench_path(), 'garagesale'))
-site_files_path = (os.path.join(os.sep, frappe.utils.get_bench_path(), 'sites', frappe.get_site_path(), 'public', 'files'))
+site_files_path = (os.path.join(os.sep, frappe.utils.get_bench_path(), 'sites', 
+                   frappe.get_site_path(), 'public', 'files'))
 
 images_url = 'https://shop.unigreenscheme.co.uk'
 site_url = 'https://shop.unigreenscheme.co.uk'
