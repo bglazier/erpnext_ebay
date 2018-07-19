@@ -52,20 +52,16 @@
     
 
     <br></br>
-    {% if grade_details is not none or grade_details !='' or condition != '0' or function_grade != '0' %}
-        <b>Grade</b>
-        <br></br>
-    {% endif %}
+    <b>Grade</b>
+    <br></br>
     
     {% if grade_details is not none %} 
         {{grade_details}} 
         <br></br>
     {% endif %}
     
-    {% if condition != '0' and function_grade != '0' %} 
-        {{show_table(version, condition, function_grade)}} 
-        <br></br>
-    {% endif %}
+    {{show_table(version, condition, function_grade)}} 
+    <br></br>
 
 
 
