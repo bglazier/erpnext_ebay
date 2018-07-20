@@ -26,7 +26,7 @@ import pymysql
 
 
 
-from ugscommon import get_unsubmitted_prec_qty
+from ugscommon import get_unsubmitted_prec_qty, get_draft_sales
 import ugssettings
 from ebay_active_listings import generate_active_ebay_data
 
@@ -48,21 +48,7 @@ footer = """<br><br>The price includes VAT and we can provide VAT invoices.\
 
 
 
-def get_draft_sales(item_code):
-    
-    sql = """
-    select ifnull(sum(qty), 0) as qty
-    from `tabSales Invoice Item` sii
-    
-    left join `tabSales Invoice` si
-    on si.name = sii.parent
-    
-    where si.docstatus = 0
-    and sii.item_code = '{}'
-    """.format(item_code)
-    result = frappe.db.sql(sql)
-    
-    return result[0][0]
+
 
 def change_status_to_garagesale(item_code):
     """
@@ -165,7 +151,7 @@ def run_cron_create_xml():
             
 
             try:
-                st = """<customSpecific> <specificName>Brand</specificName> <specificValue>{}</specificValue></customSpecific>""".format(pymysql.escape_string(r.brand))
+                st = """<customSpecific> <specificName>Brand</specificName> <specificValue>{}</specificValue></customSpecific>""".format(frappe.db.escape(r.brand))
                 brand = ET.fromstring(st)
                 doc.append(brand)
             except:
