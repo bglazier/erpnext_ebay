@@ -167,6 +167,6 @@ def revise_ebay_price(item_code, new_price, is_auction):
             raise
 
         else:
-            frappe.msgprint("Price sync success - eBay listing updated! {}").format(item_code)
+            frappe.msgprint("Price sync success - eBay listing updated! {}".format(item_code))
     else:
         frappe.msgprint("Price Sync Error: There was a problem getting the data")
