@@ -16,13 +16,13 @@ from frappe.utils import cstr
 from ebay_active_listings import generate_active_ebay_data
 import ugssettings
 
-
+""""
 def better_print(*args, **kwargs):
     with open("price_sync_log.log", "a") as f:
         builtins.print (file=f, *args, **kwargs)
 
 print = better_print
-
+"""
 
 
 
@@ -42,8 +42,7 @@ def price_sync():
     frappe.msgprint("System price reduction completed")
     
     generate_active_ebay_data()
-    sync_prices_to_ebay()
-    frappe.msgprint("Finished price sync. to eBay")
+    #sync_prices_to_ebay()
 
 
     return 1
@@ -107,7 +106,7 @@ def sync_ebay_prices_to_sys():
     set ip.price_list_rate = (el.price / 1.2)
     
     where ip.selling = 1
-    and it.ebay_id > 0
+    and it.ebay_id REGEXP '[0-9]'
     and el.price > 0
     """
     
@@ -121,7 +120,7 @@ def sync_ebay_prices_to_sys():
     it.vat_inclusive_price = el.price
     
     where 
-    it.ebay_id > 0
+    it.ebay_id REGEXP '[0-9]'
     and el.price > 0
     """
 
@@ -135,44 +134,69 @@ def percent_price_reduction(change):
     Change all system price by change %
     
     Only update records with an eBay ID and
-    records where the standard_rate = price_list rate (NOTE this should be resolved first)
 
     TODO investigate audit trail via ErpNext. Best to change price via a Frappe call so the changes are logged?
     """
     
     # Report on the upcoming changes
     sql = """
-    select it.item_code, it.ebay_id, ip.price_list_rate, ip.price_list_rate + (ip.price_list_rate * %s / 100.0) as new_price
+    select it.item_code, it.ebay_id, 
+    ip.price_list_rate, 
+    ip.price_list_rate + (ip.price_list_rate * %s / 100.0) as new_price
     from `tabItem` it
     
     left join `tabItem Price` ip
     on ip.item_code = it.item_code
     
-    where it.ebay_id > 0
-    and ip.price_list_rate = it.standard_rate
-    
+    where it.ebay_id REGEXP '[0-9]'
     
     """%(change)
 
     changes = frappe.db.sql(sql, as_dict=1)
     for c in changes:
-        print("Proposed System Price changes: {} {} to {}").format(c.item_code, c.price_list_rate, c.new_price)
+        print("Proposed System Price changes: {} {} to {}".format(c.item_code, c.price_list_rate, c.new_price))
 
     # TODO do you wish to continue?
 
     sql_update = """
-    update ip.item_price
-    set ip.price_list_rate = ip.price_list_rate + (ip.price_list_rate * %s / 100.0),
-    it.standard_rate = ip.standard_rate + (ip.standard_rate * %s / 100.0),
-    it.vat_inclusive_price = ip.vat_inclusive_price + (ip.vat_inclusive_price * %s / 100.0)
-    where it.ebay_id > 0
-    and ip.price_list_rate = it.standard_rate
+    update `tabItem Price` ip
+    
+    left join `tabItem` it
+    on ip.item_code = it.item_code
+    
+    set ip.price_list_rate = ip.price_list_rate + (ip.price_list_rate * %s / 100.0)
+
+    where ip.selling = 1
+    and it.ebay_id REGEXP '[0-9]'
     and it.item_code = 'ITEM-03220'
-    """%(change, change, change)
+    """%(change)
 
     frappe.db.sql(sql_update, auto_commit=True)
+    
+    sql_update_it = """
+    update `tabItem` it
+
+    set 
+    it.standard_rate = it.standard_rate + (it.standard_rate * %s / 100.0),
+    it.vat_inclusive_price = it.vat_inclusive_price + (it.vat_inclusive_price * %s / 100.0)
+    
+    where 
+    it.ebay_id REGEXP '[0-9]'
+    and it.item_code = 'ITEM-03220'
+    """%(change, change)
+
+    frappe.db.sql(sql_update_it, auto_commit=True)
+    
+    
+    
+    print("Price reduction completed")
+    
+    frappe.msgprint("Price reduction completed")
 
 # ITEM-03220  44.01
+
+
+
 
 
 def sync_prices_to_ebay():
@@ -183,8 +207,6 @@ def sync_prices_to_ebay():
     NOTE: el.price is actual eBay price (ie. inc VAT)
     """
 
-    # TODO
-    website_discount_to_ebay = 10
 
     # First get the mis-matched prices
     sql = """
@@ -202,7 +224,7 @@ def sync_prices_to_ebay():
     left join `zEbayListings` el
     on el.sku = it.item_code
     
-    where it.ebay_id > 0
+    where it.ebay_id REGEXP '[0-9]'
     and it.standard_rate <> (el.price/1.2)
     and it.item_code = 'ITEM-03220'
     
@@ -215,7 +237,7 @@ def sync_prices_to_ebay():
         # TODO need to add in is_auction functionality
         # revise_ebay_price takes exc vat pricing
         revise_ebay_price(r.item_code, r.standard_rate, False)
-        print("Item {} price revised from {} to {}").format(item_code, r.ebay_ex_vat)
+        print("Item {} price revised from {} to {}".format(item_code, r.ebay_ex_vat))
 
 
 
@@ -243,7 +265,7 @@ def report_inconsistent_system_pricing():
     left join `tabItem Price` ip
     on ip.item_code = it.item_code
     
-    where (it.ebay_id > 0 or it.show_in_website = 1)
+    where (it.ebay_id REGEXP '[0-9]' or it.show_in_website = 1)
     and (ip.price_list_rate <> it.standard_rate
     or ip.price_list_rate is NULL)
     
@@ -295,5 +317,5 @@ def report_inconsistent_pricing_all():
     and ip.price_list_rate <> it.standard_rate 
     and it.standard_rate <> (el.price/1.2)
     and it.standard_rate <> 0
-    and it.ebay_id > 0
+    and it.ebay_id REGEXP '[0-9]'
     """
