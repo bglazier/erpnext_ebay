@@ -70,7 +70,7 @@ def generate_active_ebay_data():
             #price = item['BuyItNowPrice']['value']
             #THSI IS 0        print(item['BuyItNowPrice']['value'])
             #Example: {'_currencyID': 'USD', 'value': '0.0'}   print(item['BuyItNowPrice'])
-            curr_price = float(item['SellingStatus']['CurrentPrice']['value'])
+            curr_ebay_price = float(item['SellingStatus']['CurrentPrice']['value'])
             curr_ex_vat = curr_price / ugssettings.VAT
             #currency = item['SellingStatus']['CurrentPrice']['_currencyID']  # or ['Currency']
             #converted_price = item['ListingDetails]['ConvertedBuyItNowPrice']['value']
@@ -83,7 +83,7 @@ def generate_active_ebay_data():
             #new_title = MySQLdb.escape_string(conv_title)
             site = ''
             insert_ebay_listing(
-                sku, ebay_id, qty, curr_ex_vat, site, hit_count, watch_count, question_count)
+                sku, ebay_id, qty, curr_ebay_price, site, hit_count, watch_count, question_count)
 
         page += 1
         if pages >= page:

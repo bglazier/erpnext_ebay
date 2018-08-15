@@ -120,7 +120,8 @@ def get_item_revisions(item_code):
         it.power_supply_included,
         it.remote_control_included,
         it.case_included,
-        it.warranty_period
+        it.warranty_period,
+        it.is_auction
     from `tabItem` it
     where item_code = '{}'
     """.format(item_code)
@@ -133,7 +134,7 @@ def get_item_revisions(item_code):
 
 
 @frappe.whitelist(allow_guest=True)
-def revise_ebay_price(item_code, new_price):
+def revise_ebay_price(item_code, new_price, is_auction):
     """Given item_code and price, revise the listing on eBay"""
 
 
@@ -141,23 +142,31 @@ def revise_ebay_price(item_code, new_price):
     ebay_id = frappe.get_value('Item', item_code, 'ebay_id')
     if ebay_id and item_code and new_price:
 
-        frappe.msgprint('This Item is on eBay. Please wait while the listing is revised...')
+        frappe.msgprint('{} Item is on eBay. Please wait while the listing is revised...').format(item_code)
         new_price_inc = float(new_price) * ugssettings.VAT
 
         try:
             api_trading = Trading(config_file=PATH_TO_YAML, warnings=True, timeout=20)
-            api_trading.execute('ReviseItem', {'Item':{'ItemID':ebay_id, \
+
+
+            if is_auction:
+                api_trading.execute('ReviseItem', {'Item':{'ItemID':ebay_id, \
                                 'StartPrice':new_price_inc}})
+            else:
+                # ReviseInventoryStatus enables change to price and/or quantity of an active, fixed-price listing. 
+                # The fixed-price listing is identified with the ItemID of the listing or the SKUvalue of the item
+                api_trading.execute('ReviseInventoryStatus', {'InventoryStatus':{'ItemID':ebay_id, \
+                                    'StartPrice':new_price_inc}})
 
         except ConnectionError:
             frappe.msgprint("Config file ebay.yaml file not found")
             raise
 
         except Exception:
-            frappe.msgprint("There was a problem using the eBay Api")
+            frappe.msgprint("Price sync. There was a problem using the eBay Api")
             raise
 
         else:
-            frappe.msgprint("Success eBay listing updated!")
+            frappe.msgprint("Price sync success - eBay listing updated! {}").format(item_code)
     else:
-        frappe.msgprint("Error: There was a problem getting the data")
+        frappe.msgprint("Price Sync Error: There was a problem getting the data")
