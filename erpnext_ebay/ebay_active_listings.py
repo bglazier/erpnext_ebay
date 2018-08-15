@@ -71,7 +71,7 @@ def generate_active_ebay_data():
             #THSI IS 0        print(item['BuyItNowPrice']['value'])
             #Example: {'_currencyID': 'USD', 'value': '0.0'}   print(item['BuyItNowPrice'])
             curr_ebay_price = float(item['SellingStatus']['CurrentPrice']['value'])
-            curr_ex_vat = curr_price / ugssettings.VAT
+            curr_ex_vat = curr_ebay_price / ugssettings.VAT
             #currency = item['SellingStatus']['CurrentPrice']['_currencyID']  # or ['Currency']
             #converted_price = item['ListingDetails]['ConvertedBuyItNowPrice']['value']
             #description = item['Description']
