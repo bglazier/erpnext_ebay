@@ -42,7 +42,8 @@ def price_sync():
     frappe.msgprint("System price reduction completed")
     
     generate_active_ebay_data()
-    #sync_prices_to_ebay()
+    sync_prices_to_ebay()
+    frappe.msgprint("Price revision completed")
 
 
     return 1
@@ -191,7 +192,6 @@ def percent_price_reduction(change):
     
     print("Price reduction completed")
     
-    frappe.msgprint("Price reduction completed")
 
 # ITEM-03220  44.01
 
