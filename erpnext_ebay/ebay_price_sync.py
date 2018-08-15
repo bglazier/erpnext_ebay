@@ -34,18 +34,17 @@ def price_sync():
     Note: el.price is price on eBay (ie. inc vat)
     """
 
-    generate_active_ebay_data()
-    sync_ebay_prices_to_sys()
-    frappe.msgprint("Finished price sync.")
+    #generate_active_ebay_data()
+    #sync_ebay_prices_to_sys()
+    #frappe.msgprint("Finished price sync.")
 
-    """
     percent_price_reduction(-5)
     frappe.msgprint("System price reduction completed")
     
     generate_active_ebay_data()
     sync_prices_to_ebay()
     frappe.msgprint("Finished price sync. to eBay")
-    """
+
 
     return 1
 
@@ -128,6 +127,8 @@ def sync_ebay_prices_to_sys():
 
 
 
+    
+
 
 def percent_price_reduction(change):
     """
@@ -141,7 +142,7 @@ def percent_price_reduction(change):
     
     # Report on the upcoming changes
     sql = """
-    select it.item_code, it.ebay_id, ip.price_list_rate, ip.price_list_rate - (ip.price_list_rate * %s / 100.0) as new_price
+    select it.item_code, it.ebay_id, ip.price_list_rate, ip.price_list_rate + (ip.price_list_rate * %s / 100.0) as new_price
     from `tabItem` it
     
     left join `tabItem Price` ip
@@ -149,6 +150,7 @@ def percent_price_reduction(change):
     
     where it.ebay_id > 0
     and ip.price_list_rate = it.standard_rate
+    
     
     """%(change)
 
@@ -165,10 +167,12 @@ def percent_price_reduction(change):
     it.vat_inclusive_price = ip.vat_inclusive_price + (ip.vat_inclusive_price * %s / 100.0)
     where it.ebay_id > 0
     and ip.price_list_rate = it.standard_rate
-    
+    and it.item_code = 'ITEM-03220'
     """%(change, change, change)
 
     frappe.db.sql(sql_update, auto_commit=True)
+
+# ITEM-03220  44.01
 
 
 def sync_prices_to_ebay():
@@ -200,6 +204,8 @@ def sync_prices_to_ebay():
     
     where it.ebay_id > 0
     and it.standard_rate <> (el.price/1.2)
+    and it.item_code = 'ITEM-03220'
+    
     """
 
     records = frappe.db.sql(sql, as_dict=1)
@@ -228,7 +234,10 @@ def report_inconsistent_system_pricing():
     """
 
     sql = """
-    select it.item_code, it.ebay_id, ip.price_list_rate, it.standard_rate
+    select it.item_code, 
+    it.ebay_id, 
+    ip.price_list_rate, 
+    it.standard_rate
     from `tabItem` it
     
     left join `tabItem Price` ip
@@ -250,9 +259,9 @@ def report_all_pricing_no_filters():
     select it.item_code, 
     ip.price_list_rate as ip_price, 
     it.standard_rate as st_price, 
-    el.price as ebay_ex, 
-    (el.price * 1.2) as ebay_inc,
-    it.vat_inclusive_price
+    (el.price / 1.2) as ebay_exc,
+    it.vat_inclusive_price,
+    el.price as ebay_inc
     
     from `tabItem` it
     
@@ -271,8 +280,8 @@ def report_inconsistent_pricing_all():
     ip.price_list_rate as ip_price, 
     it.standard_rate as st_price, 
     (el.price / 1.2) as ebay_exc,
-    el.price as ebay_inc, 
-    it.vat_inclusive_price
+    it.vat_inclusive_price,
+    el.price as ebay_inc
     
     from `tabItem Price` ip
     
