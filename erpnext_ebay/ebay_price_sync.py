@@ -15,6 +15,7 @@ from frappe.utils import cstr
 
 from ebay_active_listings import generate_active_ebay_data
 import ugssettings
+from revise_items import revise_ebay_price
 
 """"
 def better_print(*args, **kwargs):
