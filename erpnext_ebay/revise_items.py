@@ -142,7 +142,7 @@ def revise_ebay_price(item_code, new_price, is_auction):
     ebay_id = frappe.get_value('Item', item_code, 'ebay_id')
     if ebay_id and item_code and new_price:
 
-        frappe.msgprint('{} Item is on eBay. Please wait while the listing is revised...').format(item_code)
+        #frappe.msgprint('{} Item is on eBay. Please wait while the listing is revised...'.format(item_code))
         new_price_inc = float(new_price) * ugssettings.VAT
 
         try:
