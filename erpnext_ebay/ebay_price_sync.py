@@ -209,7 +209,7 @@ def sync_prices_to_ebay():
         # TODO need to add in is_auction functionality
         # revise_ebay_price takes exc vat pricing
         revise_ebay_price(r.item_code, r.standard_rate, False)
-        print("Item {} price revised from {} to {}").format(item_code, r.ebay_ex_vat
+        print("Item {} price revised from {} to {}").format(item_code, r.ebay_ex_vat)
 
 
 
