@@ -9,6 +9,7 @@ import __builtin__ as builtins
 import frappe
 from frappe import msgprint
 from frappe.utils import cstr
+from datetime import date
 
 #from jinja2 import Environment, PackageLoader
 #import jinja2
@@ -17,13 +18,13 @@ from ebay_active_listings import generate_active_ebay_data
 import ugssettings
 from revise_items import revise_ebay_price
 
-""""
+
 def better_print(*args, **kwargs):
     with open("price_sync_log.log", "a") as f:
         builtins.print (file=f, *args, **kwargs)
 
 print = better_print
-"""
+
 
 
 
@@ -34,7 +35,7 @@ def price_sync():
     
     Note: el.price is price on eBay (ie. inc vat)
     """
-
+    print("Script run on ", date.today())
     #generate_active_ebay_data()
     #sync_ebay_prices_to_sys()
     #frappe.msgprint("Finished price sync.")
@@ -73,7 +74,7 @@ def make_all_item_prices_equal_to_std():
     set it.vat_inclusive_price = it.standard_rate * 1.2
     where it.standard_rate > 0
     """
-    
+
     sql = """
     update `tabItem` it
     left join `tabItem Price` ip
@@ -128,7 +129,60 @@ def sync_ebay_prices_to_sys():
 
 
 
+
+
+
+
+def upcoming_price_changes(change):
     
+    sql = """
+    select it.item_code, it.ebay_id, 
+    it.standard_rate, 
+    it.standard_rate + (it.standard_rate * %s / 100.0) as new_price
+    
+    from `tabItem` it
+    
+    left join `tabItem Price` ip
+    on ip.item_code = it.item_code
+    
+    where it.ebay_id REGEXP '[0-9]'
+    and it.modified < (now() - interval 30 day)
+    and ((it.standard_rate >25 and it.delivery_type = 'Standard Parcel')
+    or (it.standard_rate >75 and it.delivery_type = 'Pallet'))
+    and (select count(sii.name) from `tabSales Invoice Item` sii where sii.item_code = it.item_code and sii.docstatus=1) = 0
+    order by it.standard_rate
+    """%(change)
+
+    changes = frappe.db.sql(sql, as_dict=1)
+    for c in changes:
+        print("System Price changes: {} {} to {}".format(c.item_code, c.standard_rate, c.new_price))
+
+
+
+    # Items not suitable for price drop (to be ended)
+    sql2 = """
+    select it.item_code, it.ebay_id, 
+    it.standard_rate
+    
+    from `tabItem` it
+    
+    left join `tabItem Price` ip
+    on ip.item_code = it.item_code
+    
+    where it.ebay_id REGEXP '[0-9]'
+    and it.modified < (now() - interval 30 day)
+    and ((it.standard_rate <=25 and it.delivery_type = 'Standard Parcel')
+    or (it.standard_rate <=75 and it.delivery_type = 'Pallet'))
+    and (select count(sii.name) from `tabSales Invoice Item` sii where sii.item_code = it.item_code and sii.docstatus=1) = 0
+    order by it.standard_rate
+    """
+    no_changes = frappe.db.sql(sql2, as_dict=1)
+    for c in no_changes:
+        print("No changes: {} {} to {}".format(c.item_code, c.standard_rate, c.standard_rate))
+
+
+
+
 
 
 def percent_price_reduction(change):
@@ -140,23 +194,7 @@ def percent_price_reduction(change):
     TODO investigate audit trail via ErpNext. Best to change price via a Frappe call so the changes are logged?
     """
     
-    # Report on the upcoming changes
-    sql = """
-    select it.item_code, it.ebay_id, 
-    ip.price_list_rate, 
-    ip.price_list_rate + (ip.price_list_rate * %s / 100.0) as new_price
-    from `tabItem` it
-    
-    left join `tabItem Price` ip
-    on ip.item_code = it.item_code
-    
-    where it.ebay_id REGEXP '[0-9]'
-    
-    """%(change)
-
-    changes = frappe.db.sql(sql, as_dict=1)
-    for c in changes:
-        print("Proposed System Price changes: {} {} to {}".format(c.item_code, c.price_list_rate, c.new_price))
+    upcoming_price_changes(change)
 
     # TODO do you wish to continue?
 
@@ -170,7 +208,13 @@ def percent_price_reduction(change):
 
     where ip.selling = 1
     and it.ebay_id REGEXP '[0-9]'
-    and it.item_code = 'ITEM-03220'
+    
+    and it.modified < now() - interval 10 day
+    
+    and ((it.standard_rate >25 and it.delivery_type = 'Standard Parcel')
+    or (it.standard_rate >75 and it.delivery_type = 'Pallet'))
+    and (select count(sii.name) from `tabSales Invoice Item` sii where sii.item_code = it.item_code and sii.docstatus=1) = 0
+    
     """%(change)
 
     frappe.db.sql(sql_update, auto_commit=True)
@@ -184,19 +228,28 @@ def percent_price_reduction(change):
     
     where 
     it.ebay_id REGEXP '[0-9]'
-    and it.item_code = 'ITEM-03220'
+    and it.modified < now() - interval 30 day
+    
+    and ((it.standard_rate >25 and it.delivery_type = 'Standard Parcel')
+    or (it.standard_rate >75 and it.delivery_type = 'Pallet'))
+    and (select count(sii.name) from `tabSales Invoice Item` sii where sii.item_code = it.item_code and sii.docstatus=1) = 0
+    
     """%(change, change)
 
     frappe.db.sql(sql_update_it, auto_commit=True)
-    
-    
-    
+
     print("Price reduction completed")
+
+
+
+def get_custom_discounts():
+    """
+    Use Pricing Rules functionality to enable us to get custom discounting functionality
+    """
+
+    sql = """
     
-
-# ITEM-03220  44.01
-
-
+    """
 
 
 
@@ -227,8 +280,6 @@ def sync_prices_to_ebay():
     
     where it.ebay_id REGEXP '[0-9]'
     and it.standard_rate <> (el.price/1.2)
-    and it.item_code = 'ITEM-03220'
-    
     """
 
     records = frappe.db.sql(sql, as_dict=1)
@@ -238,7 +289,7 @@ def sync_prices_to_ebay():
         # TODO need to add in is_auction functionality
         # revise_ebay_price takes exc vat pricing
         revise_ebay_price(r.item_code, r.standard_rate, False)
-        print("Item {} price revised from {} to {}".format(item_code, r.ebay_ex_vat))
+        print("Item {} price revised from {} to {}".format(r.item_code, r.ebay_ex_vat))
 
 
 
@@ -320,3 +371,19 @@ def report_inconsistent_pricing_all():
     and it.standard_rate <> 0
     and it.ebay_id REGEXP '[0-9]'
     """
+
+
+
+def check_item_state_change():
+    
+    
+    sql="""
+    select ref_doctype, docname, creation, data 
+    from `tabVersion` 
+    where ref_doctype ='Item' 
+    and creation > '2018-04-15' 
+    and data like '%item_status%' 
+    """
+    
+    
+    
