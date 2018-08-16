@@ -159,14 +159,14 @@ def revise_ebay_price(item_code, new_price, is_auction):
                                     'StartPrice':new_price_inc}})
 
         except ConnectionError:
-            frappe.msgprint("Config file ebay.yaml file not found")
+            print("Config file ebay.yaml file not found")
             raise
 
         except Exception:
-            frappe.msgprint("Price sync. There was a problem using the eBay Api")
-            raise
+            print("Price sync. There was a problem using the eBay Api")
+            #raise
 
         else:
-            frappe.msgprint("Price sync success - eBay listing updated! {}".format(item_code))
+            print("Price sync success - eBay listing updated! {}".format(item_code))
     else:
-        frappe.msgprint("Price Sync Error: There was a problem getting the data")
+        print("Price Sync Error: There was a problem getting the data")
