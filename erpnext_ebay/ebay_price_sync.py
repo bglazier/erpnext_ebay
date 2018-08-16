@@ -40,7 +40,7 @@ def price_sync():
     #sync_ebay_prices_to_sys()
     #frappe.msgprint("Finished price sync.")
 
-    percent_price_reduction(-5)
+    #percent_price_reduction(-5)
     frappe.msgprint("System price reduction completed")
     
     generate_active_ebay_data()
@@ -289,7 +289,7 @@ def sync_prices_to_ebay():
         # TODO need to add in is_auction functionality
         # revise_ebay_price takes exc vat pricing
         revise_ebay_price(r.item_code, r.standard_rate, False)
-        print("Item {} price revised from {} to {}".format(r.item_code, r.ebay_ex_vat))
+        #print("Item {} price revised from {} to {}".format(r.item_code, r.ebay_ex_vat))
 
 
 
