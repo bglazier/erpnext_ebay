@@ -279,7 +279,7 @@ def sync_prices_to_ebay():
     on el.sku = it.item_code
     
     where it.ebay_id REGEXP '[0-9]'
-    and it.standard_rate <> (el.price/1.2)
+    and it.vat_inclusive_price <> (el.price)
     """
 
     records = frappe.db.sql(sql, as_dict=1)
@@ -289,8 +289,6 @@ def sync_prices_to_ebay():
         # TODO need to add in is_auction functionality
         # revise_ebay_price takes exc vat pricing
         revise_ebay_price(r.item_code, r.standard_rate, False)
-        #print("Item {} price revised from {} to {}".format(r.item_code, r.ebay_ex_vat))
-
 
 
 ###### PRICE REPORTING  ##########
