@@ -265,7 +265,7 @@ def sync_prices_to_ebay():
     # First get the mis-matched prices
     sql = """
     select it.item_code,
-    ifnull(ip.price_list_rate, 0.0), 
+    ifnull(ip.price_list_rate, 0.0) as price_list_rate, 
     it.standard_rate, 
     it.vat_inclusive_price, 
     el.price as ebay_inc_vat
@@ -286,9 +286,9 @@ def sync_prices_to_ebay():
 
     # Call the revise price function
     for r in records:
-        # TODO need to add in is_auction functionality
         # revise_ebay_price takes exc vat pricing
-        revise_ebay_price(r.item_code, r.standard_rate, False)
+        result = revise_ebay_price(r.item_code, r.standard_rate, False)
+        print(result)
 
 
 ###### PRICE REPORTING  ##########
@@ -328,7 +328,7 @@ def report_inconsistent_system_pricing():
 def report_all_pricing_no_filters():
     
     sql= """
-    select it.item_code, 
+    select it.item_code, it.ebay_id,
     ip.price_list_rate as ip_price, 
     it.standard_rate as st_price, 
     (el.price / 1.2) as ebay_exc,
