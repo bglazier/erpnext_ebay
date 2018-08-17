@@ -142,12 +142,9 @@ def revise_ebay_price(item_code, new_price, is_auction):
     ebay_id = frappe.get_value('Item', item_code, 'ebay_id')
     if ebay_id and item_code and new_price:
 
-        #frappe.msgprint('{} Item is on eBay. Please wait while the listing is revised...'.format(item_code))
-        new_price_inc = float(new_price) * ugssettings.VAT
-
         try:
+            new_price_inc = float(new_price) * ugssettings.VAT
             api_trading = Trading(config_file=PATH_TO_YAML, warnings=True, timeout=20)
-
 
             if is_auction:
                 api_trading.execute('ReviseItem', {'Item':{'ItemID':ebay_id, \
@@ -159,14 +156,13 @@ def revise_ebay_price(item_code, new_price, is_auction):
                                     'StartPrice':new_price_inc}})
 
         except ConnectionError:
-            print("Config file ebay.yaml file not found")
-            raise
+            return ("Connection Error - possibly ebay.yaml file not found")
 
         except Exception:
-            print("Price sync. There was a problem using the eBay Api")
+            return ("Price sync. There was a problem using the eBay Api")
             #raise
 
         else:
-            print("Price sync success - eBay listing updated! {}".format(item_code))
+            return ("Price sync success - eBay listing updated!")
     else:
-        print("Price Sync Error: There was a problem getting the data")
+        return ("Price Sync Error: There was a problem getting with the item_code, price or ebayid")
