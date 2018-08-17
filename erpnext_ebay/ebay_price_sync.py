@@ -191,7 +191,7 @@ def percent_price_reduction(change):
     
     Only update records with an eBay ID and
 
-    TODO investigate audit trail via ErpNext. Best to change price via a Frappe call so the changes are logged?
+    TODO investigate audit trail via ErpNext. Best to change price via a Frappe call so the changes are logged or create logs?
     """
     
     upcoming_price_changes(change)
@@ -264,11 +264,11 @@ def sync_prices_to_ebay():
 
     # First get the mis-matched prices
     sql = """
-    select it.item_code,
+    select it.item_code, it.ebay_id,
     ifnull(ip.price_list_rate, 0.0) as price_list_rate, 
-    it.standard_rate, 
-    it.vat_inclusive_price, 
-    el.price as ebay_inc_vat
+    ifnull(it.standard_rate,0.0),
+    ifnull(it.vat_inclusive_price,0.0),
+    ifnull(el.price,0.0) as ebay_inc_vat
     
     from `tabItem Price` ip
     
@@ -279,7 +279,9 @@ def sync_prices_to_ebay():
     on el.sku = it.item_code
     
     where it.ebay_id REGEXP '[0-9]'
-    and it.vat_inclusive_price <> (el.price)
+    and ifnull(it.vat_inclusive_price, 0.0) <> ifnull(el.price, 0.0)
+    and it.standard_rate > 0.0
+    and ebay)inc_vat > 0
     """
 
     records = frappe.db.sql(sql, as_dict=1)
