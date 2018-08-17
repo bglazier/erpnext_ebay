@@ -281,7 +281,7 @@ def sync_prices_to_ebay():
     where it.ebay_id REGEXP '[0-9]'
     and ifnull(it.vat_inclusive_price, 0.0) <> ifnull(el.price, 0.0)
     and it.standard_rate > 0.0
-    and ebay)inc_vat > 0
+    and ifnull(el.price,0.0) > 0
     """
 
     records = frappe.db.sql(sql, as_dict=1)
@@ -365,10 +365,7 @@ def report_inconsistent_pricing_all():
     left join `zEbayListings` el
     on el.sku = it.item_code
     
-    where ip.selling = 1
-    and ip.price_list_rate <> it.standard_rate 
-    and it.standard_rate <> (el.price/1.2)
-    and it.standard_rate <> 0
+    where it.vat_inclusive_price <> (el.price)
     and it.ebay_id REGEXP '[0-9]'
     """
 
