@@ -224,12 +224,12 @@ def set_item_ebay_first_listed_date():
     sql = """
     update `tabItem` it
     set it.on_sale_from_date = '%s'
-    where it.ebay_first_listed_date is NULL
+    where it.on_sale_from_dat is NULL
     and it.ebay_id REGEXP '^[0-9]+$';
     """%date_today.isoformat()
 
     try:
-        frappe.db.sql(sql, auto_commit=True):
+        frappe.db.sql(sql, auto_commit=True)
 
     except Exception as inst:
         print("Unexpected error setting first listed date.", item_code)
