@@ -1,4 +1,6 @@
-"""ebay active listings"""
+"""ebay active listings
+run from: premium report, garagsale_xml
+"""
 
 from __future__ import unicode_literals
 from __future__ import print_function
@@ -8,6 +10,7 @@ import __builtin__ as builtins
 import sys
 import os.path
 import datetime
+from datetime import date
 from types import MethodType
 import string
 
@@ -170,13 +173,11 @@ def insert_ebay_listing(sku, ebay_id, qty, price,
 
 
 
-
 ##########  EBAY ID SYNCING CODE ############
 ##########  EBAY ID SYNCING CODE ############
 ##########  EBAY ID SYNCING CODE ############
 ##########  EBAY ID SYNCING CODE ############
 ##########  EBAY ID SYNCING CODE ############
-
 
 
 # if item is on ebay then set the ebay_id field
@@ -204,8 +205,35 @@ def set_item_ebay_id(item_code, ebay_id):
         print("Unexpected error running ebay_id sync.", item_code)
         raise
 
-
     return True
+
+
+
+
+def set_item_ebay_first_listed_date():
+    """
+    Given an ebay_id set the first listed on date.
+    
+    select it.item_code from `tabItem` it
+    where it.on_sale_from_date is NULL
+    and it.ebay_id REGEXP '^[0-9]+$';
+    """
+
+    date_today = date.today()
+
+    sql = """
+    update `tabItem` it
+    set it.on_sale_from_date = '%s'
+    where it.ebay_first_listed_date is NULL
+    and it.ebay_id REGEXP '^[0-9]+$';
+    """%date_today.isoformat()
+
+    try:
+        frappe.db.sql(sql, auto_commit=True):
+
+    except Exception as inst:
+        print("Unexpected error setting first listed date.", item_code)
+        raise
 
 
 def sync_ebay_ids():
@@ -236,6 +264,7 @@ def sync_ebay_ids():
             # ok so item is live but id's don't match so update system with live version
             if r.item_code:
                 set_item_ebay_id(r.sku, r.live_ebay_id)
+
             else:
                 msgprint(
                     'The ebay item cannot be found on ERPNEXT so unable to record ebay id', r.live_ebay_id)
