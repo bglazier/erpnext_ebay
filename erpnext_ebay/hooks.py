@@ -106,23 +106,24 @@ write_file = "erpnext_ebay.auto_slideshow.ugs_save_file_on_filesystem_hook"
 # Scheduled Tasks
 # ---------------
 
-# scheduler_events = {
-# 	"all": [
+scheduler_events = {
+	"all": [
 # 		"erpnext_ebay.tasks.all"
-# 	],
-# 	"daily": [
+	],
+	"daily": [
 # 		"erpnext_ebay.tasks.daily"
-# 	],
-# 	"hourly": [
+	],
+	"hourly": [
 # 		"erpnext_ebay.tasks.hourly"
-# 	],
-# 	"weekly": [
+		"erpnext_ebay.erpnext_ebay.sync_customers.sync"
+	],
+	"weekly": [
 # 		"erpnext_ebay.tasks.weekly"
-# 	]
-# 	"monthly": [
+	],
+	"monthly": [
 # 		"erpnext_ebay.tasks.monthly"
-# 	]
-# }
+	]
+}
 
 # Testing
 # -------
