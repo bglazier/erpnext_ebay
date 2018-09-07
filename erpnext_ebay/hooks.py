@@ -115,7 +115,8 @@ scheduler_events = {
 	],
 	"hourly": [
 # 		"erpnext_ebay.tasks.hourly"
-		"erpnext_ebay.erpnext_ebay.sync_customers.sync"
+		"erpnext_ebay.erpnext_ebay.sync_customers.sync",
+		"erpnext_ebay.erpnext_ebay.make_all_item_prices_equal_to_std"
 	],
 	"weekly": [
 # 		"erpnext_ebay.tasks.weekly"
