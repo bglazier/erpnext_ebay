@@ -111,10 +111,9 @@ scheduler_events = {
 # 		"erpnext_ebay.tasks.all"
 	],
 	"daily": [
-# 		"erpnext_ebay.tasks.daily"
+		"erpnext_ebay.erpnext_ebay.ebay_active_listings.set_item_ebay_first_listed_date"
 	],
 	"hourly": [
-# 		"erpnext_ebay.tasks.hourly"
 		"erpnext_ebay.erpnext_ebay.sync_customers.sync",
 		"erpnext_ebay.erpnext_ebay.make_all_item_prices_equal_to_std"
 	],
