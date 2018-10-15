@@ -30,16 +30,17 @@ print = better_print
 
 @frappe.whitelist(allow_guest=True)
 def price_sync():
-    """Price sync is to be run if ErpNext prices are out of sync with eBay
-    This should not happen going forward if prices are adjusted on ErpNext and then revised.
+    """
+    Initiates automated price reduction
+    and sync to eBay
     
     Note: el.price is price on eBay (ie. inc vat)
     """
     
-    ## DO NOT USE  - ONLY FOR SYNC FROM EBAY
-    ##generate_active_ebay_data()
-    ##sync_ebay_prices_to_sys()
-    ##frappe.msgprint("Finished price sync.")
+    ## DO NOT USE  - ONLY FOR SYNC **FROM** EBAY
+    ####generate_active_ebay_data()
+    ####sync_ebay_prices_to_sys()
+    ####frappe.msgprint("Finished price sync.")
     
     print("Script run on ", date.today())
     
@@ -135,14 +136,12 @@ def upcoming_price_changes(conditions):
 
 def percent_price_reduction(conditions):
     """
-    Change all system price by change %
-    
+    Change all system price according to conditions
     Only update records with an eBay ID and
 
     TODO investigate audit trail via ErpNext. Best to change price via a Frappe call so the changes are logged or create logs?
     """
     
-    upcoming_price_changes(change)
 
     # TODO do you wish to continue?
 
@@ -157,7 +156,7 @@ def percent_price_reduction(conditions):
     where ip.selling = 1 and
     %s
     
-    """%(change)
+    """%(conditions)
 
     frappe.db.sql(sql_update, auto_commit=True)
     
@@ -176,16 +175,6 @@ def percent_price_reduction(conditions):
 
     print("Price reduction completed")
 
-
-
-def get_custom_discounts():
-    """
-    Use Pricing Rules functionality to enable us to get custom discounting functionality
-    """
-
-    sql = """
-    
-    """
 
 
 
