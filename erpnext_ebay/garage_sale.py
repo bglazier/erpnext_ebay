@@ -84,12 +84,16 @@ def change_status_to_garagesale(item_code):
 def run_cron_create_xml():
     """
     # NOTE Should run sync ebay_ids before running anything else so database is up to date
+    
+    If is_auction then specify a startingBid which switches on auction mode
     """
 
     frappe.msgprint("Exporting all listings in QC Passed status")
 
     #Before doing anything sync the ebay_id to Erpnext
-    generate_active_ebay_data()
+    generate_active_ebay_data():
+    sync_ebay_ids()
+    set_item_ebay_first_listed_date()
 
     post_code = "NP4 0HZ"
     design = "Pro: Classic"
@@ -106,6 +110,8 @@ def run_cron_create_xml():
     for r in records:
         item_code = r.name
         print(item_code)
+        
+        is_auction = False
         
         quantity = r.actual_qty + r.unsubmitted_prec_qty - get_draft_sales(item_code)
 
@@ -176,47 +182,54 @@ def run_cron_create_xml():
             #brand.set("specificValue", "{}").format(r.brand)
             
 
-            #EXAMPLE <domesticShippingService serviceAdditionalFee="2.00" serviceFee="12.00">UPS
-            #Ground</domesticShippingService>
             dom_ship_free = ET.fromstring("".join(["""<domesticShippingService """,
                                                    """serviceAdditionalFee="0.00"  """,
-                                                   """serviceFee="0.00">Other Courier 3-5 days</domesticShippingService>"""]))
+                                                   """serviceFee="0.00">UPS Next Day</domesticShippingService>"""]))
             dom_ship_pallet = ET.fromstring("".join(["""<domesticShippingService """,
                                                      """serviceAdditionalFee="0.00" """,
-                                                     """serviceFee="60.00">Other Courier 3-5 days</domesticShippingService>"""]))
+                                                     """serviceFee="60.00">Other Courier 3 days</domesticShippingService>"""]))
             dom_ship_collection = ET.fromstring("".join(["""<domesticShippingService """
                                                          """serviceAdditionalFee="0.00" """
                                                          """serviceFee="0.00">Collection in Person</domesticShippingService>"""]))
-            dom_ship_24hour = ET.fromstring("".join(["""<domesticShippingService """,
-                                                     """serviceAdditionalFee="0.00" """,
-                                                     """serviceFee="24.00">Other 24 Hour Courier</domesticShippingService>"""]))
+            #dom_ship_24hour = ET.fromstring("".join(["""<domesticShippingService """,
+            #                                         """serviceAdditionalFee="0.00" """,
+            #                                         """serviceFee="24.00">Other 24 Hour Courier</domesticShippingService>"""]))
 
 
             if r.delivery_type == 'No GSP':
                 doc.append(dom_ship_free)
-                doc.append(dom_ship_24hour)
                 #ET.SubElement(doc, "useGlobalShipping").text = "false"
 
             if r.delivery_type == 'Pallet':
                 doc.append(dom_ship_pallet)
-                #ET.SubElement(doc, "useGlobalShipping").text = "false"
 
             if r.delivery_type == 'Collection Only':
                 doc.append(dom_ship_collection)
-                #ET.SubElement(doc, "useGlobalShipping").text = "false"
 
             if r.delivery_type == 'Standard Parcel':
                 doc.append(dom_ship_free)
-                doc.append(dom_ship_24hour)
-                #ET.SubElement(doc, "useGlobalShipping").text = "true"
-                
 
 
+            ''''
+            int_ship_free = ET.fromstring("".join(["""<internationalShippingService """,
+                                                   """serviceAdditionalFee="0.00"  """,
+                                                   """serviceFee="0.00">Sellers Standard International Rate</domesticShippingService>"""]))
 
-            #int_ship = ET.SubElement(doc, "internationalShippingService").text = ""
-            #int_ship.set("serviceAdditionalFee", "0")
-            #int_ship.set("serviceFee","0")
-            
+
+            if r.delivery_type == 'No GSP':
+                doc.append(int_ship_free)
+                #ET.SubElement(doc, "useGlobalShipping").text = "false"
+
+            if r.delivery_type == 'Pallet':
+                doc.append(int_ship_pallet)
+
+            if r.delivery_type == 'Collection Only':
+                doc.append(int_ship_collection)
+
+            if r.delivery_type == 'Standard Parcel':
+                doc.append(int_ship_free)
+
+            '''
 
 
             ET.SubElement(doc, "duration").text = str(duration)
@@ -267,7 +280,7 @@ def run_cron_create_xml():
             #ET.SubElement(doc, "reservePrice").text = ""
             #ET.SubElement(doc, "siteName").text = ""
             ET.SubElement(doc, "SKU").text = item_code
-            #ET.SubElement(doc, "startingBid").text = ""
+            if is_auction: ET.SubElement(doc, "startingBid").text = str(ebay_price)
             #ET.SubElement(doc, ****storCategory).text = ""
             #ET.SubElement(doc, "subTitle").text = sub_title
             ET.SubElement(doc, "title").text = title
@@ -489,6 +502,7 @@ def get_item_records_by_item_status():
         it.item_code,
         it.name,
         it.item_name,
+        it.is_auction,
         it.item_group,
         it.item_group_ebay,
         ifnull(it.brand, '') as brand,
