@@ -29,7 +29,8 @@ import pymysql
 
 from ugscommon import get_unsubmitted_prec_qty
 import ugssettings
-from ebay_active_listings import generate_active_ebay_data
+from ebay_active_listings import generate_active_ebay_data, sync_ebay_ids
+from ebay_active_listings import set_item_ebay_first_listed_date
 
 
 NO_IMAGES = True
