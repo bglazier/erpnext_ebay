@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 # Copyright (c) 2015, Universal Resource Trading Limited and contributors
 # For license information, please see license.txt
@@ -91,7 +92,7 @@ def run_cron_create_xml():
     frappe.msgprint("Exporting all listings in QC Passed status")
 
     #Before doing anything sync the ebay_id to Erpnext
-    generate_active_ebay_data():
+    generate_active_ebay_data()
     sync_ebay_ids()
     set_item_ebay_first_listed_date()
 
