@@ -176,11 +176,11 @@ def run_cron_create_xml():
                 doc.append(brand)
             except:
                 print('Problem with this brand: ',r.brand)
-            
+
             #brand = ET.SubElement(doc, "customSpecific", "specificName"='Brand', "specificValue" = '{}').format(r.brand)
             #brand.set("specificName", "Brand")
             #brand.set("specificValue", "{}").format(r.brand)
-            
+
 
             dom_ship_free = ET.fromstring("".join(["""<domesticShippingService """,
                                                    """serviceAdditionalFee="0.00"  """,
@@ -191,9 +191,6 @@ def run_cron_create_xml():
             dom_ship_collection = ET.fromstring("".join(["""<domesticShippingService """
                                                          """serviceAdditionalFee="0.00" """
                                                          """serviceFee="0.00">Collection in Person</domesticShippingService>"""]))
-            #dom_ship_24hour = ET.fromstring("".join(["""<domesticShippingService """,
-            #                                         """serviceAdditionalFee="0.00" """,
-            #                                         """serviceFee="24.00">Other 24 Hour Courier</domesticShippingService>"""]))
 
 
             if r.delivery_type == 'No GSP':
