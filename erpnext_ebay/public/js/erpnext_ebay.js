@@ -22,17 +22,17 @@ function update_slideshow(tag, JSON_args) {
     const args = JSON.parse(JSON_args);
 
     switch(args.command) {
-        case "set_image_number":
+        case "set_image_number": {
             // This is done once the number of images is known, to create
             // the Bootstrap grid
             const n_images = parseInt(args.n_images);
             $("#ssimg_n").html(args.n_images);
             const n_rows = Math.ceil((n_images / 3.0)-0.1);
-            table = $("#slideshow_table");
+            $table = $("#slideshow_table");
             let img_id = 1;
             for (let i = 0; i < n_rows; i++) {
                 // Loop over the rows
-                let new_row = table.append('<div class="row"></div>');
+                let new_row = $table.append('<div class="row"></div>');
                 for (let j = 0; j < 3; j++) {
                     // Loop over the 3 elements in a row
                     let new_col = $(
@@ -57,8 +57,8 @@ function update_slideshow(tag, JSON_args) {
                 }
             }
             break;
-
-        case "new_image":
+        }
+        case "new_image": {
             // This is done as each new image arrives
             // Add the new photo and upload the animated GIF for the next image
             const img_id = parseInt(args.img_id);
@@ -72,8 +72,8 @@ function update_slideshow(tag, JSON_args) {
                 $("#ss_img_"+(img_id+1)).attr('src', loader_gif);
             }
             break;
-
-        case "done":
+        }
+        case "done": {
             // The slideshow has been created and the dialog box can
             // be unlocked
             $("#ss_maintext").html('Slideshow created');
@@ -82,5 +82,6 @@ function update_slideshow(tag, JSON_args) {
             d.$modal.data('bs.modal').options.backdrop = 'true';
             d.$modal.data('bs.modal').options.keyboard = 'true';
             break;
+        }
     }
 };

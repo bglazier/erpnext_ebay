@@ -16,7 +16,7 @@ frappe.ui.form.on("Item", {
 
     _auto_create_slideshow: function(frm, cdt, cdn) {
 
-        const item_code = cdn
+        const item_code = cdn;
 
         // Create the dialog
         const d = new frappe.ui.Dialog({
@@ -56,26 +56,32 @@ frappe.ui.form.on("Item", {
         frm.slideshow_dialog.tag = item_code + "_" + rand_id;
 
         // Call the server - process the images
-        frappe.call({
-            method: 'erpnext_ebay.auto_slideshow.process_new_images',
-            args: {
-                item_code: item_code,
-                rte_id: frm.rte_id,
-                tag: frm.slideshow_dialog.tag
-            },
-            callback: function(r) {
-                if (r.message.success) {
-                    frm.reload_doc();
+        // Wait until the #slideshow_table is created before proceeding
+        let checkExist = setInterval(function() {
+            if ($('#slideshow_table').length) {
+                clearInterval(checkExist);
+                frappe.call({
+                    method: 'erpnext_ebay.auto_slideshow.process_new_images',
+                    args: {
+                        item_code: item_code,
+                        rte_id: frm.rte_id,
+                        tag: frm.slideshow_dialog.tag
+                    },
+                    callback: function(r) {
+                        if (r.message.success) {
+                            frm.reload_doc();
 
-                } else {
-                    frm.slideshow_dialog.hide();
-                    frappe.msgprint(
-                        "There has been a problem. " +
-                        "Please manually set up slideshow and website image.");
+                        } else {
+                            frm.slideshow_dialog.hide();
+                            frappe.msgprint(
+                                "There has been a problem. " +
+                                "Please manually set up slideshow and website image.");
 
-                }
+                        }
+                    }
+                });
             }
-        });
+        }, 100); // check every 100ms
     },
 
 
