@@ -51,7 +51,7 @@
    "translatable": 0, 
    "unique": 1, 
    "width": null
-  }, 
+  }
  ], 
  "custom_perms": [], 
  "doctype": "Sales Invoice", 
