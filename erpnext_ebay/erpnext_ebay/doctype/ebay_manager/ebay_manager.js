@@ -35,3 +35,18 @@ frappe.ui.form.on('eBay Manager', {
         });
     }
 });
+
+
+
+
+frappe.ui.form.on('eBay Manager', 'category_sync', function(frm) {
+	
+    var r = ''
+	frappe.call({
+			method: "erpnext_ebay.ebay_categories.category_sync",
+			args: {},
+			callback: function(r){}
+			});
+
+
+});

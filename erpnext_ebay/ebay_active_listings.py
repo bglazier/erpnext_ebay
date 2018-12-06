@@ -209,7 +209,7 @@ def set_item_ebay_id(item_code, ebay_id):
 
 
 
-
+@frappe.whitelist()
 def set_item_ebay_first_listed_date():
     """
     Given an ebay_id set the first listed on date.

@@ -28,22 +28,22 @@ print = better_print
 
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def price_sync():
     """
     Initiates automated price reduction
     and sync to eBay
-    
+
     Note: el.price is price on eBay (ie. inc vat)
     """
-    
+
     ## DO NOT USE  - ONLY FOR SYNC **FROM** EBAY
     ####generate_active_ebay_data()
     ####sync_ebay_prices_to_sys()
     ####frappe.msgprint("Finished price sync.")
-    
+
     print("Script run on ", date.today())
-    
+
     conditions = """
     it.ebay_id REGEXP '[0-9]'
     and it.on_sale_from_date < (now() - interval 14 day)
@@ -51,19 +51,15 @@ def price_sync():
     or (it.standard_rate > 75 and it.delivery_type = 'Pallet'))
     and (select count(sii.name) from `tabSales Invoice Item` sii where sii.item_code = it.item_code and sii.docstatus=1) = 0
     """
-    
+
     make_all_item_prices_equal_to_std()
     upcoming_price_changes(conditions)
     percent_price_reduction(conditions)
     frappe.msgprint("New System price reduction completed")
-    
+
     generate_active_ebay_data()
     sync_prices_to_ebay()
     frappe.msgprint("Price revision completed")
-
-
-
-
 
     return 1
 
