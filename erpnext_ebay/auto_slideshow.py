@@ -316,6 +316,10 @@ def create_website_image(fname, item):
     ready to use as a Website Image.
     """
 
+    public_site_files_path = os.path.join(
+        frappe.utils.get_bench_path(), 'sites',
+        frappe.get_site_path(), 'public', 'files')
+
     # Create a symbolic link and a thumbnail for the website image
     path, ext = os.path.splitext(fname)
     web_fname = path + '_web' + ext
@@ -327,8 +331,8 @@ def create_website_image(fname, item):
     thumb_fpath = os.path.join(public_site_files_path, thumb_fname)
 
     # URLs on website for web image symlink and thumbnail
-    web_url = os.path.join('files', web_fname)
-    thumb_url = os.path.join('files', thumb_fname)
+    web_url = '/' + os.path.join('files', web_fname)
+    thumb_url = '/' + os.path.join('files', thumb_fname)
 
     # Create the symbolic link and create the thumbnail
     try:
