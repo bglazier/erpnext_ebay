@@ -33,20 +33,14 @@ frappe.ui.form.on('eBay Manager', {
             args: {},
             callback: function(r) {}
         });
+    },
+
+
+    category_sync: function(frm) {
+        frappe.call({
+            method: "erpnext_ebay.ebay_categories.category_sync",
+            args: {},
+            callback: function(r){}
+        });
     }
-});
-
-
-
-
-frappe.ui.form.on('eBay Manager', 'category_sync', function(frm) {
-	
-    var r = ''
-	frappe.call({
-			method: "erpnext_ebay.ebay_categories.category_sync",
-			args: {},
-			callback: function(r){}
-			});
-
-
 });
