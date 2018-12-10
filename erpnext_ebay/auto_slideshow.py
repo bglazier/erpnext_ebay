@@ -10,17 +10,9 @@ import operator
 import shutil
 import subprocess
 from datetime import date
-import xml.etree.cElementTree as ET
 
 import json
 import frappe
-from frappe.model.document import Document
-
-site_files_path = os.path.join(frappe.utils.get_bench_path(), 'sites',
-                               frappe.get_site_path())
-public_site_files_path = os.path.join(site_files_path, 'public', 'files')
-private_site_files_path = os.path.join(site_files_path, 'private', 'files')
-
 
 uploads_path = os.path.join(os.sep, 'home', 'uploads')
 #uploads_path= os.path.join(os.sep, 'Users', 'ben', 'uploads')
@@ -103,9 +95,11 @@ def ugs_save_file_on_filesystem_hook(*args, **kwargs):
     #file_url = ret['file_url'] # Not a consistent file system identifier
 
     if ('is_private' in kwargs) and kwargs['is_private']:
-        file_path = os.path.join(private_site_files_path, file_name)
+        file_path = os.path.abspath(
+            frappe.get_site_path('private', 'files', file_name))
     else:
-        file_path = os.path.join(public_site_files_path, file_name)
+        file_path = os.path.abspath(
+            frappe.get_site_path('public', 'files', file_name))
 
     extension = os.path.splitext(file_name)[1].lower()
 
@@ -119,8 +113,7 @@ def ugs_save_file_on_filesystem_hook(*args, **kwargs):
 @frappe.whitelist(allow_guest=True)
 def view_slideshow_py(slideshow):
 
-    images_path = os.path.join(os.sep, frappe.utils.get_bench_path(), 'sites',
-                               frappe.get_site_path(), 'public')
+    images_path = os.path.abspath(frappe.get_site_path('public'))
 
     sql = ("select image from `tabWebsite Slideshow Item` "
            "where parent='{}' order by idx").format(slideshow)
@@ -138,6 +131,9 @@ def process_new_images(item_code, rte_id, tag):
 
     Server-side part of auto-slideshow, called from a button on item page.
     """
+
+    public_site_files_path = os.path.abspath(
+        frappe.get_site_path('public', 'files'))
 
     ret_val = {'success': False}
 
@@ -184,7 +180,7 @@ def process_new_images(item_code, rte_id, tag):
 
     # Rename the files to ITEM-XXXXX-Y and move all the files to
     # public_site_files_path
-    w = len(str(n_files)) 
+    w = len(str(n_files))
     for i, fname in enumerate(file_list, 1):
         new_fname = item_code + '-{num:0{width}}.jpg'.format(num=i, width=w)
         new_file_list.append(new_fname)
@@ -316,9 +312,8 @@ def create_website_image(fname, item):
     ready to use as a Website Image.
     """
 
-    public_site_files_path = os.path.join(
-        frappe.utils.get_bench_path(), 'sites',
-        frappe.get_site_path(), 'public', 'files')
+    public_site_files_path = os.path.abspath(
+        frappe.get_site_path('public', 'files'))
 
     # Create a symbolic link and a thumbnail for the website image
     path, ext = os.path.splitext(fname)
