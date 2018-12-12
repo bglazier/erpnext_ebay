@@ -46,7 +46,7 @@ def convert_to_unicode(obj):
         return obj.decode('utf-8')
     elif isinstance(obj, unicode):
         # Already unicode - do nothing.
-        pass
+        return obj
     else:
         # Unhandled type
         return obj
@@ -90,7 +90,7 @@ def get_orders():
         print(e.response.dict())
         raise e
 
-    if sys.version_info.major == 2:
+    if six.PY2:
         # Convert all strings to unicode
         orders = convert_to_unicode(orders)
 
@@ -172,6 +172,10 @@ def get_categories():
         raise e
 
     categories_data = response.dict()
+
+    if six.PY2:
+        # Convert all strings to unicode
+        categories_data = convert_to_unicode(categories_data)
 
     # Process the remaining categories data
     cl = categories_data['CategoryArray']['Category']
@@ -278,6 +282,10 @@ def get_features():
             raise e
         response_dict = response.dict()
 
+        if six.PY2:
+            # Convert all strings to unicode
+            response_dict = convert_to_unicode(response_dict)
+
         if features_data is None:
             # First batch of new categories
             features_data = response_dict   # Initialize with the whole dataset
@@ -293,7 +301,7 @@ def get_features():
             del (features_data['FeatureDefinitions'])
         else:
             # Add new categories to existing dictionary
-            if not 'Category' in response_dict:
+            if 'Category' not in response_dict:
                 # No over-ridden categories returned
                 continue
             cat_list = response_dict['Category']
@@ -341,7 +349,6 @@ def get_features():
     return features_version, features_data
 
 
-@frappe.whitelist()
 def GeteBayDetails():
     """Perform a GeteBayDetails call and save the output in geteBayDetails.txt
     in the site root directory
