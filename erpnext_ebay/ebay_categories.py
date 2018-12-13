@@ -601,27 +601,30 @@ def create_item_group_ebay():
     frappe.db.commit()
 
     cats = frappe.db.sql("""
-        SELECT CategoryID, CategoryParentID, CategoryName
+        SELECT CategoryID, CategoryParentID, CategoryName,
+            LeafCategory, Expired, Virtual
             FROM eBay_categories_hierarchy;
-        """)
+        """, as_dict=True)
 
     parent_dict = {}
     names_dict = {}
     for cat in cats:
-        parent_dict[cat[0]] = cat[1]  # CategoryID: CategoryParentID
-        names_dict[cat[0]] = cat[2]   # CategoryID: CategoryName
+        parent_dict[cat['CategoryID']] = cat['CategoryParentID']
+        names_dict[cat['CategoryID']] = cat['CategoryName']
 
     for i, cat in enumerate(cats):
-        print(' {:05} / {}'.format(i + 1, len(cats)))
-        cat_id = cat[0]
-        cat_name = cat[2]
-        if cat_id == '0':
-            # We don't add the root node
+        #print(' {:05} / {}'.format(i + 1, len(cats)))
+        if not cat['LeafCategory']:
+            # Don't add non-leaf categories
             continue
+        # We need the following check, which prevents us adding the root node,
+        # only if we are adding leaf categories
+        #if cat['CategoryID'] == '0':
+            #continue
 
-        #cat_name = '{} {}'.format(cat_name, cat_id)
-        cat_name_stack = [cat_name]
-        cat_search_id = parent_dict[cat_id]
+        cat_name = '{} {}'.format(cat['CategoryName'], cat['CategoryID'])
+        cat_name_stack = [cat['CategoryName']]
+        cat_search_id = parent_dict[cat['CategoryID']]
         while cat_search_id != "0":
             cat_name_stack.append(names_dict[cat_search_id])
             cat_search_id = parent_dict[cat_search_id]
@@ -631,9 +634,11 @@ def create_item_group_ebay():
 
         item_group_ebay_doc = frappe.get_doc({
             "doctype": "Item Group eBay",
-            "ebay_category_id": cat_id,
+            "ebay_category_id": cat['CategoryID'],
             "ebay_category_name": cat_name,
-            "ebay_category": cat_label})
+            "ebay_category": cat_label,
+            "ebay_expired": cat['Expired'],
+            "ebay_virtual": cat['Virtual']})
 
         item_group_ebay_doc.insert(ignore_permissions=True)
 
