@@ -232,8 +232,7 @@ def extract_customer(order):
             "pincode": postcode,
             "country": country,
             "phone": order['ShippingAddress']['Phone'],
-            "email_id": email_id,
-            "customer_name": customer_name}
+            "email_id": email_id}
     else:
         address_dict = None
 
@@ -300,7 +299,7 @@ def create_customer(customer_dict, address_dict, changes=None):
 
     updated_db = False
 
-    # First test if the customer already exists
+    # Test if the customer already exists
     db_cust_name = None
     ebay_user_id = customer_dict['ebay_user_id']
     if address_dict is not None:
@@ -312,60 +311,23 @@ def create_customer(customer_dict, address_dict, changes=None):
 
     if cust_fields is None:
         # We don't have a customer with a matching ebay_user_id
-        matched_non_eBay = False
-
-        # If we also have an address, check if we have a
-        # matching postcode and name
-        if address_dict is not None:
-            address_queries = frappe.db.get_all(
-                "Address",
-                filters={"pincode": address_dict['pincode']},
-                fields=["name", "customer"])
-            if len(address_queries) == 1:
-                # We have a matching postcode - match the name
-                db_address_test = address_queries[0]["name"]
-                db_cust_name_test = address_queries[0]["customer"]
-                cust_queries_test = frappe.db.get_values(
-                    "Customer",
-                    filters={"name": db_cust_name_test},
-                    fieldname="customer_name")
-                if len(cust_queries_test) == 1:
-                    db_cust_customer_name_test = cust_queries_test[0][0]
-                    if (address_dict['customer_name'] ==
-                            db_cust_customer_name_test):
-                        # We have matched name and postcode
-                        matched_non_eBay = True
-                        cust_doc = frappe.get_doc("Customer", db_cust_name_test)
-                        cust_doc.ebay_user_id = ebay_user_id
-                        cust_doc.save()
-                        updated_db = True
-                        db_cust_name = db_cust_name_test
-                        db_cust_customer_name = db_cust_customer_name_test
-                        debug_msgprint('Located non-eBay user: ' +
-                                       ebay_user_id + ' : ' +
-                                       db_cust_customer_name_test)
-                        changes.append({"ebay_change": "Located non-eBay user",
-                                        "ebay_user_id": ebay_user_id,
-                                        "customer_name": db_cust_customer_name,
-                                        "customer": db_cust_name,
-                                        "address": db_address_test,
-                                        "ebay_order": None})
-
-        if not matched_non_eBay:
-            debug_msgprint('Adding a user: ' + ebay_user_id +
-                           ' : ' + customer_dict['customer_name'])
-            changes.append({"ebay_change": "Adding a user",
-                            "ebay_user_id": ebay_user_id,
-                            "customer_name": customer_dict['customer_name'],
-                            "customer": None,
-                            "address": None,
-                            "ebay_order": None})
+        # Add the customer
+        cust_doc = frappe.get_doc(customer_dict)
+        cust_doc.insert()
+        db_cust_name = cust_doc.name
+        updated_db = True
+        debug_msgprint('Adding a user: ' + ebay_user_id +
+                       ' : ' + customer_dict['customer_name'])
+        changes.append({"ebay_change": "Adding a user",
+                        "ebay_user_id": ebay_user_id,
+                        "customer_name": customer_dict['customer_name'],
+                        "customer": None,
+                        "address": None,
+                        "ebay_order": None})
     else:
         # We have a customer with a matching ebay_user_id
         db_cust_name = cust_fields['name']
         db_cust_customer_name = cust_fields['customer_name']
-        things = ['User already exists: ', ebay_user_id,
-                  ' : ', db_cust_customer_name]
         debug_msgprint('User already exists: ' + ebay_user_id +
                        ' : ' + db_cust_customer_name)
         changes.append({"ebay_change": "User already exists",
@@ -375,14 +337,11 @@ def create_customer(customer_dict, address_dict, changes=None):
                         "address": None,
                         "ebay_order": None})
 
-    # Add customer if required
-    if db_cust_name is None:
-        frappe.get_doc(customer_dict).insert()
-        updated_db = True
-
     if address_dict is None:
+        # We have not got an address to add
         add_address = False
     else:
+        # We have an address which we may need to add
         address_fields = db_get_ebay_doc(
             "Address", ebay_address_id, fields=["name"],
             log=changes, none_ok=True)
@@ -391,7 +350,7 @@ def create_customer(customer_dict, address_dict, changes=None):
             # Address does not exist; add address
             add_address = True
             db_address_name = None
-        else:
+        elif len(address_fields) == 1:
             # Address does exist; do not add address
             add_address = False
             db_address_name = address_fields["name"]
@@ -414,15 +373,25 @@ def create_customer(customer_dict, address_dict, changes=None):
                 db_address_name = address_queries[0][0]
                 address_doc = frappe.get_doc("Address", db_address_name)
                 address_doc.ebay_address_id = ebay_address_id
+                for link in address_doc.links:
+                    if (link.link_doctype == 'Customer'
+                            and link.link_name == db_cust_name):
+                        # A dynamic link to the customer exists
+                        break
+                else:
+                    # There was no link; add one
+                    link_doc = address_doc.append('links')
+                    link_doc.link_doctype = 'Customer'
+                    link_doc.link_name = db_cust_name
                 address_doc.save()
                 updated_db = True
 
         # Check that customer has a name, not just an eBay user id,
         # and the the Address name is not just the ebay_user_id.
         # If not, update with new name if assume_shipping_name_is_ebay_name
-        if db_cust_name is not None and assume_shipping_name_is_ebay_name:
+        if cust_fields is not None and assume_shipping_name_is_ebay_name:
             if (db_cust_customer_name == ebay_user_id
-                    and address_dict["customer_name"] != ebay_user_id):
+                    and customer_dict["customer_name"] != ebay_user_id):
                 customer_doc = frappe.get_doc("Customer", db_cust_name)
                 customer_doc.customer_name = address_dict["customer_name"]
                 customer_doc.save()
@@ -430,7 +399,7 @@ def create_customer(customer_dict, address_dict, changes=None):
                                address_dict["customer_name"])
                 changes.append({"ebay_change": "Updated name",
                                 "ebay_user_id": ebay_user_id,
-                                "customer_name": address_dict["customer_name"],
+                                "customer_name": customer_dict["customer_name"],
                                 "customer": db_cust_name,
                                 "address": db_address_name,
                                 "ebay_order": None})
@@ -443,19 +412,19 @@ def create_customer(customer_dict, address_dict, changes=None):
             db_cust_name = db_get_ebay_doc(
                 "Customer", ebay_user_id, fields=["name"],
                 log=changes, none_ok=False)["name"]
-        address_dict['customer'] = db_cust_name
+        # Add link
+        address_dict['links'] = [{
+            'link_doctype': 'Customer',
+            'link_name': db_cust_name}]
         address_doc = frappe.get_doc(address_dict)
         try:
             address_doc.insert()
-            #dl = dlink_customer_address(address_doc.customer, address_doc.name)
-            ##dl.save(ignore_permissions=True)
-            #dl.insert()
 
         except frappe.DuplicateEntryError as e:
             # An address based on address_title autonaming already exists
                 # Get new doc, add a digit to the name and retry
             frappe.db.rollback()
-            for suffix_id in xrange(1, maximum_address_duplicates+1):
+            for suffix_id in range(1, maximum_address_duplicates+1):
                 address_doc = frappe.get_doc(address_dict)
                 # Hackily patch out autoname function and do it by hand
                 address_doc.autoname = MethodType(lambda self: None,
@@ -466,10 +435,6 @@ def create_customer(customer_dict, address_dict, changes=None):
                                     + "-" + str(suffix_id))
                 try:
                     address_doc.insert()
-                    #dl = dlink_customer_address(address_doc.customer, address_doc.name)
-                    ##dl.save(ignore_permissions=True)
-                    #dl.insert()
-
                     break
                 except frappe.DuplicateEntryError:
                     frappe.db.rollback()
@@ -750,7 +715,7 @@ def create_sales_invoice(order_dict, order, changes):
             # Cash on delivery - may not yet be paid (set to zero)
             payments.append({"mode_of_payment": "Cash",
                              "amount": 0.0})
-        elif checkout['PaymentMethod'] == 'Paypal':
+        elif checkout['PaymentMethod'] == 'PayPal':
             # PayPal - add amount as it has been paid
             payments.append({"mode_of_payment": "Paypal",
                              "amount": round(sum_paid, 2)})
@@ -831,19 +796,6 @@ def determine_income_account(country):
         return "Sales - URTL"
 
     return "Sales Non EU - URTL"
-
-
-#def dlink_customer_address(customer, parent):
-    # TODO - what is this for?
-    #d_link = frappe.get_doc({
-        #"doctype": "Dynamic Link",
-        #"parent": parent,
-        #"parenttype": "Address",
-        #"link_title": "",
-        #"link_doctype": "Customer",
-        #"link_name": customer})
-
-    #return d_link
 
 
 def sanitize_postcode(in_postcode):
