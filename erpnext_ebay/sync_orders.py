@@ -737,6 +737,7 @@ def create_sales_invoice(order_dict, order, changes):
         "naming_series": "SINV-",
         "title": title,
         "customer": db_cust_name,
+        "ebay_order_id": ebay_order_id,
         "contact_email": cust_email,
         "posting_date": posting_date,
         "posting_time": "00:00:00",
