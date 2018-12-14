@@ -7,16 +7,19 @@ frappe.ui.form.on('eBay Manager', {
             method: "erpnext_ebay.sync_orders.sync",
             args: {},
             freeze: true,
-            freeze_message: "Syncing eBay customers and orders; this make take some time..."
+            freeze_message: "Syncing eBay customers and orders; this may take some time..."
         });
     },
 
     sync_categories_button: function(frm) {
         frappe.call({
             method: "erpnext_ebay.ebay_categories.category_sync",
-            args: {},
+            args: {
+                force_override_categories: true,
+                force_override_features: true
+            },
             freeze: true,
-            freeze_message: "Loading eBay categories; this make take some time..."
+            freeze_message: "Loading eBay categories; this may take some time..."
         });
     },
 
@@ -29,7 +32,6 @@ frappe.ui.form.on('eBay Manager', {
 
     create_garagesale_button: function(frm) {
         if (confirm('Have you relisted ended eBay listings?')) {
-            // Run it!
             frappe.call({
                 method: "erpnext_ebay.garage_sale.run_cron_create_xml",
                 args: {}

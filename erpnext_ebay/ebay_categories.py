@@ -73,10 +73,36 @@ def _write_ebay_cache_to_file(fn, cache_data):
 
 
 @frappe.whitelist()
-def category_sync():
-    #ensure_updated_cache(True, True)  # To force an update
-    ensure_updated_cache()  # Only pull a new cache if needed
-    create_item_group_ebay()
+def category_sync(force_override_categories=False,
+                  force_override_features=False):
+    """Load a new set of eBay categories.
+
+    By default, this checks the current versions of the eBay categories cache
+    and does not update it if the category version has not changed (i.e. the
+    eBay categories have not changed).
+    If force_override_categories is set, then the eBay categories will be
+    redownloaded and new Item Group eBay entries set.
+    If force_override_features is set, then the eBay features will be
+    redownloaded.
+    Setting force_override_features to True implies force_override_categories.
+    """
+    # Check permissions, as this is a whitelisted function
+    if 'System Manager' not in frappe.get_roles(frappe.session.user):
+        return frappe.PermissionError(
+            'Only System Managers can update the eBay categories.')
+    if force_override_features:
+        force_override_categories = True
+    categories_ok, features_ok = check_cache_versions()
+    # Do we need to update the cache?
+    update_categories = force_override_categories or not categories_ok
+    update_features = force_override_features or not features_ok
+    # Update the cache if required
+    ensure_updated_cache(update_categories, update_features)
+    # Update the Item Group eBay categories if required.
+    if update_categories:
+        # We only wipe the tables if we are forcing an override
+        # otherwise we just update the existing entries.
+        create_item_group_ebay(force_override_categories)
 
 
 def check_cache_versions():
@@ -118,16 +144,13 @@ def check_cache_versions():
             features_version == features_cache_version)
 
 
-def ensure_updated_cache(force_categories=False, force_features=False):
+def ensure_updated_cache(update_categories=False, update_features=False):
     """Check if the SQL database cache of the eBay Categories and Features
     is up to date.
     If not, request new caches as needed and call create_sql_cache.
     """
 
-    categories_ok, features_ok = check_cache_versions()
-    force_categories = _bool_process(force_categories)
-    force_features = _bool_process(force_features)
-    if force_categories or not categories_ok:
+    if update_categories:
         # Load new categories
 
         # Load using the eBay API
@@ -151,7 +174,7 @@ def ensure_updated_cache(force_categories=False, force_features=False):
         # Don't get features data
         return
 
-    if force_features or not features_ok:
+    if update_features:
         # Load new category features
 
         # Load using the eBay API
@@ -591,14 +614,34 @@ def get_category_name_stack(category_id):
     return category_name_stack
 
 
-def create_item_group_ebay():
+def create_item_group_ebay(force_delete=False):
     """Creates Item Group Ebay documents from the eBay categories cache."""
 
     # DANGER - items that link to these Item Group eBay documents will be
-    # left hanging if the categories change.
-    frappe.db.sql("""truncate table `tabItem Group eBay`""")
-    #frappe.delete_doc("Item Group eBay", '')
-    frappe.db.commit()
+    # left hanging if the categories disappear.
+
+    if not force_delete:
+        # If we are not force-deleting, check for current Item Group eBay
+        # entries. We will prefer to update these rather than replace them.
+        ige_list = frappe.db.sql("""
+            SELECT ebay_category_id, ebay_category_name, ebay_category,
+                ebay_expired, ebay_virtual, name
+                FROM `tabItem Group eBay`;
+            """, as_dict=True)
+
+        ige_dict = {x['ebay_category_id']: x for x in ige_list}
+
+        if len(ige_list) != len(ige_dict):
+            # There are multiple categories with the same ebay_category_id
+            force_delete = True
+        del ige_list
+
+    if force_delete:
+        # This is slower than TRUNCATE TABLE but doesn't lead to an
+        # implicit commit, which often causes an error.
+        frappe.db.sql("""DELETE FROM `tabItem Group eBay`;""")
+        frappe.db.commit()
+        ige_dict = {}
 
     cats = frappe.db.sql("""
         SELECT CategoryID, CategoryParentID, CategoryName,
@@ -622,9 +665,10 @@ def create_item_group_ebay():
         #if cat['CategoryID'] == '0':
             #continue
 
-        cat_name = '{} {}'.format(cat['CategoryName'], cat['CategoryID'])
+        cat_id = cat['CategoryID']
+        cat_name = '{} {}'.format(cat['CategoryName'], cat_id)
         cat_name_stack = [cat['CategoryName']]
-        cat_search_id = parent_dict[cat['CategoryID']]
+        cat_search_id = parent_dict[cat_id]
         while cat_search_id != "0":
             cat_name_stack.append(names_dict[cat_search_id])
             cat_search_id = parent_dict[cat_search_id]
@@ -632,14 +676,40 @@ def create_item_group_ebay():
         cat_name_stack.reverse()
         cat_label = ' | '.join(cat_name_stack)  # or ' => '
 
-        item_group_ebay_doc = frappe.get_doc({
-            "doctype": "Item Group eBay",
-            "ebay_category_id": cat['CategoryID'],
-            "ebay_category_name": cat_name,
-            "ebay_category": cat_label,
-            "ebay_expired": cat['Expired'],
-            "ebay_virtual": cat['Virtual']})
+        # Test if this category already exists
+        if not force_delete and cat['CategoryID'] in ige_dict:
+            # Matching category ID exists. If it matches perfectly,
+            # we do nothing.
+            ige = ige_dict[cat_id]
+            if not (ige['ebay_category_name'] == cat_name
+                    and ige['ebay_category'] == cat_label
+                    and ige['ebay_expired'] == cat['Expired']
+                    and ige['ebay_virtual'] == cat['Virtual']):
+                # Update the not-quite matching category
+                item_group_ebay_doc = frappe.get_doc(
+                    'Item Group eBay', ige['name'])
+                item_group_ebay_doc.ebay_category_name = cat_name
+                item_group_ebay_doc.ebay_category = cat_label
+                item_group_ebay_doc.ebay_expired = cat['Expired']
+                item_group_ebay_doc.ebay_expired = cat['Virtual']
+                item_group_ebay_doc.save()
+            del ige_dict[cat_id]
 
-        item_group_ebay_doc.insert(ignore_permissions=True)
+        else:
+            # No matching category found - create a new category
+            item_group_ebay_doc = frappe.get_doc({
+                "doctype": "Item Group eBay",
+                "ebay_category_id": cat['CategoryID'],
+                "ebay_category_name": cat_name,
+                "ebay_category": cat_label,
+                "ebay_expired": cat['Expired'],
+                "ebay_virtual": cat['Virtual']})
+
+            item_group_ebay_doc.insert(ignore_permissions=True)
+
+    # Now we delete any categories that exist in the DB but are not current
+    for ige in ige_dict.values():
+        item_group_ebay_doc = frappe.get_doc('Item Group eBay', ige['name'])
+        item_group_ebay_doc.delete()
 
     frappe.db.commit()

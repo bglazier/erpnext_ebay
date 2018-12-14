@@ -69,6 +69,34 @@ def debug_msgprint(message):
 
 @frappe.whitelist()
 def sync():
+    """
+    Pulls the latest orders from eBay. Creates Sales Invoices for sold items.
+
+    We loop over each order in turn. First we extract customer
+    details from eBay. If the customer does not exist, we then create
+    a Customer. We update the Customer if it already exists.
+    We create an Address for this customer, if one does not already exist,
+    and link it to the Customer.
+
+    Then we extract the order information from eBay, and create an
+    eBay Order if it does not already exist.
+
+    Finally we create or update a Sales Invoice based on the eBay
+    transaction. This is only created if the order is completed (i.e. paid).
+
+    If we raise an ErpnextEbaySyncError during processing of an
+    order, then we rollback the database and continue to the next
+    order. If a more serious exception occurs, then we rollback the
+    database but we only continue if continue_on_error is true.
+    """
+
+    # This is a whitelisted function; check permissions.
+    roles = ('System Manager', 'Accounts Manager')
+    user_roles = frappe.get_roles(frappe.session.user)
+    if not any([x in user_roles for x in roles]):
+        return frappe.PermissionError(
+            'Only Account Managers/System Managers '
+            + 'can update the eBay categories.')
     frappe.msgprint('Syncing eBay orders...')
     # Load orders from Ebay
     orders, num_days = get_orders()
@@ -82,20 +110,6 @@ def sync():
 
     try:
         for order in orders:
-            # We now loop over each order in turn. First we extract customer
-            # details from eBay. If the customer does not exist, we then create
-            # a Customer. We update the Customer if it already exists.
-
-            # Then we extract the order information from eBay, and create an
-            # eBay Order if it does not already exist.
-
-            # Finally we create or update a Sales Invoice based on the eBay
-            # transaction.
-
-            # If we raise an ErpnextEbaySyncError during processing of an
-            # order, then we rollback the database and continue to the next
-            # order. If a more serious exception occurs, then we rollback the
-            # database but we only continue if continue_on_error is true.
             try:
                 # Create/update Customer
                 cust_details, address_details = extract_customer(order)

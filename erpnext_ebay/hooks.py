@@ -14,21 +14,21 @@ app_license = "MIT"
 #fixtures = ["Custom Field", "Custom Script", "Property Setter", "Print Format"]
 # This is only needed for core doctypes
 #fixtures = ["Print Format", {
-#	"doctype": "Print Format",
-#	"filters":	{
-#		"name": ["in", ("Receipt of Goods Uni Version", "Data Destruction Certificate")]
-#	}
+#    "doctype": "Print Format",
+#    "filters":    {
+#        "name": ["in", ("Receipt of Goods Uni Version", "Data Destruction Certificate")]
+#    }
 #}]
-#fixtures = ["Property Setter", {"doctype": "Property Setter",
-                                #"filters": {
-                                            #"name": ["in", ("Receipt of Goods-default_print_format",)]
-                                           #}
-                               #}
-           #]
+#fixtures = [
+    #"Property Setter", {
+        #"doctype": "Property Setter",
+        #"filters": {
+            #"name": ["in", ("Receipt of Goods-default_print_format",)]}}
+#]
 
 # Add custom scripts
 doctype_js = {
-	"Item": "custom_scripts/item.js"
+    "Item": "custom_scripts/item.js"
 }
 
 # Includes in <head>
@@ -50,7 +50,7 @@ app_include_js = "/assets/erpnext_ebay/js/erpnext_ebay.js"
 
 # website user home page (by Role)
 # role_home_page = {
-#	"Role": "home_page"
+#    "Role": "home_page"
 # }
 
 # Website user home page (by function)
@@ -79,11 +79,11 @@ app_include_js = "/assets/erpnext_ebay/js/erpnext_ebay.js"
 # Permissions evaluated in scripted ways
 
 # permission_query_conditions = {
-# 	"Event": "frappe.desk.doctype.event.event.get_permission_query_conditions",
+#     "Event": "frappe.desk.doctype.event.event.get_permission_query_conditions",
 # }
 #
 # has_permission = {
-# 	"Event": "frappe.desk.doctype.event.event.has_permission",
+#     "Event": "frappe.desk.doctype.event.event.has_permission",
 # }
 
 # Document Events
@@ -91,11 +91,11 @@ app_include_js = "/assets/erpnext_ebay/js/erpnext_ebay.js"
 # Hook on document methods and events
 
 # doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-#	}
+#     "*": {
+#         "on_update": "method",
+#         "on_cancel": "method",
+#         "on_trash": "method"
+#    }
 # }
 
 # Override the 'write_file' event so that we can modify images as
@@ -107,22 +107,25 @@ write_file = "erpnext_ebay.auto_slideshow.ugs_save_file_on_filesystem_hook"
 # ---------------
 
 scheduler_events = {
-	"all": [
-# 		"erpnext_ebay.tasks.all"
-	],
-	"daily": [
-		"erpnext_ebay.erpnext_ebay.ebay_active_listings.set_item_ebay_first_listed_date"
-	],
-	"hourly": [
-		"erpnext_ebay.erpnext_ebay.sync_customers.sync",
-		"erpnext_ebay.erpnext_ebay.make_all_item_prices_equal_to_std"
-	],
-	"weekly": [
-# 		"erpnext_ebay.tasks.weekly"
-	],
-	"monthly": [
-# 		"erpnext_ebay.tasks.monthly"
-	]
+    "all": [
+        #"erpnext_ebay.tasks.all"
+    ],
+    "hourly": [
+        #"erpnext_ebay.tasks.hourly"
+        #"erpnext_ebay.erpnext_ebay.sync_orders.sync",
+        "erpnext_ebay.erpnext_ebay.make_all_item_prices_equal_to_std"
+    ],
+    "daily": [
+        #"erpnext_ebay.tasks.daily"
+        "erpnext_ebay.erpnext_ebay.ebay_active_listings.set_item_ebay_first_listed_date",
+        "erpnext_ebay.ebay_categories.category_sync"
+    ],
+    "weekly": [
+        #"erpnext_ebay.tasks.weekly"
+    ],
+    "monthly": [
+        #"erpnext_ebay.tasks.monthly"
+    ]
 }
 
 # Testing
@@ -134,6 +137,6 @@ scheduler_events = {
 # ------------------------------
 #
 # override_whitelisted_methods = {
-# 	"frappe.desk.doctype.event.event.get_events": "erpnext_ebay.event.get_events"
+#     "frappe.desk.doctype.event.event.get_events": "erpnext_ebay.event.get_events"
 # }
 
