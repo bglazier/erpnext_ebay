@@ -4,8 +4,8 @@ from __future__ import print_function
 
 import sys
 import datetime
+import traceback
 from types import MethodType
-import string
 
 import six
 import frappe
@@ -130,12 +130,13 @@ def sync():
             except Exception as e:
                 # Continue to next order
                 frappe.db.rollback()
-                print(e)
+                err_msg = traceback.format_exc()
+                print(err_msg)
                 if not continue_on_error:
-                    msgprint('ORDER FAILED:\n{}'.format(e))
+                    msgprint('ORDER FAILED')
                     raise
                 else:
-                    msgprint_log.append('ORDER FAILED:\n{}'.format(e))
+                    msgprint_log.append('ORDER FAILED:\n{}'.format(err_msg))
 
     finally:
         # Save the log, regardless of how far we got
@@ -411,11 +412,23 @@ def create_customer(customer_dict, address_dict, changes=None):
         if cust_fields is not None and assume_shipping_name_is_ebay_name:
             if (db_cust_customer_name == ebay_user_id
                     and customer_dict["customer_name"] != ebay_user_id):
-                customer_doc = frappe.get_doc("Customer", db_cust_name)
-                customer_doc.customer_name = address_dict["customer_name"]
-                customer_doc.save()
+                frappe.rename_doc(
+                    'Customer', db_cust_name, customer_dict["customer_name"])
+                # Update links in changes (to avoid validation failure):
+                for change in changes:
+                    if change['customer'] == db_cust_name:
+                        change['customer'] = customer_dict['customer_name']
+                # Update any Sales Invoices that are in 'draft' status
+                for rows in frappe.get_all(
+                        'Sales Invoice',
+                        filters={'customer_name': ebay_user_id,
+                                 'docstatus': 0}):
+                    sinv_doc = frappe.get_doc('Sales Invoice', rows['name'])
+                    sinv_doc.customer_name = customer_dict["customer_name"]
+                    sinv_doc.save()
+                db_cust_name = customer_dict["customer_name"]
                 debug_msgprint('Updated name: ' + ebay_user_id + ' -> ' +
-                               address_dict["customer_name"])
+                               customer_dict["customer_name"])
                 changes.append({"ebay_change": "Updated name",
                                 "ebay_user_id": ebay_user_id,
                                 "customer_name": customer_dict["customer_name"],
