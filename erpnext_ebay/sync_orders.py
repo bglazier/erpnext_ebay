@@ -107,6 +107,7 @@ def sync():
                 "ebay_sync_days": num_days,
                 "ebay_log_table": []}
     changes = []
+    msgprint_log = []
 
     try:
         for order in orders:
@@ -124,14 +125,17 @@ def sync():
             except ErpnextEbaySyncError as e:
                 # Continue to next order
                 frappe.db.rollback()
+                msgprint_log.append(str(e))
                 print(e)
             except Exception as e:
                 # Continue to next order
                 frappe.db.rollback()
-                msgprint('ORDER FAILED:\n{}'.format(e))
                 print(e)
                 if not continue_on_error:
+                    msgprint('ORDER FAILED:\n{}'.format(e))
                     raise
+                else:
+                    msgprint_log.append('ORDER FAILED:\n{}'.format(e))
 
     finally:
         # Save the log, regardless of how far we got
@@ -144,7 +148,8 @@ def sync():
         else:
             del log
         frappe.db.commit()
-    msgprint('Finished.')
+    msgprint_log.append('Finished.')
+    msgprint(msgprint_log)
 
 
 def extract_customer(order):
@@ -619,7 +624,8 @@ def create_sales_invoice(order_dict, order, changes):
     # Find the correct VAT rate
     country_name = order['ShippingAddress']['CountryName']
     if country_name is None:
-        raise ErpnextEbaySyncError('No country for this order!')
+        raise ErpnextEbaySyncError(
+            'No country for this order for user {}!'.format(ebay_user_id))
     income_account = determine_income_account(country_name)
     vat_rate = VAT_RATES[income_account]
 
@@ -663,10 +669,12 @@ def create_sales_invoice(order_dict, order, changes):
                     ebay_order_id))
             sync_error(changes, 'An item did not have an SKU',
                        ebay_user_id, customer_name=db_cust_name)
-            raise ErpnextEbaySyncError('An item did not have an SKU')
+            raise ErpnextEbaySyncError(
+                'An item did not have an SKU for user {}'.format(ebay_user_id))
         if not frappe.db.exists('Item', sku):
             debug_msgprint('Item not found?')
-            raise ErpnextEbaySyncError('Item {} not found'.format(sku))
+            raise ErpnextEbaySyncError(
+                'Item {} not found for user {}'.format(sku, ebay_user_id))
 
         ebay_price = float(transaction['TransactionPrice']['value'])
         if ebay_price <= 0.0:
@@ -828,23 +836,15 @@ def sanitize_postcode(in_postcode):
 
 def sync_error(changes, error_message, ebay_user_id=None, customer_name=None,
                customer=None, address=None, ebay_order=None):
-    """Print an error encountered during synchronization.
-
-    Print an error message and item to the console. Log the error message
-    to the change log. Throw an exception with the error message.
+    """An error was encountered during synchronization.
+    Log the error message to the change log.
     """
-    if six.PY2:
-        print(error_message.encode('ascii', errors='xmlcharrefreplace'))
-    else:
-        print(error_message)
     changes.append({"ebay_change": error_message,
                     "ebay_user_id": ebay_user_id,
                     "customer_name": customer_name,
                     "customer": customer,
                     "address": address,
                     "ebay_order": ebay_order})
-    msgprint(error_message)
-    raise ErpnextEbaySyncError(error_message)
 
 
 def db_get_ebay_doc(doctype, ebay_id, fields=None, log=None, none_ok=True,
@@ -899,5 +899,6 @@ def db_get_ebay_doc(doctype, ebay_id, fields=None, log=None, none_ok=True,
             errstring = ebay_id_name + ' : ' + ebay_id
             error_message = '{}\n{}'.format(log, error_message)
             sync_error(log, error_message, customer_name=errstring)
+            raise ErpnextEbaySyncError(error_message)
 
     return retval
