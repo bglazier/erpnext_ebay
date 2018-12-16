@@ -623,6 +623,12 @@ def create_sales_invoice(order_dict, order, changes):
     payments = []
     taxes = []
 
+    amount_paid_dict = order['AmountPaid']
+    if amount_paid_dict['_currencyID'] == 'GBP':
+        amount_paid = float(amount_paid_dict['value'])
+    else:
+        amount_paid = -1.0
+
     sku_list = []
 
     sum_inc_vat = 0.0
@@ -666,10 +672,11 @@ def create_sales_invoice(order_dict, order, changes):
         #actual_shipping_cost = 0.0  # transaction['ActualShippingCost']
         # TODO create a line for any additional shipping costs
         shipping_cost_dict = transaction['ActualShippingCost']
+        handling_cost_dict = transaction['ActualHandlingCost']
         if shipping_cost_dict['_currencyID'] == 'GBP':
-            shipping_cost = float(shipping_cost_dict['value'])
-        else:
-            shipping_cost = 0.0
+            shipping_cost += float(shipping_cost_dict['value'])
+        if handling_cost_dict['_currencyID'] == 'GBP':
+            shipping_cost += float(handling_cost_dict['value'])
 
         qty = float(transaction['QuantityPurchased'])
         try:
@@ -752,8 +759,9 @@ def create_sales_invoice(order_dict, order, changes):
                              "amount": 0.0})
         elif checkout['PaymentMethod'] == 'PayPal':
             # PayPal - add amount as it has been paid
-            payments.append({"mode_of_payment": "Paypal",
-                             "amount": round(sum_paid, 2)})
+            if amount_paid > 0.0:
+                payments.append({"mode_of_payment": "Paypal",
+                                "amount": amount_paid})
         elif checkout['PaymentMethod'] == 'PersonalCheck':
             # Personal cheque - may not yet be paid (set to zero)
             payments.append({"mode_of_payment": "Cheque",
@@ -794,18 +802,13 @@ def create_sales_invoice(order_dict, order, changes):
 
     sinv = frappe.get_doc(sinv_dict)
 
-    # TODO - is this actually necessary?
-    #if posting_date:
-        #sinv.set_posting_time = 1
-    #sinv.posting_date = posting_date
-    if posting_date and sinv.set_posting_time != 1:
-        raise ValueError('I was wrong1: ', posting_date, sinv.set_posting_time)
-    if sinv.posting_date != posting_date:
-        raise ValueError('I was wrong2: ', sinv.posting_date, posting_date)
-    # end TODO
-
     sinv.insert()
     #si.submit()
+
+    if abs(amount_paid - sum_paid) > 0.005:
+        sinv.add_comment('sync_orders: Unable to match totals - '
+                         + 'please check this order manually.')
+
     updated_db = True
 
     debug_msgprint('Adding Sales Invoice: ' + ebay_user_id + ' : ' + sinv.name)

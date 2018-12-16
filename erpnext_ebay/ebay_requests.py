@@ -74,7 +74,7 @@ def get_orders():
             # TradingAPI results are paginated, so loop until
             # all pages have been obtained
             api.execute('GetOrders', {'NumberOfDays': num_days,
-                                      'Pagination': {'EntriesPerPage': 100,
+                                      'Pagination': {'EntriesPerPage': 50,
                                                      'PageNumber': page}})
 
             orders_api = api.response.dict()
