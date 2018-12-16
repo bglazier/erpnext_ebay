@@ -90,13 +90,12 @@ app_include_js = "/assets/erpnext_ebay/js/erpnext_ebay.js"
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-#     "*": {
-#         "on_update": "method",
-#         "on_cancel": "method",
-#         "on_trash": "method"
-#    }
-# }
+doc_events = {
+    "Sales Invoice": {
+        "before_insert":
+            "erpnext_ebay.custom_methods.sales_invoice_methods.sales_invoice_before_insert"
+    }
+}
 
 # Override the 'write_file' event so that we can modify images as
 # they are uploaded
