@@ -252,9 +252,7 @@ def create_slideshow(slideshow_name):
     """
 
     ss = frappe.get_doc({"doctype": "Website Slideshow",
-                         "slideshow_name": slideshow_name,
-                         "docstatus": 0,
-                         "idx": 0})
+                         "slideshow_name": slideshow_name})
 
     ss.insert(ignore_permissions=True)
     return ss
