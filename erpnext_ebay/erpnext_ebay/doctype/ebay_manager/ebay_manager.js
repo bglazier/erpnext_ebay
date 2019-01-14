@@ -31,11 +31,12 @@ frappe.ui.form.on('eBay Manager', {
     },
 
     create_garagesale_button: function(frm) {
-        if (confirm('Have you relisted ended eBay listings?')) {
+        var r == (confirm('Have you relisted ended eBay listings?')) 
+        if (r == true){
             frappe.call({
                 method: "erpnext_ebay.garage_sale.run_cron_create_xml",
                 args: {}
             });
         }
-    },
+    }
 });
