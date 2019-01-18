@@ -163,9 +163,13 @@ def run_cron_create_xml():
             ET.SubElement(doc, "buyItNowPrice").text = str(ebay_price)
             ET.SubElement(doc, "category").text = category
             #ET.SubElement(doc, "category2").text =
+            
+            #TODO why is condition_id not used?
             condition_desc, condition_id = lookup_condition(r.condition, r.function_grade)
             ET.SubElement(doc, "condition").text = str(condition_desc)
             ET.SubElement(doc, "conditionDescription").text = r.grade_details
+            
+            
             ET.SubElement(doc, "convertDescriptionToHTML").text = "false"
             ET.SubElement(doc, "convertMarkdownToHTML").text = "false"
             ET.SubElement(doc, "description").text = body
@@ -237,7 +241,7 @@ def run_cron_create_xml():
             if USE_SERVER_IMAGES:
                 for ssi in ss_images_list:
                     print(ssi)
-                    if ssi.image and exists(images_url + ssi.image):
+                    if ssi.image: # and exists(images_url + ssi.image):
                         ET.SubElement(doc, "imageURL").text = images_url + ssi.image
                         '''''
                             # IF there is no slideshow then try the ws_image
@@ -577,6 +581,12 @@ def get_item_records_by_item_status():
 
 
 
+
+
+
+
+
+
 def get_slideshow_records(ss_name):
     """
     Returns slideshow records for an item
@@ -631,8 +641,9 @@ def exists(path):
     Check if path exists
     """
     
-    r = requests.head(path)
-    return r.status_code == requests.codes.ok
+    #r = requests.head(path)
+    #return r.status_code == requests.codes.ok
+    return True
 
 
 def add_breaks(non_html):
