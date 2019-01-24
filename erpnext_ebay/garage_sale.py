@@ -164,7 +164,6 @@ def run_cron_create_xml():
             ET.SubElement(doc, "category").text = category
             #ET.SubElement(doc, "category2").text =
             
-            #TODO why is condition_id not used?
             condition_desc, condition_id = lookup_condition(r.condition, r.function_grade)
             ET.SubElement(doc, "condition").text = str(condition_desc)
             ET.SubElement(doc, "conditionDescription").text = r.grade_details
@@ -175,17 +174,18 @@ def run_cron_create_xml():
             ET.SubElement(doc, "description").text = body
             ET.SubElement(doc, "design").text = design
             
+            # Ensure that blank brands are set as unbranded
+            if r.brand == '':
+                brand = 'Unbranded'
+            else:
+                brand = frappe.db.escape(r.brand)
 
             try:
-                st = """<customSpecific> <specificName>Brand</specificName> <specificValue>{}</specificValue></customSpecific>""".format(frappe.db.escape(r.brand))
-                brand = ET.fromstring(st)
-                doc.append(brand)
+                st = """<customSpecific> <specificName>Brand</specificName> <specificValue>{}</specificValue></customSpecific>""".format(brand)
+                brand_xml = ET.fromstring(st)
+                doc.append(brand_xml)
             except:
-                print('Problem with this brand: ',r.brand)
-
-            #brand = ET.SubElement(doc, "customSpecific", "specificName"='Brand', "specificValue" = '{}').format(r.brand)
-            #brand.set("specificName", "Brand")
-            #brand.set("specificValue", "{}").format(r.brand)
+                print('Problem with this brand: ', brand)
 
 
             dom_ship_free = ET.fromstring("".join(["""<domesticShippingService """,
@@ -201,7 +201,7 @@ def run_cron_create_xml():
 
             if r.delivery_type == 'No GSP':
                 doc.append(dom_ship_free)
-                #ET.SubElement(doc, "useGlobalShipping").text = "false"
+                ET.SubElement(doc, "useGlobalShipping").text = "false"
 
             if r.delivery_type == 'Pallet':
                 doc.append(dom_ship_pallet)
@@ -211,6 +211,9 @@ def run_cron_create_xml():
 
             if r.delivery_type == 'Standard Parcel':
                 doc.append(dom_ship_free)
+
+            # We don't want GSP for now
+            ET.SubElement(doc, "useGlobalShipping").text = "false"
 
 
             ''''
