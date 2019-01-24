@@ -201,7 +201,7 @@ def run_cron_create_xml():
 
             if r.delivery_type == 'No GSP':
                 doc.append(dom_ship_free)
-                ET.SubElement(doc, "useGlobalShipping").text = "false"
+                #ET.SubElement(doc, "useGlobalShipping").text = "false"
 
             if r.delivery_type == 'Pallet':
                 doc.append(dom_ship_pallet)
@@ -213,7 +213,7 @@ def run_cron_create_xml():
                 doc.append(dom_ship_free)
 
             # We don't want GSP for now
-            ET.SubElement(doc, "useGlobalShipping").text = "false"
+            #ET.SubElement(doc, "useGlobalShipping").text = "false"
 
 
             ''''
