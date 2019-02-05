@@ -412,12 +412,27 @@ def create_customer(customer_dict, address_dict, changes=None):
         if cust_fields is not None and assume_shipping_name_is_ebay_name:
             if (db_cust_customer_name == ebay_user_id
                     and customer_dict["customer_name"] != ebay_user_id):
-                frappe.rename_doc(
-                    'Customer', db_cust_name, customer_dict["customer_name"])
+                new_name = customer_dict["customer_name"]
+                if frappe.db.exists('Customer', new_name):
+                    # Complicated rename to avoid existing entries
+                    for i in range(1, 100):
+                        new_name = customer_dict["customer_name"] + '-' + str(i)
+                        if not frappe.db.exists('Customer', new_name):
+                            frappe.rename_doc('Customer',
+                                              db_cust_name, new_name)
+                            break
+                    else:
+                        raise ValueError(
+                            'Too many duplicate entries of this customer name!')
+                else:
+                    # Simple rename
+                    frappe.rename_doc(
+                        'Customer', db_cust_name,
+                        new_name)
                 # Update links in changes (to avoid validation failure):
                 for change in changes:
                     if change['customer'] == db_cust_name:
-                        change['customer'] = customer_dict['customer_name']
+                        change['customer'] = new_name
                 # Update any Sales Invoices that are in 'draft' status
                 for rows in frappe.get_all(
                         'Sales Invoice',
@@ -426,9 +441,9 @@ def create_customer(customer_dict, address_dict, changes=None):
                     sinv_doc = frappe.get_doc('Sales Invoice', rows['name'])
                     sinv_doc.customer_name = customer_dict["customer_name"]
                     sinv_doc.save()
-                db_cust_name = customer_dict["customer_name"]
+                db_cust_name = new_name
                 debug_msgprint('Updated name: ' + ebay_user_id + ' -> ' +
-                               customer_dict["customer_name"])
+                               new_name)
                 changes.append({"ebay_change": "Updated name",
                                 "ebay_user_id": ebay_user_id,
                                 "customer_name": customer_dict["customer_name"],
