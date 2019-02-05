@@ -333,6 +333,10 @@ def create_website_image(fname, item):
     except OSError:
         if os.path.islink(web_fpath):
             os.remove(web_fpath)
+            files = frappe.get_all(
+                'File', filters={'file_url': web_url})
+            for file in files:
+                frappe.delete_doc('File', file['name'])
             os.symlink(file_fpath, web_fpath)
         else:
             raise
