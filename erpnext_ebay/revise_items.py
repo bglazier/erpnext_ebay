@@ -135,7 +135,7 @@ def get_item_revisions(item_code):
 
 @frappe.whitelist(allow_guest=True)
 def revise_ebay_price(item_code, new_price, is_auction):
-    """Given item_code and price, revise the listing on eBay"""
+    """Given item_code and (ex vat) price, revise the listing on eBay"""
 
 
     #get the ebay id given the item_code
