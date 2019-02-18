@@ -120,7 +120,9 @@ def run_cron_create_xml():
         # Don't run if quantity not matching stock locations qty
         # Items only come through if ebay_id is Null or blank - no need to exclude e.g Awaiting
         # Garagesale (see sql query)
-        if quantity > 0.0 and quantity == r.sum_sl:
+        #if quantity > 0.0 and quantity == r.sum_sl: FUDGE THIS FOR THE MOMENT
+        if quantity > 0.0 and r.sum_sl > 0.0:
+            if r.sum_sl < quantity: quantity = r.sum_sl
 
             title = ""
             title += r.item_name
