@@ -500,6 +500,8 @@ def get_item_records_by_item_status():
 
     #having sum(sl.qty) > 0 and sum(sl.qty) = sum(bin.actual_qty) WILL NOT WORK WITH DRAFT PREC
     # Therefore See alternative method in main function using get_unsubmitted_prec
+    
+    Note: do not sum actual_qty as this will be multiplied by any occurence of 1+ locations.
     """
 
     sql2 = """
@@ -533,7 +535,7 @@ def get_item_records_by_item_status():
         it.delivery_type,
         ifnull(it.standard_rate,0.0) as price,
         ifnull(ip.price_list_rate,0.0) as item_price,
-        sum(ifnull(bin.actual_qty, 0.0)) as actual_qty,
+        (ifnull(bin.actual_qty, 0.0)) as actual_qty,
         it.item_status,
         sum(ifnull(sl.qty, 0.0)) as sum_sl,
         ifnull((
@@ -658,5 +660,7 @@ def add_breaks(non_html):
     non_html = "<li>%s</li>" % escaped
 
     return non_html
+
+
 
 
