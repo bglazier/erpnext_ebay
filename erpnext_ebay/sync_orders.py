@@ -513,7 +513,6 @@ def create_ebay_order(order_dict, changes, order):
 
     ebay_order_id = order_dict['ebay_order_id']
     ebay_user_id = order_dict['ebay_user_id']
-    ebay_address_id = order_dict['ebay_address_id']
 
     order_fields = db_get_ebay_doc(
         "eBay order", ebay_order_id, fields=["name", "address"],

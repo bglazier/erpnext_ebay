@@ -5,7 +5,6 @@ from __future__ import print_function
 
 import six
 
-import ast
 import operator
 import os
 import pickle
