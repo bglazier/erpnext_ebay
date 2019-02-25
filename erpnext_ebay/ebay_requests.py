@@ -24,6 +24,15 @@ PATH_TO_YAML = os.path.join(
 siteid = 3  # eBay site id: 0=US, 3=UK
 
 
+def test_expired(e):
+    """Test a ConnectionError to see if the auth token has expired."""
+    r = e.response.dict()
+    if r.get('Errors', False) and r['Errors']['ErrorCode'] == "932":
+        message = 'eBay API token has expired:\n"{}"'.format(
+            r['Errors']['LongMessage'])
+        frappe.throw(message)
+
+
 def convert_to_unicode(obj):
     """Take an object, and recursively convert strings to unicode.
 
@@ -86,6 +95,7 @@ def get_orders():
             page += 1
 
     except ConnectionError as e:
+        test_expired(e)
         print(e)
         print(e.response.dict())
         raise e
@@ -145,6 +155,7 @@ def get_categories_versions():
         response2 = api.execute('GetCategoryFeatures', {})
 
     except ConnectionError as e:
+        test_expired(e)
         print(e)
         print(e.response.dict())
         raise e
@@ -167,6 +178,7 @@ def get_categories():
                                                  'ViewAllNodes': True})
 
     except ConnectionError as e:
+        test_expired(e)
         print(e)
         print(e.response.dict())
         raise e
@@ -224,6 +236,7 @@ def get_features():
                       siteid=siteid, warnings=True, timeout=60)
 
     except ConnectionError as e:
+        test_expired(e)
         print(e)
         print(e.response.dict())
         raise e
@@ -277,6 +290,7 @@ def get_features():
         try:
             response = api.execute('GetCategoryFeatures', options)
         except ConnectionError as e:
+            test_expired(e)
             print(e)
             print(e.response.dict())
             raise e
@@ -364,6 +378,7 @@ def GeteBayDetails():
         response = api.execute('GeteBayDetails', {})
 
     except ConnectionError as e:
+        test_expired(e)
         print(e)
         print(e.response.dict())
         raise e
@@ -384,6 +399,7 @@ def verify_add_item(listing_dict):
         response = api.execute('VerifyAddItem', listing_dict)
 
     except ConnectionError as e:
+        test_expired(e)
         # traverse the DOM to look for error codes
         for node in api.response.dom().findall('ErrorCode'):
             msgprint("error code: %s" % node.text)
