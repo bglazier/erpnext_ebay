@@ -24,13 +24,21 @@ PATH_TO_YAML = os.path.join(
 siteid = 3  # eBay site id: 0=US, 3=UK
 
 
-def test_expired(e):
-    """Test a ConnectionError to see if the auth token has expired."""
-    r = e.response.dict()
-    if r.get('Errors', False) and r['Errors']['ErrorCode'] == "932":
-        message = 'eBay API token has expired:\n"{}"'.format(
-            r['Errors']['LongMessage'])
+def handle_ebay_error(e):
+    """Throw an appropriate Frappe error message on error."""
+    try:
+        r = e.response.dict()
+        if r['Errors']['ErrorCode'] == "932":
+            # eBay auth token has expired
+            message = 'eBay API token has expired:\n"{}"'.format(
+                r['Errors']['LongMessage'])
+        else:
+            # Some other eBay error
+            message = 'eBay error:\n"{}"'.format(
+                r['Errors']['LongMessage'])
         frappe.throw(message)
+    except Exception:
+        raise e
 
 
 def convert_to_unicode(obj):
@@ -95,10 +103,7 @@ def get_orders():
             page += 1
 
     except ConnectionError as e:
-        test_expired(e)
-        print(e)
-        print(e.response.dict())
-        raise e
+        handle_ebay_error(e)
 
     if six.PY2:
         # Convert all strings to unicode
@@ -155,10 +160,7 @@ def get_categories_versions():
         response2 = api.execute('GetCategoryFeatures', {})
 
     except ConnectionError as e:
-        test_expired(e)
-        print(e)
-        print(e.response.dict())
-        raise e
+        handle_ebay_error(e)
 
     categories_version = response1.reply.CategoryVersion
     features_version = response2.reply.CategoryVersion
@@ -178,10 +180,7 @@ def get_categories():
                                                  'ViewAllNodes': True})
 
     except ConnectionError as e:
-        test_expired(e)
-        print(e)
-        print(e.response.dict())
-        raise e
+        handle_ebay_error(e)
 
     categories_data = response.dict()
 
@@ -236,10 +235,7 @@ def get_features():
                       siteid=siteid, warnings=True, timeout=60)
 
     except ConnectionError as e:
-        test_expired(e)
-        print(e)
-        print(e.response.dict())
-        raise e
+        handle_ebay_error(e)
 
     features_data = None
     feature_definitions = set()
@@ -290,10 +286,7 @@ def get_features():
         try:
             response = api.execute('GetCategoryFeatures', options)
         except ConnectionError as e:
-            test_expired(e)
-            print(e)
-            print(e.response.dict())
-            raise e
+            handle_ebay_error(e)
         response_dict = response.dict()
 
         if six.PY2:
@@ -378,10 +371,7 @@ def GeteBayDetails():
         response = api.execute('GeteBayDetails', {})
 
     except ConnectionError as e:
-        test_expired(e)
-        print(e)
-        print(e.response.dict())
-        raise e
+        handle_ebay_error(e)
 
     with open(filename, 'wt') as f:
         f.write(repr(response.dict()))
@@ -389,47 +379,46 @@ def GeteBayDetails():
     return None
 
 
-def verify_add_item(listing_dict):
-    """Perform a VerifyAddItem call, and return useful information"""
+#def verify_add_item(listing_dict):
+    #"""Perform a VerifyAddItem call, and return useful information"""
 
-    try:
-        api = Trading(domain='api.sandbox.ebay.com', config_file=PATH_TO_YAML,
-                      siteid=siteid, warnings=True, timeout=20)
+    #try:
+        #api = Trading(domain='api.sandbox.ebay.com', config_file=PATH_TO_YAML,
+                      #siteid=siteid, warnings=True, timeout=20)
 
-        response = api.execute('VerifyAddItem', listing_dict)
+        #response = api.execute('VerifyAddItem', listing_dict)
 
-    except ConnectionError as e:
-        test_expired(e)
-        # traverse the DOM to look for error codes
-        for node in api.response.dom().findall('ErrorCode'):
-            msgprint("error code: %s" % node.text)
+    #except ConnectionError as e:
+        ## traverse the DOM to look for error codes
+        #for node in api.response.dom().findall('ErrorCode'):
+            #msgprint("error code: %s" % node.text)
 
-        # check for invalid data - error code 37
-        if 37 in api.response_codes():
-            if 'Errors' in api.response.dict():
-                errors_dict = api.response.dict()['Errors']
-                errors_list = []
-                for key, value in errors_dict.items():
-                    errors_list.append('{} : {}'.format(key, value))
-                msgprint('\n'.join(errors_list))
-                if 'ErrorParameters' in errors_dict:
-                    parameter = errors_dict['ErrorParameters']['Value']
-                    parameter_stack = parameter.split('.')
-                    parameter_value = listing_dict
-                    for stack_entry in parameter_stack:
-                        parameter_value = parameter_value[stack_entry]
-                    msgprint("'{}': '{}'".format(parameter, parameter_value))
+        ## check for invalid data - error code 37
+        #if 37 in api.response_codes():
+            #if 'Errors' in api.response.dict():
+                #errors_dict = api.response.dict()['Errors']
+                #errors_list = []
+                #for key, value in errors_dict.items():
+                    #errors_list.append('{} : {}'.format(key, value))
+                #msgprint('\n'.join(errors_list))
+                #if 'ErrorParameters' in errors_dict:
+                    #parameter = errors_dict['ErrorParameters']['Value']
+                    #parameter_stack = parameter.split('.')
+                    #parameter_value = listing_dict
+                    #for stack_entry in parameter_stack:
+                        #parameter_value = parameter_value[stack_entry]
+                    #msgprint("'{}': '{}'".format(parameter, parameter_value))
 
-        else:
-            msgprint("Unknown error: {}".format(api.response_codes()))
-            msgprint('{}'.format(e))
-            msgprint('{}'.format(e.response.dict()))
-        return {'ok': False}
+        #else:
+            #msgprint("Unknown error: {}".format(api.response_codes()))
+            #msgprint('{}'.format(e))
+            #msgprint('{}'.format(e.response.dict()))
+        #return {'ok': False}
 
-    # Success?
-    ok = True
-    ret_dict = {'ok': ok}
+    ## Success?
+    #ok = True
+    #ret_dict = {'ok': ok}
 
-    msgprint(response.dict())
+    #msgprint(response.dict())
 
-    return ret_dict
+    #return ret_dict
