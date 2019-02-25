@@ -2,15 +2,15 @@
 from __future__ import unicode_literals
 from __future__ import print_function
 
-import collections
 import os
 import sys
 import six
 import operator
 
-#sys.path.insert(0, "/Users/ben/dev/ebaysdk-python/dist/ebaysdk-2.1.5-py2.7.egg")
-#sys.path.insert(0, "/usr/local/lib/python2.7/dist-packages/ebaysdk-2.1.4-py2.7.egg")
-#sys.path.insert(0, "/usr/local/lib/python2.7/dist-packages/lxml-3.6.4-py2.7-linux-i686.egg")
+if six.PY2:
+    from collections import Sequence
+else:
+    from collections.abc import Sequence
 
 import frappe
 from frappe import _, msgprint
@@ -27,18 +27,49 @@ siteid = 3  # eBay site id: 0=US, 3=UK
 def handle_ebay_error(e):
     """Throw an appropriate Frappe error message on error."""
     try:
-        r = e.response.dict()
-        if r['Errors']['ErrorCode'] == "932":
-            # eBay auth token has expired
-            message = 'eBay API token has expired:\n"{}"'.format(
-                r['Errors']['LongMessage'])
+        api_dict = e.response.dict()
+        if isinstance(api_dict['Errors'], Sequence):
+            errors = api_dict['Errors']
         else:
-            # Some other eBay error
-            message = 'eBay error:\n"{}"'.format(
-                r['Errors']['LongMessage'])
-        frappe.throw(message)
+            errors = [api_dict['Errors']]
+        messages = []
+        for error in errors:
+            if error['ErrorCode'] == "932":
+                # eBay auth token has expired
+                messages.append('eBay API token has expired:\n"{}"'.format(
+                    error['LongMessage']))
+            else:
+                # Some other eBay error
+                messages.append('eBay error:\n"{}"'.format(
+                    error['LongMessage']))
+        frappe.throw('\n'.join(messages))
     except Exception:
+        # We have not handled this correctly; just raise the original error.
         raise e
+
+
+def test_for_message(api_dict):
+    """Test for error/warning messages."""
+
+    # First check for expiring Auth token.
+    if 'HardExpirationWarning' in api_dict:
+        message = ('WARNING - eBay auth token will expire within 7 days!\n'
+                   + 'Expiry date/time: ' + api_dict['HardExpirationWarning'])
+        msgprint(message)
+        print(message)
+    # Now check for errors/warnings.
+    if 'Errors' not in api_dict:
+        return
+    if isinstance(api_dict['Errors'], Sequence):
+        errors = api_dict['Errors']
+    else:
+        errors = [api_dict['Errors']]
+    messages = []
+    for error in errors:
+        messages.append('{} code {}: {}'.format(
+            error['SeverityCode'], error['ErrorCode'], error['LongMessage']))
+    msgprint('\n'.join(messages))
+    print('\n'.join(messages))
 
 
 def convert_to_unicode(obj):
@@ -95,6 +126,7 @@ def get_orders():
                                                      'PageNumber': page}})
 
             orders_api = api.response.dict()
+            test_for_message(orders_api)
 
             if int(orders_api['ReturnedOrderCountActual']) > 0:
                 orders.extend(orders_api['OrderArray']['Order'])
@@ -129,6 +161,7 @@ def get_order_transactions(order_id):
 
             api.execute('GetOrderTransactions', {'OrderID': order_id})
             order_trans_api = api.response.dict()
+            test_for_message(orders_trans_api)
 
             #if int(order_trans_api['ReturnedOrderCountActual']) > 0:
             orders.extend(order_trans_api['TransactionArray']) #['OrderTransactions'])
@@ -156,8 +189,10 @@ def get_categories_versions():
 
         response1 = api.execute('GetCategories', {'LevelLimit': 1,
                                                   'ViewAllNodes': False})
+        test_for_message(response1.response.dict())
 
         response2 = api.execute('GetCategoryFeatures', {})
+        test_for_message(response2.response.dict())
 
     except ConnectionError as e:
         handle_ebay_error(e)
@@ -244,7 +279,7 @@ def get_features():
     # Loop over each top-level category, pulling in all of the data
     search_categories = frappe.db.sql("""
         SELECT CategoryID, CategoryName, CategoryLevel
-        FROM eBay_categories_hierarchy WHERE CategoryParentID=0
+            FROM eBay_categories_hierarchy WHERE CategoryParentID=0
         """, as_dict=True)
 
     # BEGIN DUBIOUS WORKAROUND
@@ -288,6 +323,7 @@ def get_features():
         except ConnectionError as e:
             handle_ebay_error(e)
         response_dict = response.dict()
+        test_for_message(response_dict)
 
         if six.PY2:
             # Convert all strings to unicode
@@ -312,7 +348,7 @@ def get_features():
                 # No over-ridden categories returned
                 continue
             cat_list = response_dict['Category']
-            if not isinstance(cat_list, collections.Sequence):
+            if not isinstance(cat_list, Sequence):
                 cat_list = [cat_list]  # in case there is only one category
             # Add the new categories, FeatureDefinitions, ListingDurations
             features_data['Category'].extend(cat_list)
@@ -373,8 +409,11 @@ def GeteBayDetails():
     except ConnectionError as e:
         handle_ebay_error(e)
 
+    response_dict = response.dict()
+    test_for_message(response_dict)
+
     with open(filename, 'wt') as f:
-        f.write(repr(response.dict()))
+        f.write(repr(response_dict))
 
     return None
 
