@@ -25,7 +25,16 @@ app_license = "MIT"
         #"filters": {
             #"name": ["in", ("Receipt of Goods-default_print_format",)]}}
 #]
-
+fixtures = [
+    {
+        "doctype": "Online Selling Platform",
+        "filters": {"name": "eBay"}
+    },
+    {
+        "doctype": "Online Selling Subtype",
+        "filters": {"name": ["LIKE", ("eBay%")]}
+    }
+    ]
 # Add custom scripts
 doctype_js = {
     "Item": "custom_scripts/item.js"

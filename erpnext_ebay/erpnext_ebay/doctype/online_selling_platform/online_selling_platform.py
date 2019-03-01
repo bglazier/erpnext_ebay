@@ -7,5 +7,5 @@ import frappe
 from frappe.model.document import Document
 
 
-class OnlineSellingType(Document):
+class OnlineSellingPlatform(Document):
     pass

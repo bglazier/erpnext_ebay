@@ -1,0 +1,38 @@
+[
+ {
+  "description": "A Buy-It-Now item on the eBay UK site.", 
+  "docstatus": 0, 
+  "doctype": "Online Selling Subtype", 
+  "modified": "2019-03-01 12:02:04.158466", 
+  "name": "eBay UK Buy-It-Now", 
+  "selling_platform": "eBay", 
+  "selling_subtype": "eBay UK Buy-It-Now", 
+  "subtype_code": "FixedPriceItem", 
+  "subtype_id": 3, 
+  "tax_rate": 0.2
+ }, 
+ {
+  "description": "An Auction on the eBay UK site", 
+  "docstatus": 0, 
+  "doctype": "Online Selling Subtype", 
+  "modified": "2019-03-01 12:01:58.559142", 
+  "name": "eBay UK Auction", 
+  "selling_platform": "eBay", 
+  "selling_subtype": "eBay UK Auction", 
+  "subtype_code": "Chinese", 
+  "subtype_id": 3, 
+  "tax_rate": 0.2
+ }, 
+ {
+  "description": "A Buy-It-Now item on the eBay UK site, in an eBay Store.", 
+  "docstatus": 0, 
+  "doctype": "Online Selling Subtype", 
+  "modified": "2019-03-01 12:01:52.596573", 
+  "name": "eBay UK Buy-It-Now (eBay Store)", 
+  "selling_platform": "eBay", 
+  "selling_subtype": "eBay UK Buy-It-Now (eBay Store)", 
+  "subtype_code": "StoresFixedPrice", 
+  "subtype_id": 3, 
+  "tax_rate": 0.2
+ }
+]

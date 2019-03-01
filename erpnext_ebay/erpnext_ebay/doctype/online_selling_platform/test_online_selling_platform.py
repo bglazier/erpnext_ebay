@@ -7,5 +7,5 @@ import frappe
 import unittest
 
 
-class TestOnlineSellingType(unittest.TestCase):
+class TestOnlineSellingPlatform(unittest.TestCase):
     pass
