@@ -149,6 +149,7 @@ def sync(site_id=3):
             'ebay_listing_duration': duration_description,
             'ebay_watch_count': listing.get('WatchCount', 0),
             'ebay_question_count': listing.get('QuestionCount', 0),
+            'ebay_hit_count': None,  # we can only get this through GetItem
             'website_link': web_link})
         new_listing.insert()
         print('inserted listing')
