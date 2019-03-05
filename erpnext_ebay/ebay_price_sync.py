@@ -59,7 +59,7 @@ def sync_prices_to_ebay():
     # Call the revise price function
     for r in records:
         # revise_ebay_price takes exc vat pricing
-        result = revise_ebay_price(r.item_code, r.standard_rate, False)
+        result = revise_ebay_price(r.item_code, r.price_list_rate, False)
         print(result)
 
 
@@ -70,10 +70,11 @@ def get_mismatched_prices():
     """
 
     sql = """
-    select it.item_code, it.ebay_id,
+    select distinct(it.item_code), it.ebay_id,
     round(ifnull(ip.price_list_rate, 0.0),2) as price_list_rate, 
-    round(ifnull(it.standard_rate,0.0),2),
-    round(ifnull(it.vat_inclusive_price,0.0),2),
+    ip.price_list,
+    round(ifnull(it.standard_rate,0.0),2) as standard_rate,
+    round(ifnull(it.vat_inclusive_price,0.0),2) as vat_inclusive_price,
     round(ifnull(el.price,0.0),2) as ebay_inc_vat
     
     from `tabItem Price` ip
@@ -88,6 +89,7 @@ def get_mismatched_prices():
     and round(ifnull(it.vat_inclusive_price, 0.0),2) <> round(ifnull(el.price, 0.0),2)
     and it.standard_rate > 0.0
     and ifnull(el.price,0.0) > 0
+    and ip.price_list = 'eBay Selling'
     """
     records = frappe.db.sql(sql, as_dict=1)
     
