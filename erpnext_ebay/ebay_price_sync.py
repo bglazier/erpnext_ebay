@@ -11,7 +11,7 @@ from frappe.utils import cstr
 from datetime import date
 
 
-from ebay_active_listings import generate_active_ebay_data
+from ebay_active_listings import generate_active_ebay_data, sync_ebay_ids
 import ugssettings
 from revise_items import revise_ebay_price
 
@@ -36,6 +36,7 @@ def price_sync():
     print("Price sync to eBay run on ", date.today())
 
     generate_active_ebay_data()
+    sync_ebay_ids()
     sync_prices_to_ebay()
     frappe.msgprint("Price revision completed")
 
