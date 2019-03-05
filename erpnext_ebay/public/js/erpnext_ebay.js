@@ -25,7 +25,7 @@ function update_slideshow(tag, JSON_args) {
         case "set_image_number": {
             // This is done once the number of images is known, to create
             // the Bootstrap grid
-            const n_images = parseInt(args.n_images);
+            const n_images = parseInt(args.n_images, 10);
             $("#ssimg_n").html(args.n_images);
             const n_rows = Math.ceil((n_images / 3.0)-0.1);
             $table = $("#slideshow_table");
@@ -41,7 +41,7 @@ function update_slideshow(tag, JSON_args) {
                     );
                     // Add spinning icons for unprocessed images
                     // Different icon for currently processed image
-                    if (img_id == 1) {
+                    if (img_id === 1) {
                         loader_gif = base_url + 
                             "/assets/erpnext_ebay/img/ajax-loader2.gif";
                     } else {
@@ -61,8 +61,8 @@ function update_slideshow(tag, JSON_args) {
         case "new_image": {
             // This is done as each new image arrives
             // Add the new photo and upload the animated GIF for the next image
-            const img_id = parseInt(args.img_id);
-            const n_images = parseInt(args.n_images);
+            const img_id = parseInt(args.img_id, 10);
+            const n_images = parseInt(args.n_images, 10);
             $("#ssimg_id").html(args.img_id);
             const file_url = base_url + '/' + args.file_url
             $("#ss_img_" + img_id).attr('src', file_url);

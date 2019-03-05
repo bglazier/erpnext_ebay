@@ -6,7 +6,6 @@ from __future__ import unicode_literals
 
 import os
 import re
-import operator
 import shutil
 import subprocess
 from datetime import date
@@ -233,7 +232,7 @@ def process_new_images(item_code, rte_id, tag):
     frappe.db.set_value('Item', item_code, 'thumbnail', thumb_url)
 
     # Add a comment to the Item
-    comment = frappe.get_doc("Item", item_code).add_comment(
+    frappe.get_doc("Item", item_code).add_comment(
         "Attachment",
         "Auto Create Slideshow: Website slideshow {}".format(slideshow_code))
 
@@ -374,35 +373,6 @@ def create_website_image(fname, item):
     return web_url, thumb_url
 
 
-'''PROCESS ALL EXISTING PHOTOS PRIOR TO USING NEW PROCESS'''
-
-
-#def create_slideshows_from_archive_photos():
-    ## TODO need to test this
-    #dlist = list_directories(images_path)
-
-    #for l in dlist:
-        #file_list = list_files(l)
-        #for f in file_list:
-            #item_name = f
-            #create_slideshow('SS' + item_name)
-            #create_slideshow_items('SS' + parent, file_list)
-
-    #return
-
-
-'''UTILITIES'''
-
-
-#def list_directories(path):
-
-    ## requires import os
-
-    #directories = filter(os.path.isdir, os.listdir(path))
-
-    #return directories
-
-
 def list_files(path):
     # returns a list of names (with extension, without full path) of all files
     # in folder path
@@ -414,17 +384,3 @@ def list_files(path):
         if os.path.isfile(os.path.join(path, name)):
             files.append(name)
     return files
-
-
-#def scp_files(local_files):
-    ## THIS IS OF NO USE AS FILES ARE NOT LOCAL !!?? Unless scp using static ip address?
-    ## requires import scp
-
-    #remote_file = local_files
-
-    #client = scp.Client(host=host, user=user, password=password)
-
-    ## and then
-    #client.transfer(local_path + local_file, remote_path + remote_file)
-
-    #return

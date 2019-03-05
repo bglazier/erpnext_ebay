@@ -5,7 +5,6 @@ from __future__ import print_function
 
 import six
 
-import ast
 import operator
 import os
 import pickle
@@ -248,9 +247,11 @@ def create_ebay_categories_cache(categories_data):
         else:
             info_od[key] = False
     frappe.db.sql("""
-    INSERT INTO eBay_categories_info (""" + ", ".join(info_od.keys()) + """)
-        VALUES (""" + _s_for(info_od.values()) + """)
-    """, info_od.values())
+        INSERT INTO eBay_categories_info
+            (""" + ", ".join(info_od.keys()) + """)
+            VALUES (""" + _s_for(info_od.values()) + """)
+        """, info_od.values())  # nosec
+    # nosec: keys are hardcoded, and values are passed by parameterisation.
 
     # Load the categories into the database
 
@@ -266,7 +267,8 @@ def create_ebay_categories_cache(categories_data):
         INSERT INTO eBay_categories_hierarchy
             (""" + ", ".join(hierarchy_od.keys()) + """)
             VALUES (""" + _s_for(hierarchy_od.values()) + """)
-        """, hierarchy_od.values())
+        """, hierarchy_od.values())  # nosec
+    # nosec: keys are hardcoded, and values are passed by parameterisation.
 
     for cat in categories_data['TopLevel']:
         # Don't need to worry about inherited properties for categories
@@ -298,7 +300,9 @@ def create_ebay_categories_cache(categories_data):
                 INSERT INTO eBay_categories_hierarchy
                     (""" + ", ".join(hierarchy_od.keys()) + """)
                     VALUES (""" + _s_for(hierarchy_od.values()) + """)
-                """, hierarchy_od.values())
+                """, hierarchy_od.values())  # nosec
+                # nosec: keys are hardcoded, and values
+                # are passed by parameterisation.
                 next_level.extend(cat_child['Children'])
             cat_children = next_level
 
