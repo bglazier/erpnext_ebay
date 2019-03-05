@@ -135,7 +135,7 @@ def get_item_revisions(item_code):
 
 @frappe.whitelist(allow_guest=True)
 def revise_ebay_price(item_code, new_price, is_auction):
-    """Given item_code and (ex vat) price, revise the listing on eBay"""
+    """Given item_code and (inc vat) price, revise the listing on eBay"""
 
 
     #get the ebay id given the item_code
@@ -143,7 +143,7 @@ def revise_ebay_price(item_code, new_price, is_auction):
     if ebay_id and item_code and new_price:
 
         try:
-            new_price_inc = float(new_price) * ugssettings.VAT
+            new_price_inc = float(new_price)
             api_trading = Trading(config_file=PATH_TO_YAML, warnings=True, timeout=20)
 
             if is_auction:
