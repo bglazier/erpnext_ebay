@@ -37,7 +37,7 @@ fixtures = [
     {
         "doctype": "Role",
         "filters": {
-            "name": "eBay Manager"
+            "name": "eBay Administrator"
         }
     }
     ]
