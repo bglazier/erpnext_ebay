@@ -37,7 +37,7 @@ frappe.ui.form.on('eBay Manager', {
         });
     },
 
-    price_sync_button: function(frm) {
+    sync_prices_button: function(frm) {
         frappe.call({
             method: "erpnext_ebay.ebay_price_sync.price_sync",
             args: {},

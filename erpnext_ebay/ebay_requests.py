@@ -253,10 +253,10 @@ def get_categories_versions(site_id=default_site_id):
 
         response1 = api.execute('GetCategories', {'LevelLimit': 1,
                                                   'ViewAllNodes': False})
-        test_for_message(response1.response.dict())
+        test_for_message(response1.dict())
 
         response2 = api.execute('GetCategoryFeatures', {})
-        test_for_message(response2.response.dict())
+        test_for_message(response2.dict())
 
     except ConnectionError as e:
         handle_ebay_error(e)
