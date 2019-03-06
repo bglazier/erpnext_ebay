@@ -91,12 +91,9 @@ def sync():
     """
 
     # This is a whitelisted function; check permissions.
-    roles = ('System Manager', 'Accounts Manager')
-    user_roles = frappe.get_roles(frappe.session.user)
-    if not any([x in user_roles for x in roles]):
-        return frappe.PermissionError(
-            'Only Account Managers/System Managers '
-            + 'can update the eBay categories.')
+    if not frappe.has_permission('eBay Manager'):
+        frappe.throw('You do not have permission to access the eBay Manager',
+                     frappe.PermissionError)
     frappe.msgprint('Syncing eBay orders...')
     # Load orders from Ebay
     orders, num_days = get_orders()

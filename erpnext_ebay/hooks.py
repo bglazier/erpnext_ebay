@@ -33,6 +33,12 @@ fixtures = [
     {
         "doctype": "Online Selling Subtype",
         "filters": {"name": ["LIKE", ("eBay%")]}
+    },
+    {
+        "doctype": "Role",
+        "filters": {
+            "name": "eBay Manager"
+        }
     }
     ]
 # Add custom scripts
