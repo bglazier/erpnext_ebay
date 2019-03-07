@@ -158,11 +158,11 @@ def create_ebay_online_selling_item(listing, item_code=None,
     else:
         end_datetime = None
 
-    # Sanitize web link
-    web_link = '<a href="{link}">{link}</a>'.format(
+    # Sanitize URL
+    selling_url = '<a href="{link}">{link}</a>'.format(
         link=listing['ListingDetails']['ViewItemURL'])
-    web_link = bleach.clean(
-        web_link, tags=['a'], attributes={'a': ['href']}, styles=[],
+    selling_url = bleach.clean(
+        selling_url, tags=['a'], attributes={'a': ['href']}, styles=[],
         strip=True, strip_comments=True)
 
     # HitCount if available (only GetItem, not GetMyeBaySelling)
@@ -186,10 +186,10 @@ def create_ebay_online_selling_item(listing, item_code=None,
         'end_datetime': end_datetime,
         'title': listing['Title'],
         'ebay_listing_duration': duration_description,
-        'ebay_watch_count': listing.get('WatchCount', 0),
-        'ebay_question_count': listing.get('QuestionCount', 0),
+        'ebay_watch_count': int(listing.get('WatchCount', 0)),
+        'ebay_question_count': int(listing.get('QuestionCount', 0)),
         'ebay_hit_count': hit_count,
-        'website_link': web_link}
+        'selling_url': selling_url}
 
     # If we have been given an item code, add doctype/parent fields to allow
     # direct insertion into the database, and create the document
