@@ -10,7 +10,7 @@ from types import MethodType
 import six
 import frappe
 from frappe import msgprint, _
-from frappe.utils import cstr
+from frappe.utils import cstr, strip_html
 
 from ebay_requests import get_orders, default_site_id
 from ebay_constants import EBAY_TRANSACTION_SITE_IDS
@@ -731,8 +731,15 @@ def create_sales_invoice(order_dict, order, changes):
         sum_vat += vat * qty
         sum_paid += inc_vat * qty
 
+        # Get item description in case it is empty, and we need to insert
+        # filler text to avoid MandatoryError
+        description = frappe.get_value('Item', sku, 'description')
+        if not strip_html(cstr(description)).strip():
+            description = '(no item description)'
+
         item_list.append({
                 "item_code": sku,
+                "description": description,
                 "warehouse": "Mamhilad - URTL",
                 "qty": qty,
                 "rate": exc_vat,
@@ -756,6 +763,7 @@ def create_sales_invoice(order_dict, order, changes):
 
         item_list.append({
             "item_code": SHIPPING_ITEM,
+            "description": "Shipping costs (from eBay)",
             "warehouse": "Mamhilad - URTL",
             "qty": 1.0,
             "rate": exc_vat,
