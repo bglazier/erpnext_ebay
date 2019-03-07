@@ -7,6 +7,8 @@ import sys
 import six
 import operator
 
+from datetime import datetime, timedelta
+
 if six.PY2:
     from collections import Sequence
 else:
@@ -100,8 +102,12 @@ def convert_to_unicode(obj):
         return obj
 
 
-def get_orders(site_id=default_site_id):
-    """Returns a list of recent orders from the eBay TradingAPI"""
+def get_orders():
+    """Returns a list of recent orders from the eBay TradingAPI.
+
+    This list is NOT filtered by a siteid as the API call does not filter
+    by siteid.
+    """
 
     num_days = frappe.db.get_value(
         'eBay Manager Settings', filters=None, fieldname='ebay_sync_days')
@@ -118,12 +124,16 @@ def get_orders(site_id=default_site_id):
     try:
         # Initialize TradingAPI; default timeout is 20.
 
+        # Always use the US site for GetOrders as it returns fields we need
+        # (which the UK site, for example, doesn't) and it doesn't filter by
+        # siteID anyway
         api = Trading(config_file=PATH_TO_YAML,
-                      siteid=site_id, warnings=True, timeout=20)
+                      siteid=0, warnings=True, timeout=20)
+
         while True:
             # TradingAPI results are paginated, so loop until
             # all pages have been obtained
-            api.execute('Get Orders', {
+            api.execute('GetOrders', {
                 'NumberOfDays': num_days,
                 'Pagination': {
                     'EntriesPerPage': 50,
@@ -133,7 +143,10 @@ def get_orders(site_id=default_site_id):
             orders_api = api.response.dict()
             test_for_message(orders_api)
 
-            if int(orders_api['ReturnedOrderCountActual']) > 0:
+            n_orders = int(orders_api['ReturnedOrderCountActual'])
+            if n_orders == 1:
+                orders.append(orders_api['OrderArray']['Order'])
+            elif n_orders > 0:
                 orders.extend(orders_api['OrderArray']['Order'])
             if orders_api['HasMoreOrders'] == 'false':
                 break
@@ -224,7 +237,12 @@ def get_listings(listings_type='Summary', api_options=None,
                 listings = (
                     listings_api[field] if field in listings_api else None)
             else:
-                listings.extend(listings_api[listings_type][field][array])
+                entries = listings_api[listings_type][field][array]
+                # Check for single (non-list) entry
+                if isinstance(entries, Sequence):
+                    listings.extend(entries)
+                else:
+                    listings.append(entries)
 
             # If we are on the last page or there are no pages, break.
             if page >= (n_pages or 0):
@@ -239,6 +257,89 @@ def get_listings(listings_type='Summary', api_options=None,
         listings = convert_to_unicode(listings)
 
     return listings, summary
+
+
+def get_seller_list(item_codes=None, site_id=default_site_id):
+    """Runs GetSellerList to obtain a list of items."""
+
+    # Create eBay acceptable datetime stamps for EndTimeTo and EndTimeFrom
+    end_from = datetime.utcnow().isoformat()[:-3] + 'Z'
+    end_to = (datetime.utcnow() + timedelta(days=119)).isoformat()[:-3] + 'Z'
+
+    listings = []
+
+    try:
+        # Initialize TradingAPI; default timeout is 20.
+
+        api = Trading(config_file=PATH_TO_YAML,
+                      siteid=site_id, warnings=True, timeout=20)
+
+        page = 1
+        while True:
+            # TradingAPI results are paginated, so loop until
+            # all pages have been obtained
+            api.execute('GetSellerList', {
+                'SKUArray': {'SKU': item_codes},
+                'EndTimeTo': end_to,
+                'EndTimeFrom': end_from,
+                'Pagination': {
+                    'EntriesPerPage': 50,
+                    'PageNumber': page}
+                })
+
+            listings_api = api.response.dict()
+            test_for_message(listings_api)
+
+            n_listings = int(listings_api['ReturnedItemCountActual'])
+            if n_listings == 1:
+                listings.append(listings_api['ItemArray']['Item'])
+            elif int(listings_api['ReturnedItemCountActual']) > 0:
+                listings.extend(listings_api['ItemArray']['Item'])
+            if listings_api['HasMoreItems'] == 'false':
+                break
+            page += 1
+
+    except ConnectionError as e:
+        handle_ebay_error(e)
+
+    if six.PY2:
+        # Convert all strings to unicode
+        listings = convert_to_unicode(listings)
+
+    return listings
+
+
+def get_item(item_id=None, item_code=None, site_id=default_site_id):
+    """Returns a single listing from the eBay TradingAPI."""
+
+    if not (item_code or item_id):
+        raise ValueError('No item_code or item_id passed to get_item!')
+
+    api_dict = {'IncludeWatchCount': True}
+    if item_code:
+        api_dict['SKU'] = item_code
+    if item_id:
+        api_dict['ItemID'] = item_id
+
+    try:
+        # Initialize TradingAPI; default timeout is 20.
+
+        api = Trading(config_file=PATH_TO_YAML,
+                      siteid=site_id, warnings=True, timeout=20)
+
+        api.execute('GetItem', api_dict)
+
+        listing = api.response.dict()
+        test_for_message(listing)
+
+    except ConnectionError as e:
+        handle_ebay_error(e)
+
+    if six.PY2:
+        # Convert all strings to unicode
+        listing = convert_to_unicode(listing)
+
+    return listing['Item']
 
 
 def get_categories_versions(site_id=default_site_id):

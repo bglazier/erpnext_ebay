@@ -12,7 +12,8 @@ import frappe
 from frappe import msgprint, _
 from frappe.utils import cstr
 
-from ebay_requests import get_orders
+from ebay_requests import get_orders, default_site_id
+from ebay_constants import EBAY_TRANSACTION_SITE_IDS
 
 # Option to use eBay shipping address name as customer name.
 # eBay does not normally provide buyer name.
@@ -68,9 +69,11 @@ def debug_msgprint(message):
 
 
 @frappe.whitelist()
-def sync():
+def sync(site_id=None):
     """
     Pulls the latest orders from eBay. Creates Sales Invoices for sold items.
+    By default (site_id = None or -1), checks orders from all eBay sites.
+    If site_id is specified, only orders from that site are used.
 
     We loop over each order in turn. First we extract customer
     details from eBay. If the customer does not exist, we then create
@@ -89,6 +92,12 @@ def sync():
     order. If a more serious exception occurs, then we rollback the
     database but we only continue if continue_on_error is true.
     """
+
+    if site_id is None or int(site_id) == -1:
+        ebay_site_id = None
+    else:
+        site_id = int(site_id)
+        ebay_site_id = EBAY_TRANSACTION_SITE_IDS[site_id]
 
     # This is a whitelisted function; check permissions.
     if not frappe.has_permission('eBay Manager'):
@@ -109,6 +118,14 @@ def sync():
     try:
         for order in orders:
             try:
+                # Check if this is on the correct eBay site.
+                site_id_order = order[
+                    'TransactionArray']['Transaction'][0]['TransactionSiteID']
+                if (ebay_site_id is not None
+                        and site_id_order != ebay_site_id):
+                    # Not from this site_id - skip
+                    continue
+
                 # Create/update Customer
                 cust_details, address_details = extract_customer(order)
                 create_customer(cust_details, address_details, changes)
@@ -559,8 +576,7 @@ def create_ebay_order(order_dict, changes, order):
 
 def create_sales_invoice(order_dict, order, changes):
     """
-    #TODO if exists then update.  si = frappe.db.get_value("Sales Invoice",
-     {"ebay_order_id": ebay_order.get("id")}, "name")
+    Create a Sales Invoice from the eBay order.
     """
     updated_db = False
 
@@ -677,11 +693,6 @@ def create_sales_invoice(order_dict, order, changes):
         #VATTax	Residence in a country with VAT and user is not registered as VAT-exempt
         #vat_status = transaction['Buyer']['VATStatus']
 
-        #transaction_id = transaction['TransactionID']
-        #item_title = transaction['Item']['Title']
-
-        #actual_shipping_cost = 0.0  # transaction['ActualShippingCost']
-        # TODO create a line for any additional shipping costs
         shipping_cost_dict = transaction['ActualShippingCost']
         handling_cost_dict = transaction['ActualHandlingCost']
         if shipping_cost_dict['_currencyID'] == 'GBP':

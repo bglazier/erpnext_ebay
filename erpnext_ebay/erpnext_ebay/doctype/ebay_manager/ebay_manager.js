@@ -6,10 +6,10 @@ frappe.ui.form.on('eBay Manager', {
         frappe.call({
             method: "erpnext_ebay.sync_orders.sync",
             args: {
-                site_id: 3
+                site_id: -1
             },
             freeze: true,
-            freeze_message: "Syncing eBay UK customers and orders; this may take some time..."
+            freeze_message: "Syncing eBay customers and orders; this may take some time..."
         });
     },
 
