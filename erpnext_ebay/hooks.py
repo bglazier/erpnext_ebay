@@ -109,6 +109,10 @@ doc_events = {
     "Sales Invoice": {
         "before_insert":
             "erpnext_ebay.custom_methods.sales_invoice_methods.sales_invoice_before_insert"
+    },
+    "Item": {
+        "onload":
+            "erpnext_ebay.custom_methods.item_methods.item_onload"
     }
 }
 
