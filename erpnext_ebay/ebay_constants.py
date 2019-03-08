@@ -8,6 +8,54 @@ EBAY_ATTR_LEN_STR = str(EBAY_ATTR_LEN)
 EBAY_VALUE_LEN = 1000
 EBAY_VALUE_LEN_STR = str(EBAY_VALUE_LEN)
 
+# eBay Site IDs
+EBAY_SITE_IDS = {0: 'US',
+                 2: 'Canada (English)',
+                 3: 'UK',
+                 15: 'Australia',
+                 16: 'Austria',
+                 23: 'Belgium (French)',
+                 71: 'France',
+                 77: 'Germany',
+                 100: 'Motors',
+                 101: 'Italy',
+                 123: 'Belgium (Dutch)',
+                 146: 'Netherlands',
+                 186: 'Spain',
+                 193: 'Switzerland',
+                 201: 'Hong Kong',
+                 203: 'India',
+                 205: 'Ireland',
+                 207: 'Malaysia',
+                 210: 'Canada (French)',
+                 211: 'Philippines',
+                 212: 'Poland',
+                 216: 'Singapore'}
+
+EBAY_TRANSACTION_SITE_IDS = {0: 'US',
+                             2: 'Canada',
+                             3: 'UK',
+                             15: 'Australia',
+                             16: 'Austria',
+                             23: 'Belgium_French',
+                             71: 'France',
+                             77: 'Germany',
+                             100: 'eBayMotors',
+                             101: 'Italy',
+                             123: 'Belgium_Dutch',
+                             146: 'Netherlands',
+                             186: 'Spain',
+                             193: 'Switzerland',
+                             201: 'HongKong',
+                             203: 'India',
+                             205: 'Ireland',
+                             207: 'Malaysia',
+                             210: 'CanadaFrench',
+                             211: 'Phillipines',
+                             212: 'Poland',
+                             215: 'Russia',
+                             216: 'Singapore'}
+
 # eBay PaymentMethods and their descriptions
 PAYMENT_METHODS = {'AmEx': 'American Express',
                    'CashInPerson': 'Cash in person (US/CA Motors only)',
@@ -116,6 +164,7 @@ LISTING_DURATION_TOKEN_DICT = {
 del low_num, days, tokens, descriptions
 
 MAX_AUTOPAY_PRICE = 2500.0
+
 
 @frappe.whitelist()
 def get_ebay_constants():

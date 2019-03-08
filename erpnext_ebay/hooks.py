@@ -25,7 +25,22 @@ app_license = "MIT"
         #"filters": {
             #"name": ["in", ("Receipt of Goods-default_print_format",)]}}
 #]
-
+fixtures = [
+    {
+        "doctype": "Online Selling Platform",
+        "filters": {"name": "eBay"}
+    },
+    {
+        "doctype": "Online Selling Subtype",
+        "filters": {"name": ["LIKE", ("eBay%")]}
+    },
+    {
+        "doctype": "Role",
+        "filters": {
+            "name": "eBay Administrator"
+        }
+    }
+    ]
 # Add custom scripts
 doctype_js = {
     "Item": "custom_scripts/item.js"
@@ -94,6 +109,10 @@ doc_events = {
     "Sales Invoice": {
         "before_insert":
             "erpnext_ebay.custom_methods.sales_invoice_methods.sales_invoice_before_insert"
+    },
+    "Item": {
+        "onload":
+            "erpnext_ebay.custom_methods.item_methods.item_onload"
     }
 }
 

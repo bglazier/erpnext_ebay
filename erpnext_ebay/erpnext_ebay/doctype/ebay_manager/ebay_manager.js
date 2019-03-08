@@ -2,35 +2,49 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on('eBay Manager', {
-    sync_orders_button: function(frm) {
+    sync_orders_button(frm) {
         frappe.call({
             method: "erpnext_ebay.sync_orders.sync",
-            args: {},
+            args: {
+                site_id: -1
+            },
             freeze: true,
             freeze_message: "Syncing eBay customers and orders; this may take some time..."
         });
     },
 
-    sync_categories_button: function(frm) {
+    sync_listings_button(frm) {
+        frappe.call({
+            method: "erpnext_ebay.sync_listings.sync",
+            args: {
+                site_id: 3
+            },
+            freeze: true,
+            freeze_message: "Syncing eBay UK listings; this may take some time..."
+        });
+    },
+
+    sync_categories_button(frm) {
         frappe.call({
             method: "erpnext_ebay.ebay_categories.category_sync",
             args: {
+                site_id: 3,
                 force_override_categories: true,
                 force_override_features: true
             },
             freeze: true,
-            freeze_message: "Loading eBay categories; this may take some time..."
+            freeze_message: "Loading eBay UK categories; this may take some time..."
         });
     },
 
-    sync_prices_button: function(frm) {
+    sync_prices_button(frm) {
         frappe.call({
             method: "erpnext_ebay.ebay_price_sync.price_sync",
-            args: {}
+            args: {},
         });
     },
 
-    create_garagesale_button: function(frm) {
+    create_garagesale_button(frm) {
         //var r == (confirm('Have you relisted ended eBay listings?')) 
         //if (r == true){
         frappe.call({

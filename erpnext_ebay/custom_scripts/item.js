@@ -3,20 +3,31 @@
 // Auto create slideshow
 frappe.ui.form.on("Item", {
 
-    auto_create_slideshow: function(frm, cdt, cdn) {
+//     onload_post_render(frm, doctype, docname) {
+//         console.log('refresh');
+//         console.log('frm: ', frm)
+//         console.log('frm.fields_dict: ', frm.fields_dict);
+//         console.log('frm.fields_dict["online_selling_items"]: ', frm.fields_dict['online_selling_items']);
+//         const field = frm.get_field('online_selling_items');
+//         console.log('field: ', field);
+//         console.log('field.grid: ', field.grid);
+//         field.grid.only_sortable(true);
+//         //field.grid.sortable_status = false;
+//         //field.grid.static_rows = true;
+//     },
+
+    auto_create_slideshow(frm, doctype, docname) {
         // Save document before auto creating slideshow
         frm.save("Save",
             function(r) { 
-                //_auto_create_slideshow(frm, cdt, cdn);
                 frappe.ui.form.trigger('Item', '_auto_create_slideshow');
             }
         );
     },
 
+    _auto_create_slideshow(frm, doctype, docname) {
 
-    _auto_create_slideshow: function(frm, cdt, cdn) {
-
-        const item_code = cdn;
+        const item_code = docname;
 
         // Create the dialog
         const d = new frappe.ui.Dialog({
@@ -84,9 +95,8 @@ frappe.ui.form.on("Item", {
         }, 100); // check every 100ms
     },
 
-
     // View slideshow
-    view_slideshow: function(frm, cdt, cdn) {
+    view_slideshow(frm, doctype, docname) {
         const base_url = frappe.urllib.get_base_url();
 
         if (frm.doc.slideshow) {
@@ -131,7 +141,7 @@ frappe.ui.form.on("Item", {
                         let in_row = 0;
                         for (let i = 0; i < r.message.length; i++) {
                             let img = r.message[i];
-                            if (in_row == 2) {
+                            if (in_row === 2) {
                                 html += '</div><div class="row">';
                                 in_row = 0;
                             }

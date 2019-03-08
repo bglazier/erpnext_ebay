@@ -4,8 +4,10 @@ from __future__ import print_function
 
 import os
 import sys
-import six
 import operator
+import six
+
+from datetime import datetime, timedelta
 
 if six.PY2:
     from collections import Sequence
@@ -21,7 +23,7 @@ from ebaysdk.trading import Connection as Trading
 PATH_TO_YAML = os.path.join(
     os.sep, frappe.utils.get_bench_path(), 'sites', frappe.get_site_path(), 'ebay.yaml')
 
-siteid = 3  # eBay site id: 0=US, 3=UK
+default_site_id = 3  # eBay site id: 0=US, 3=UK
 
 
 def handle_ebay_error(e):
@@ -101,10 +103,12 @@ def convert_to_unicode(obj):
 
 
 def get_orders():
-    """Returns a list of recent orders from the Ebay TradingAPI"""
+    """Returns a list of recent orders from the eBay TradingAPI.
 
-    orders = []
-    page = 1
+    This list is NOT filtered by a siteid as the API call does not filter
+    by siteid.
+    """
+
     num_days = frappe.db.get_value(
         'eBay Manager Settings', filters=None, fieldname='ebay_sync_days')
 
@@ -114,21 +118,35 @@ def get_orders():
     except TypeError:
         raise ValueError('Invalid type in ebay_sync_days')
 
+    orders = []
+    page = 1
+
     try:
         # Initialize TradingAPI; default timeout is 20.
 
-        api = Trading(config_file=PATH_TO_YAML, warnings=True, timeout=20)
+        # Always use the US site for GetOrders as it returns fields we need
+        # (which the UK site, for example, doesn't) and it doesn't filter by
+        # siteID anyway
+        api = Trading(config_file=PATH_TO_YAML,
+                      siteid=0, warnings=True, timeout=20)
+
         while True:
             # TradingAPI results are paginated, so loop until
             # all pages have been obtained
-            api.execute('GetOrders', {'NumberOfDays': num_days,
-                                      'Pagination': {'EntriesPerPage': 50,
-                                                     'PageNumber': page}})
+            api.execute('GetOrders', {
+                'NumberOfDays': num_days,
+                'Pagination': {
+                    'EntriesPerPage': 50,
+                    'PageNumber': page}
+                })
 
             orders_api = api.response.dict()
             test_for_message(orders_api)
 
-            if int(orders_api['ReturnedOrderCountActual']) > 0:
+            n_orders = int(orders_api['ReturnedOrderCountActual'])
+            if n_orders == 1:
+                orders.append(orders_api['OrderArray']['Order'])
+            elif n_orders > 0:
                 orders.extend(orders_api['OrderArray']['Order'])
             if orders_api['HasMoreOrders'] == 'false':
                 break
@@ -144,40 +162,187 @@ def get_orders():
     return orders, num_days
 
 
-''''
-def get_order_transactions(order_id):
-    """get_order_transactions"""
+def get_listings(listings_type='Summary', api_options=None,
+                 api_inner_options=None, site_id=default_site_id):
+    """Returns a list of listings from the eBay TradingAPI."""
 
-    orders = []
+    INNER_PAGINATE = ('ActiveList', 'ScheduledList', 'SoldList', 'UnsoldList')
+    RESPONSE_FIELDS = {
+        'ActiveList': ('ItemArray', 'Item'),
+        'DeletedFromSoldList': ('OrderTransactionArray', 'OrderTransaction'),
+        'DeletedFromUnsoldList': ('ItemArray', 'Item'),
+        'ScheduledList': ('ItemArray', 'Item'),
+        'SellingSummary': ('SellingSummary', None),
+        'SoldList': ('OrderTransactionArray', 'OrderTransaction'),
+        'UnsoldList': ('ItemArray', 'Item'),
+        'Summary': (None, None)}
 
-    order_trans = None
-    order_trans = []
+    if api_options and listings_type in api_options:
+        raise ValueError('Set listing type and inner options separately!')
+
+    listings = []
+    page = 1
+    n_pages = None
+
+    if api_options is None:
+        api_options = {}
+
+    if api_inner_options is None:
+        api_inner_options = {}
+
+    if listings_type != 'Summary':
+        # Summary is not a real option, just a placeholder to get summary
+        # information.
+        api_inner_options['Include'] = True
+
+        api_options[listings_type] = api_inner_options
 
     try:
+        # Initialize TradingAPI; default timeout is 20.
 
-        api = Trading(config_file=PATH_TO_YAML, warnings=True, timeout=20)
-
+        api = Trading(config_file=PATH_TO_YAML,
+                      siteid=site_id, warnings=True, timeout=20)
         while True:
+            # TradingAPI results are often paginated, so loop until
+            # all pages have been obtained
+            if listings_type in INNER_PAGINATE:
+                api_options[listings_type]['Pagination'] = {
+                    'EntriesPerPage': 50, 'PageNumber': page}
 
-            api.execute('GetOrderTransactions', {'OrderID': order_id})
-            order_trans_api = api.response.dict()
-            test_for_message(orders_trans_api)
+            api.execute('GetMyeBaySelling', api_options)
 
-            #if int(order_trans_api['ReturnedOrderCountActual']) > 0:
-            orders.extend(order_trans_api['TransactionArray']) #['OrderTransactions'])
+            listings_api = api.response.dict()
+            test_for_message(listings_api)
 
+            # If appropriate on our first time around, find the total
+            # number of pages.
+            if n_pages is None:
+                # Get Summary if it exists
+                if 'Summary' in listings_api:
+                    summary = listings_api['Summary']
+                else:
+                    summary = None
+                if listings_type in INNER_PAGINATE:
+                    n_pages = int(
+                        (listings_api[listings_type]
+                         ['PaginationResult']['TotalNumberOfPages']))
+                print('n_pages = ', n_pages)
+            print('page {} / {}'.format(page, n_pages))
+
+            # Locate the appropriate results
+            field, array = RESPONSE_FIELDS[listings_type]
+            if field is None:
+                listings = listings_api
+            elif array is None:
+                listings = (
+                    listings_api[field] if field in listings_api else None)
+            else:
+                entries = listings_api[listings_type][field][array]
+                # Check for single (non-list) entry
+                if isinstance(entries, Sequence):
+                    listings.extend(entries)
+                else:
+                    listings.append(entries)
+
+            # If we are on the last page or there are no pages, break.
+            if page >= (n_pages or 0):
+                break
+            page += 1
 
     except ConnectionError as e:
-        print(e)
-        print(e.response.dict())
-        raise e
+        handle_ebay_error(e)
+
+    if six.PY2:
+        # Convert all strings to unicode
+        listings = convert_to_unicode(listings)
+
+    return listings, summary
 
 
-    return order_trans
-'''
+def get_seller_list(item_codes=None, site_id=default_site_id):
+    """Runs GetSellerList to obtain a list of items."""
+
+    # Create eBay acceptable datetime stamps for EndTimeTo and EndTimeFrom
+    end_from = datetime.utcnow().isoformat()[:-3] + 'Z'
+    end_to = (datetime.utcnow() + timedelta(days=119)).isoformat()[:-3] + 'Z'
+
+    listings = []
+
+    try:
+        # Initialize TradingAPI; default timeout is 20.
+
+        api = Trading(config_file=PATH_TO_YAML,
+                      siteid=site_id, warnings=True, timeout=20)
+
+        page = 1
+        while True:
+            # TradingAPI results are paginated, so loop until
+            # all pages have been obtained
+            api.execute('GetSellerList', {
+                'SKUArray': {'SKU': item_codes},
+                'EndTimeTo': end_to,
+                'EndTimeFrom': end_from,
+                'Pagination': {
+                    'EntriesPerPage': 50,
+                    'PageNumber': page}
+                })
+
+            listings_api = api.response.dict()
+            test_for_message(listings_api)
+
+            n_listings = int(listings_api['ReturnedItemCountActual'])
+            if n_listings == 1:
+                listings.append(listings_api['ItemArray']['Item'])
+            elif int(listings_api['ReturnedItemCountActual']) > 0:
+                listings.extend(listings_api['ItemArray']['Item'])
+            if listings_api['HasMoreItems'] == 'false':
+                break
+            page += 1
+
+    except ConnectionError as e:
+        handle_ebay_error(e)
+
+    if six.PY2:
+        # Convert all strings to unicode
+        listings = convert_to_unicode(listings)
+
+    return listings
 
 
-def get_categories_versions():
+def get_item(item_id=None, item_code=None, site_id=default_site_id):
+    """Returns a single listing from the eBay TradingAPI."""
+
+    if not (item_code or item_id):
+        raise ValueError('No item_code or item_id passed to get_item!')
+
+    api_dict = {'IncludeWatchCount': True}
+    if item_code:
+        api_dict['SKU'] = item_code
+    if item_id:
+        api_dict['ItemID'] = item_id
+
+    try:
+        # Initialize TradingAPI; default timeout is 20.
+
+        api = Trading(config_file=PATH_TO_YAML,
+                      siteid=site_id, warnings=True, timeout=20)
+
+        api.execute('GetItem', api_dict)
+
+        listing = api.response.dict()
+        test_for_message(listing)
+
+    except ConnectionError as e:
+        handle_ebay_error(e)
+
+    if six.PY2:
+        # Convert all strings to unicode
+        listing = convert_to_unicode(listing)
+
+    return listing['Item']
+
+
+def get_categories_versions(site_id=default_site_id):
     """Load the version number of the current eBay categories
     and category features.
     """
@@ -185,7 +350,7 @@ def get_categories_versions():
     try:
         # Initialize TradingAPI; default timeout is 20.
         api = Trading(config_file=PATH_TO_YAML,
-                      siteid=siteid, warnings=True, timeout=20)
+                      siteid=site_id, warnings=True, timeout=20)
 
         response1 = api.execute('GetCategories', {'LevelLimit': 1,
                                                   'ViewAllNodes': False})
@@ -203,16 +368,16 @@ def get_categories_versions():
     return (categories_version, features_version)
 
 
-def get_categories():
+def get_categories(site_id=default_site_id):
     """Load the eBay categories for the categories cache."""
 
     try:
         # Initialize TradingAPI; default timeout is 20.
         api = Trading(config_file=PATH_TO_YAML,
-                      siteid=siteid, warnings=True, timeout=60)
+                      siteid=site_id, warnings=True, timeout=60)
 
         response = api.execute('GetCategories', {'DetailLevel': 'ReturnAll',
-                                                 'ViewAllNodes': True})
+                                                 'ViewAllNodes': 'true'})
 
     except ConnectionError as e:
         handle_ebay_error(e)
@@ -261,13 +426,13 @@ def get_categories():
     return categories_data, max_level
 
 
-def get_features():
+def get_features(site_id=default_site_id):
     """Load the eBay category features for the features cache."""
 
     try:
         # Initialize TradingAPI; default timeout is 20.
-        api = Trading(domain='api.sandbox.ebay.com', config_file=PATH_TO_YAML,
-                      siteid=siteid, warnings=True, timeout=60)
+        api = Trading(config_file=PATH_TO_YAML,
+                      siteid=site_id, warnings=True, timeout=60)
 
     except ConnectionError as e:
         handle_ebay_error(e)
@@ -311,7 +476,7 @@ def get_features():
                                                     category_id))
         options = {'CategoryID': category_id,
                    'DetailLevel': 'ReturnAll',
-                   'ViewAllNodes': True}
+                   'ViewAllNodes': 'true'}
         # BEGIN DUBIOUS WORKAROUND
         # Only look at the top level for this category
         if category_id in problematic_categories:
@@ -392,19 +557,19 @@ def get_features():
     return features_version, features_data
 
 
-def GeteBayDetails():
-    """Perform a GeteBayDetails call and save the output in geteBayDetails.txt
-    in the site root directory
-    """
-    filename = os.path.join(frappe.utils.get_site_path(),
-                            'GeteBayDetails.txt')
+def get_eBay_details(site_id=default_site_id, detail_name=None):
+    """Perform a GeteBayDetails call."""
 
     try:
         # Initialize TradingAPI; default timeout is 20.
-        api = Trading(domain='api.sandbox.ebay.com', config_file=PATH_TO_YAML,
-                      siteid=siteid, warnings=True, timeout=20)
+        api = Trading(config_file=PATH_TO_YAML,
+                      siteid=site_id, warnings=True, timeout=20)
 
-        response = api.execute('GeteBayDetails', {})
+        api_options = {}
+        if detail_name is not None:
+            api_options['DetailName'] = detail_name
+
+        response = api.execute('GeteBayDetails', api_options)
 
     except ConnectionError as e:
         handle_ebay_error(e)
@@ -412,18 +577,64 @@ def GeteBayDetails():
     response_dict = response.dict()
     test_for_message(response_dict)
 
+    if six.PY2:
+        # Convert all strings to unicode
+        response_dict = convert_to_unicode(response_dict)
+
+    return response_dict
+
+
+def get_eBay_details_to_file(site_id=default_site_id):
+    """Perform a GeteBayDetails call and save the output in geteBayDetails.txt
+    in the site root directory
+    """
+    filename = os.path.join(frappe.utils.get_site_path(),
+                            'GeteBayDetails.txt')
+
+    response_dict = get_eBay_details(site_id)
+
     with open(filename, 'wt') as f:
         f.write(repr(response_dict))
 
     return None
 
 
-#def verify_add_item(listing_dict):
+def get_shipping_details(site_id=default_site_id):
+    """Cache the eBay Shipping Details entries."""
+    cache_key = 'eBayShippingDetails_{}'.format(site_id)
+    shipping_details = frappe.cache().get_value(cache_key)
+    if shipping_details is not None:
+        timestamp = shipping_details['Timestamp'][0:-5]
+        cache_date = datetime.strptime(timestamp, '%Y-%m-%dT%H:%M:%S')
+        age = (datetime.utcnow() - cache_date).days
+        if age == 0:
+            # Our cache is still acceptable
+            return shipping_details
+    # Either there is no cache, or it is out of date
+    # Get a new entry
+    shipping_details = get_eBay_details(
+        site_id=site_id, detail_name='ShippingServiceDetails')
+
+    # Calculate shipping name translation table
+    shipping_option_dict = {}
+    for shipping_option in shipping_details['ShippingServiceDetails']:
+        shipping_option_dict[shipping_option['ShippingService']] = (
+            shipping_option['Description'])
+
+    shipping_details['ShippingOptionDescriptions'] = shipping_option_dict
+
+    # Store the new values in the cache and return
+    frappe.cache().set_value(cache_key, shipping_details)
+
+    return shipping_details
+
+
+#def verify_add_item(listing_dict, site_id=default_site_id):
     #"""Perform a VerifyAddItem call, and return useful information"""
 
     #try:
         #api = Trading(domain='api.sandbox.ebay.com', config_file=PATH_TO_YAML,
-                      #siteid=siteid, warnings=True, timeout=20)
+                      #siteid=site_id, warnings=True, timeout=20)
 
         #response = api.execute('VerifyAddItem', listing_dict)
 
