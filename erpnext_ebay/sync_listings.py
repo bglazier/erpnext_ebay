@@ -2,14 +2,22 @@
 from __future__ import unicode_literals
 from __future__ import print_function
 
-import bleach
+import operator
 from datetime import datetime, timedelta
+import six
 
 import pytz
+import bleach
+
 import frappe
 
-from ebay_requests import get_listings, default_site_id
+from ebay_requests import get_listings, default_site_id, get_shipping_details
 from ebay_constants import LISTING_DURATION_TOKEN_DICT
+
+if six.PY2:
+    from collections import Sequence
+else:
+    from collections.abc import Sequence
 
 
 def get_active_listings():
@@ -38,6 +46,112 @@ def get_subtype_dicts(site_id):
     subtype_tax_dict = {x['name']: x['tax_rate'] for x in subtypes}
 
     return subtype_dict, subtype_tax_dict
+
+
+def format_shipping_options(options, shipping_option_descriptions):
+    """Format a single dict or a list of dicts of shipping options.
+    Accepts ShippingServiceOption and InternationalShippingServiceOption types.
+    """
+    return_list = []
+    # If there is only one option, wrap in a list
+    if not isinstance(options, Sequence):
+        options = [options]
+
+    # Sort options by priority
+    for option in options:
+        if 'ShippingServicePriority' not in option:
+            option['ShippingServicePriority'] = 9999
+    options.sort(key=operator.itemgetter('ShippingServicePriority'))
+
+    # Format options for display
+    for option in options:
+        shipping_code = option['ShippingService']
+        extra_opts = []
+        if option.get('FreeShipping', False):
+            extra_opts.append('Free Shipping')
+        if option.get('ExpeditedService', False):
+            extra_opts.append('Expedited Service')
+        if 'ShipToLocation' in option:
+            extra_opts.append('Ships to: {}'.format(option['ShipToLocation']))
+        extra_opt_text = (' ({})'.format(', '.join(extra_opts))
+                          if extra_opts else '')
+        # Shipping cost
+        shipping_cost = option.get('ShippingServiceCost', None)
+        if shipping_cost is not None:
+            amount = shipping_cost['value']
+            currency = shipping_cost['_currencyID']
+            cost = frappe.utils.data.fmt_money(amount, currency=currency)
+            cost = cost.replace(' ', '&nbsp;')
+        else:
+            cost = '(uncalculated cost)'
+        # Shipping costs for additional items
+        addt_ship_cost = option.get(
+            'ShippingServiceAdditionalCost', None)
+        if addt_ship_cost is not None:
+            amount = addt_ship_cost['value']
+            currency = addt_ship_cost['_currencyID']
+            addt_cost = ' (extra cost per additional item: {})'.format(
+                frappe.utils.data.fmt_money(amount, currency=currency))
+            addt_cost = addt_cost.replace(' ', '&nbsp;')
+        else:
+            addt_cost = ''
+        # Delivery time
+        if 'ShippingTimeMin' in option or 'ShippingTimeMax' in option:
+            min_days = option.get('ShippingTimeMin', '?')
+            max_days = option.get('ShippingTimeMax', '?')
+            if min_days == max_days:
+                days = ' ({} day delivery)'.format(max_days)
+            else:
+                days = ' ({} - {} days delivery)'.format(min_days, max_days)
+        else:
+            days = ''
+        # Construct text for option
+        text = "{desc}{extra}: {cost}{addt_cost}{days}".format(
+            desc=shipping_option_descriptions[shipping_code],
+            extra=extra_opt_text, cost=cost, addt_cost=addt_cost,
+            days=days)
+
+        return_list.append(text)
+
+    return return_list
+
+
+def format_shipping_services(site_id, shipping):
+    """Create a formatted string detailing the different
+    shipping services available.
+    """
+
+    shipping_strings = []
+
+    shipping_details = get_shipping_details(site_id=site_id)
+    shipping_option_descriptions = shipping_details[
+        'ShippingOptionDescriptions']
+
+    # Standard shipping services
+    shipping_strings.append('Standard shipping services (priority order):')
+    if 'ShippingServiceOptions' in shipping:
+        shipping_strings.extend(
+            format_shipping_options(shipping['ShippingServiceOptions'],
+                                    shipping_option_descriptions))
+    else:
+        shipping_strings.append('No standard shipping services found')
+
+    # International shipping options
+    shipping_strings.append(
+        '\nInternational shipping services (priority order):')
+
+    if 'InternationalShippingServiceOption' in shipping:
+        shipping_strings.extend(
+            format_shipping_options(
+                shipping['InternationalShippingServiceOption'],
+                shipping_option_descriptions))
+    else:
+        shipping_strings.append('No international shipping services found')
+
+    shipping_strings.append('\nSome services may not be available for selection'
+                            + ' and can have incorrect prices.')
+
+    return '\n'.join(shipping_strings)
 
 
 @frappe.whitelist()
@@ -172,6 +286,10 @@ def create_ebay_online_selling_item(listing, item_code=None,
     qty_listed = int(listing['Quantity'])
     qty_sold = int(listing['SellingStatus'].get('QuantitySold', 0))
 
+    # Get formatted shipping string
+    shipping_string = format_shipping_services(
+        site_id, listing['ShippingDetails'])
+
     # Create listing
     new_listing = {
         'selling_platform': 'eBay',
@@ -189,7 +307,8 @@ def create_ebay_online_selling_item(listing, item_code=None,
         'ebay_watch_count': int(listing.get('WatchCount', 0)),
         'ebay_question_count': int(listing.get('QuestionCount', 0)),
         'ebay_hit_count': hit_count,
-        'selling_url': selling_url}
+        'selling_url': selling_url,
+        'shipping_options': shipping_string}
 
     # If we have been given an item code, add doctype/parent fields to allow
     # direct insertion into the database, and create the document

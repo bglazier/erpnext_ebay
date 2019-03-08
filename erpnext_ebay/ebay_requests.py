@@ -4,8 +4,8 @@ from __future__ import print_function
 
 import os
 import sys
-import six
 import operator
+import six
 
 from datetime import datetime, timedelta
 
@@ -431,7 +431,7 @@ def get_features(site_id=default_site_id):
 
     try:
         # Initialize TradingAPI; default timeout is 20.
-        api = Trading(domain='api.sandbox.ebay.com', config_file=PATH_TO_YAML,
+        api = Trading(config_file=PATH_TO_YAML,
                       siteid=site_id, warnings=True, timeout=60)
 
     except ConnectionError as e:
@@ -557,19 +557,19 @@ def get_features(site_id=default_site_id):
     return features_version, features_data
 
 
-def get_eBay_details(site_id=default_site_id):
-    """Perform a GeteBayDetails call and save the output in geteBayDetails.txt
-    in the site root directory
-    """
-    filename = os.path.join(frappe.utils.get_site_path(),
-                            'GeteBayDetails.txt')
+def get_eBay_details(site_id=default_site_id, detail_name=None):
+    """Perform a GeteBayDetails call."""
 
     try:
         # Initialize TradingAPI; default timeout is 20.
-        api = Trading(domain='api.sandbox.ebay.com', config_file=PATH_TO_YAML,
+        api = Trading(config_file=PATH_TO_YAML,
                       siteid=site_id, warnings=True, timeout=20)
 
-        response = api.execute('GeteBayDetails', {})
+        api_options = {}
+        if detail_name is not None:
+            api_options['DetailName'] = detail_name
+
+        response = api.execute('GeteBayDetails', api_options)
 
     except ConnectionError as e:
         handle_ebay_error(e)
@@ -577,10 +577,56 @@ def get_eBay_details(site_id=default_site_id):
     response_dict = response.dict()
     test_for_message(response_dict)
 
+    if six.PY2:
+        # Convert all strings to unicode
+        response_dict = convert_to_unicode(response_dict)
+
+    return response_dict
+
+
+def get_eBay_details_to_file(site_id=default_site_id):
+    """Perform a GeteBayDetails call and save the output in geteBayDetails.txt
+    in the site root directory
+    """
+    filename = os.path.join(frappe.utils.get_site_path(),
+                            'GeteBayDetails.txt')
+
+    reponse_dict = get_eBay_details(site_id)
+
     with open(filename, 'wt') as f:
         f.write(repr(response_dict))
 
     return None
+
+
+def get_shipping_details(site_id=default_site_id):
+    """Cache the eBay Shipping Details entries."""
+    cache_key = 'eBayShippingDetails_{}'.format(site_id)
+    shipping_details = frappe.cache().get_value(cache_key)
+    if shipping_details is not None:
+        timestamp = shipping_details['Timestamp'][0:-5]
+        cache_date = datetime.strptime(timestamp, '%Y-%m-%dT%H:%M:%S')
+        age = (datetime.utcnow() - cache_date).days
+        if age == 0:
+            # Our cache is still acceptable
+            return shipping_details
+    # Either there is no cache, or it is out of date
+    # Get a new entry
+    shipping_details = get_eBay_details(
+        site_id=site_id, detail_name='ShippingServiceDetails')
+
+    # Calculate shipping name translation table
+    shipping_option_dict = {}
+    for shipping_option in shipping_details['ShippingServiceDetails']:
+        shipping_option_dict[shipping_option['ShippingService']] = (
+            shipping_option['Description'])
+
+    shipping_details['ShippingOptionDescriptions'] = shipping_option_dict
+
+    # Store the new values in the cache and return
+    frappe.cache().set_value(cache_key, shipping_details)
+
+    return shipping_details
 
 
 #def verify_add_item(listing_dict, site_id=default_site_id):

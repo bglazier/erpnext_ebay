@@ -165,6 +165,7 @@ del low_num, days, tokens, descriptions
 
 MAX_AUTOPAY_PRICE = 2500.0
 
+
 @frappe.whitelist()
 def get_ebay_constants():
     """Return eBay constants such as the supported listing types"""

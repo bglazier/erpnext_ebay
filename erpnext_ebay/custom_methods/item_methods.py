@@ -37,7 +37,14 @@ def item_onload_ebay(doc):
             for i in reversed(delete_list):
                 del doc.online_selling_items[i]
 
-        Platform.item_onload(doc, subtypes)
+        try:
+            Platform.item_onload(doc, subtypes)
+        except Exception:
+            import traceback
+            traceback.print_exc()
+            frappe.msgprint(
+                'Error in Online Selling Platform\n' + traceback.format_exc())
+            doc.online_selling_items = []
 
         try:
             doc.save()
