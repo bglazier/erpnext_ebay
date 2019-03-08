@@ -27,7 +27,7 @@ def get_active_listings():
     inner_opts = {'Include': 'true',
                   'IncludeWatchCount': 'true'}
 
-    listings, summary = get_listings('ActiveList', outer_opts, inner_opts)
+    listings, _summary = get_listings('ActiveList', outer_opts, inner_opts)
 
     return listings
 

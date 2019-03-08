@@ -12,7 +12,7 @@ import frappe
 from frappe import msgprint, _
 from frappe.utils import cstr, strip_html
 
-from ebay_requests import get_orders, default_site_id
+from ebay_requests import get_orders
 from ebay_constants import EBAY_TRANSACTION_SITE_IDS
 
 # Option to use eBay shipping address name as customer name.

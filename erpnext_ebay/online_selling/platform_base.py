@@ -15,7 +15,7 @@ class OnlineSellingPlatformClass(object):
     delete_entries_on_item_onload = True
 
     @classmethod
-    def item_onload(cls, doc):
+    def item_onload(cls, doc, subtypes):
         """Regenerate Online Selling Items from an Item doc.
         If delete_onload is true, then old entries will have been deleted.
         """

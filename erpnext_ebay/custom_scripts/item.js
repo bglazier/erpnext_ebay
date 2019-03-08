@@ -141,7 +141,7 @@ frappe.ui.form.on("Item", {
                         let in_row = 0;
                         for (let i = 0; i < r.message.length; i++) {
                             let img = r.message[i];
-                            if (in_row == 2) {
+                            if (in_row === 2) {
                                 html += '</div><div class="row">';
                                 in_row = 0;
                             }

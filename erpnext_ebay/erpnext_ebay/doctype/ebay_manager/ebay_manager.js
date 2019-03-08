@@ -2,7 +2,7 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on('eBay Manager', {
-    sync_orders_button: function(frm) {
+    sync_orders_button(frm) {
         frappe.call({
             method: "erpnext_ebay.sync_orders.sync",
             args: {
@@ -13,7 +13,7 @@ frappe.ui.form.on('eBay Manager', {
         });
     },
 
-    sync_listings_button: function(frm) {
+    sync_listings_button(frm) {
         frappe.call({
             method: "erpnext_ebay.sync_listings.sync",
             args: {
@@ -24,7 +24,7 @@ frappe.ui.form.on('eBay Manager', {
         });
     },
 
-    sync_categories_button: function(frm) {
+    sync_categories_button(frm) {
         frappe.call({
             method: "erpnext_ebay.ebay_categories.category_sync",
             args: {
@@ -37,14 +37,14 @@ frappe.ui.form.on('eBay Manager', {
         });
     },
 
-    sync_prices_button: function(frm) {
+    sync_prices_button(frm) {
         frappe.call({
             method: "erpnext_ebay.ebay_price_sync.price_sync",
             args: {},
         });
     },
 
-    create_garagesale_button: function(frm) {
+    create_garagesale_button(frm) {
         //var r == (confirm('Have you relisted ended eBay listings?')) 
         //if (r == true){
         frappe.call({

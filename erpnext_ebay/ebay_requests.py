@@ -591,7 +591,7 @@ def get_eBay_details_to_file(site_id=default_site_id):
     filename = os.path.join(frappe.utils.get_site_path(),
                             'GeteBayDetails.txt')
 
-    reponse_dict = get_eBay_details(site_id)
+    response_dict = get_eBay_details(site_id)
 
     with open(filename, 'wt') as f:
         f.write(repr(response_dict))
