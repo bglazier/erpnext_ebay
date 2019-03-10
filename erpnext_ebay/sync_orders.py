@@ -210,7 +210,9 @@ def extract_customer(order):
         "ebay_user_id": ebay_user_id,
         "customer_group": _("Individual"),
         "territory": _("All Territories"),
-        "customer_type": _("Individual")}
+        "customer_type": _("Individual"),
+        "is_internal_customer": 0,
+        "represents_company": None}
 
     if has_shipping_address:
         # Attempt to get email address
