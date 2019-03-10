@@ -211,7 +211,7 @@ def sync(site_id=default_site_id):
         print(item_code)
         new_listing = create_ebay_online_selling_item(
             listing, item_code, site_id, subtype_dict, subtype_tax_dict)
-        new_listing.insert()
+        new_listing.insert(ignore_permissions=True)
 
     frappe.msgprint('{} listings had no SKU'.format(len(no_SKU_items)))
     frappe.msgprint('{} listings had an SKU that could not be found'.format(

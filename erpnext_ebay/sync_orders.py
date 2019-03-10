@@ -159,7 +159,7 @@ def sync(site_id=None):
             log_dict['ebay_log_table'].append(change)
         log = frappe.get_doc(log_dict)
         if use_sync_log:
-            log.insert()
+            log.insert(ignore_permissions=True)
         else:
             del log
         frappe.db.commit()
@@ -540,7 +540,7 @@ def create_ebay_order(order_dict, changes, order):
             log=changes, none_ok=False)
 
         order_doc = frappe.get_doc(order_dict)
-        order_doc.insert()
+        order_doc.insert(ignore_permissions=True)
         debug_msgprint('Adding eBay order: ' + ebay_user_id + ' : ' +
                        ebay_order_id)
         changes.append({"ebay_change": "Adding eBay order",
