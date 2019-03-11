@@ -210,9 +210,7 @@ def extract_customer(order):
         "ebay_user_id": ebay_user_id,
         "customer_group": _("Individual"),
         "territory": _("All Territories"),
-        "customer_type": _("Individual"),
-        "is_internal_customer": 0,
-        "represents_company": None}
+        "customer_type": _("Individual")}
 
     if has_shipping_address:
         # Attempt to get email address
@@ -351,6 +349,7 @@ def create_customer(customer_dict, address_dict, changes=None):
         cust_doc = frappe.get_doc(customer_dict)
         cust_doc.insert()
         db_cust_name = cust_doc.name
+        frappe.db.set_value('Customer', db_cust_name, 'represents_company', None)  # Workaround
         updated_db = True
         debug_msgprint('Adding a user: ' + ebay_user_id +
                        ' : ' + customer_dict['customer_name'])
