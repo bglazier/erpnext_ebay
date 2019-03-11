@@ -38,12 +38,11 @@ class eBayPlatform(OnlineSellingPlatformClass):
             for item_id in item_ids:
                 item_dict = get_item(item_id=item_id, site_id=site_id)
                 new_listing = create_ebay_online_selling_item(
-                    item_dict, site_id=site_id)
+                    item_dict, item_code, site_id=site_id)
                 if new_listing is not None:
                     # Check this was a supported listing type (else None)
-                    listing_doc = doc.append('online_selling_items')
-                    listing_doc.update(new_listing)
-                    # doc.online_selling_items.append(new_listing)
+                    new_listing.insert(ignore_permissions=True)
+                    doc.online_selling_items.append(new_listing)
 
     @staticmethod
     def get_site_ids(subtypes):

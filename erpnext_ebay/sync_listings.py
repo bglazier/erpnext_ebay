@@ -222,7 +222,7 @@ def sync(site_id=default_site_id):
     frappe.db.commit()
 
 
-def create_ebay_online_selling_item(listing, item_code=None,
+def create_ebay_online_selling_item(listing, item_code,
                                     site_id=None,
                                     subtype_dict=None,
                                     subtype_tax_dict=None):
@@ -291,7 +291,11 @@ def create_ebay_online_selling_item(listing, item_code=None,
         site_id, listing['ShippingDetails'])
 
     # Create listing
-    new_listing = {
+    new_listing = frappe.get_doc({
+        'doctype': 'Online Selling Item',
+        'parent': item_code,
+        'parentfield': 'online_selling_items',
+        'parenttype': 'Item',
         'selling_platform': 'eBay',
         'selling_subtype': subtype,
         'selling_id': listing['ItemID'],
@@ -308,16 +312,6 @@ def create_ebay_online_selling_item(listing, item_code=None,
         'ebay_question_count': int(listing.get('QuestionCount', 0)),
         'ebay_hit_count': hit_count,
         'selling_url': selling_url,
-        'shipping_options': shipping_string}
-
-    # If we have been given an item code, add doctype/parent fields to allow
-    # direct insertion into the database, and create the document
-    if item_code is not None:
-        new_listing.update({
-            'doctype': 'Online Selling Item',
-            'parent': item_code,
-            'parentfield': 'online_selling_items',
-            'parenttype': 'Item'})
-        new_listing = frappe.get_doc(new_listing)
+        'shipping_options': shipping_string})
 
     return new_listing

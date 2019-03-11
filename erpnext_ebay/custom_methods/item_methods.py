@@ -36,6 +36,8 @@ def item_onload_ebay(doc):
                     delete_list.append(i)
             for i in reversed(delete_list):
                 del doc.online_selling_items[i]
+                frappe.delete_doc('Online Selling Item', si_item.name,
+                                  ignore_permissions=True)
 
         try:
             Platform.item_onload(doc, subtypes)
@@ -45,9 +47,3 @@ def item_onload_ebay(doc):
             frappe.msgprint(
                 'Error in Online Selling Platform\n' + traceback.format_exc())
             doc.online_selling_items = []
-
-        try:
-            doc.save()
-        except frappe.ValidationError:
-            frappe.msgprint(
-                'Item does not validate - unable to save eBay updates')
