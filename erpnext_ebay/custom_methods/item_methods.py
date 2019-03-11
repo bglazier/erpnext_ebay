@@ -33,11 +33,11 @@ def item_onload_ebay(doc):
             delete_list = []
             for i, si_item in enumerate(doc.online_selling_items):
                 if si_item.selling_platform == online_selling_platform['name']:
-                    delete_list.append(i)
-            for i in reversed(delete_list):
-                del doc.online_selling_items[i]
-                frappe.delete_doc('Online Selling Item', si_item.name,
+                    delete_list.append((i, si_item.name))
+            for i, si_name in reversed(delete_list):
+                frappe.delete_doc('Online Selling Item', si_name,
                                   ignore_permissions=True)
+                del doc.online_selling_items[i]
 
         try:
             Platform.item_onload(doc, subtypes)

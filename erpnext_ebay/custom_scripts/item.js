@@ -3,18 +3,12 @@
 // Auto create slideshow
 frappe.ui.form.on("Item", {
 
-//     onload_post_render(frm, doctype, docname) {
-//         console.log('refresh');
-//         console.log('frm: ', frm)
-//         console.log('frm.fields_dict: ', frm.fields_dict);
-//         console.log('frm.fields_dict["online_selling_items"]: ', frm.fields_dict['online_selling_items']);
-//         const field = frm.get_field('online_selling_items');
-//         console.log('field: ', field);
-//         console.log('field.grid: ', field.grid);
-//         field.grid.only_sortable(true);
-//         //field.grid.sortable_status = false;
-//         //field.grid.static_rows = true;
-//     },
+    onload_post_render(frm, doctype, docname) {
+        const field = frm.fields_dict['online_selling_items'];
+        field.grid.sortable_status = false;
+        field.grid.static_rows = true;
+        field.grid.refresh();
+    },
 
     auto_create_slideshow(frm, doctype, docname) {
         // Save document before auto creating slideshow
