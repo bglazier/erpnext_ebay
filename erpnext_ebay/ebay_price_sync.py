@@ -36,8 +36,12 @@ def price_sync():
     print("Price sync to eBay run on ", date.today())
 
     generate_active_ebay_data()
+    print('Active eBay listing copied to database')
     sync_ebay_ids()
+    print('Ebay ids synced successfully')
     sync_prices_to_ebay()
+    print('Price revisions completed')
+    
     frappe.msgprint("Price revision completed")
 
     return 1
@@ -57,9 +61,11 @@ def sync_prices_to_ebay():
     records = get_mismatched_prices()
     
     # Call the revise price function
-    for r in records:
+    count= 0
+    for count, r in enumerate(records):
         # revise_ebay_price takes inc vat pricing - so we use the eBay Selling Price price list rate
         result = revise_ebay_price(r.item_code, r.price_list_rate, False)
+        print('Revising Item ' + count + 'of ' + len(records) + '\n')
         print(result)
 
 
