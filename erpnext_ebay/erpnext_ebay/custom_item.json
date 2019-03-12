@@ -62,7 +62,7 @@
    "columns": 0, 
    "creation": "2019-02-28 13:13:13.598653", 
    "default": null, 
-   "depends_on": "eval:doc.online_selling_items.length", 
+   "depends_on": "eval:!doc.__islocal && doc.online_selling_items.length", 
    "description": null, 
    "docstatus": 0, 
    "dt": "Item", 
