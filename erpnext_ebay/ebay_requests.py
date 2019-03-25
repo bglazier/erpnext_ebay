@@ -21,7 +21,8 @@ from ebaysdk.exception import ConnectionError
 from ebaysdk.trading import Connection as Trading
 
 PATH_TO_YAML = os.path.join(
-    os.sep, frappe.utils.get_bench_path(), 'sites', frappe.get_site_path(), 'ebay.yaml')
+    os.sep, frappe.utils.get_bench_path(),
+    'sites', frappe.get_site_path(), 'ebay.yaml')
 
 default_site_id = 3  # eBay site id: 0=US, 3=UK
 
@@ -109,8 +110,10 @@ def get_orders():
     by siteid.
     """
 
-    num_days = frappe.db.get_value(
-        'eBay Manager Settings', filters=None, fieldname='ebay_sync_days')
+    domain = frappe.get_value(
+        'eBay Manager Settings', fieldname='ebay_api_domain')
+    num_days = int(frappe.get_value(
+        'eBay Manager Settings', fieldname='ebay_sync_days'))
 
     try:
         if num_days < 1:
@@ -127,7 +130,7 @@ def get_orders():
         # Always use the US site for GetOrders as it returns fields we need
         # (which the UK site, for example, doesn't) and it doesn't filter by
         # siteID anyway
-        api = Trading(config_file=PATH_TO_YAML,
+        api = Trading(domain=domain, config_file=PATH_TO_YAML,
                       siteid=0, warnings=True, timeout=20)
 
         while True:
@@ -180,6 +183,9 @@ def get_listings(listings_type='Summary', api_options=None,
     if api_options and listings_type in api_options:
         raise ValueError('Set listing type and inner options separately!')
 
+    domain = frappe.get_value(
+        'eBay Manager Settings', fieldname='ebay_api_domain')
+
     listings = []
     page = 1
     n_pages = None
@@ -200,7 +206,7 @@ def get_listings(listings_type='Summary', api_options=None,
     try:
         # Initialize TradingAPI; default timeout is 20.
 
-        api = Trading(config_file=PATH_TO_YAML,
+        api = Trading(domain=domain, config_file=PATH_TO_YAML,
                       siteid=site_id, warnings=True, timeout=20)
         while True:
             # TradingAPI results are often paginated, so loop until
@@ -262,6 +268,9 @@ def get_listings(listings_type='Summary', api_options=None,
 def get_seller_list(item_codes=None, site_id=default_site_id):
     """Runs GetSellerList to obtain a list of items."""
 
+    domain = frappe.get_value(
+        'eBay Manager Settings', fieldname='ebay_api_domain')
+
     # Create eBay acceptable datetime stamps for EndTimeTo and EndTimeFrom
     end_from = datetime.utcnow().isoformat()[:-3] + 'Z'
     end_to = (datetime.utcnow() + timedelta(days=119)).isoformat()[:-3] + 'Z'
@@ -271,7 +280,7 @@ def get_seller_list(item_codes=None, site_id=default_site_id):
     try:
         # Initialize TradingAPI; default timeout is 20.
 
-        api = Trading(config_file=PATH_TO_YAML,
+        api = Trading(domain=domain, config_file=PATH_TO_YAML,
                       siteid=site_id, warnings=True, timeout=20)
 
         page = 1
@@ -312,6 +321,9 @@ def get_seller_list(item_codes=None, site_id=default_site_id):
 def get_item(item_id=None, item_code=None, site_id=default_site_id):
     """Returns a single listing from the eBay TradingAPI."""
 
+    domain = frappe.get_value(
+        'eBay Manager Settings', fieldname='ebay_api_domain')
+
     if not (item_code or item_id):
         raise ValueError('No item_code or item_id passed to get_item!')
 
@@ -324,7 +336,7 @@ def get_item(item_id=None, item_code=None, site_id=default_site_id):
     try:
         # Initialize TradingAPI; default timeout is 20.
 
-        api = Trading(config_file=PATH_TO_YAML,
+        api = Trading(domain=domain, config_file=PATH_TO_YAML,
                       siteid=site_id, warnings=True, timeout=20)
 
         api.execute('GetItem', api_dict)
@@ -342,14 +354,45 @@ def get_item(item_id=None, item_code=None, site_id=default_site_id):
     return listing['Item']
 
 
+def revise_item(item_id, item_dict, site_id=default_site_id):
+    """Revises a single item via the eBay TradingAPI."""
+
+    domain = frappe.get_value(
+        'eBay Manager Settings', fieldname='ebay_api_domain')
+
+    api_dict = {'Item': {'ItemID': item_id}}
+    if 'price' in item_dict:
+        api_dict['Item']['StartPrice'] = item_dict['price']
+
+    try:
+        # Initialize TradingAPI; default timeout is 20.
+
+        api = Trading(domain=domain, config_file=PATH_TO_YAML,
+                      siteid=site_id, warnings=True, timeout=20)
+
+        api.execute('ReviseItem', api_dict)
+
+        test_for_message(api.response.dict())
+
+    except ConnectionError as e:
+        handle_ebay_error(e)
+
+    if six.PY2:
+        # Convert all strings to unicode
+        listing = convert_to_unicode(listing)
+
+
 def get_categories_versions(site_id=default_site_id):
     """Load the version number of the current eBay categories
     and category features.
     """
 
+    domain = frappe.get_value(
+        'eBay Manager Settings', fieldname='ebay_api_domain')
+
     try:
         # Initialize TradingAPI; default timeout is 20.
-        api = Trading(config_file=PATH_TO_YAML,
+        api = Trading(domain=domain, config_file=PATH_TO_YAML,
                       siteid=site_id, warnings=True, timeout=20)
 
         response1 = api.execute('GetCategories', {'LevelLimit': 1,
@@ -371,9 +414,12 @@ def get_categories_versions(site_id=default_site_id):
 def get_categories(site_id=default_site_id):
     """Load the eBay categories for the categories cache."""
 
+    domain = frappe.get_value(
+        'eBay Manager Settings', fieldname='ebay_api_domain')
+
     try:
         # Initialize TradingAPI; default timeout is 20.
-        api = Trading(config_file=PATH_TO_YAML,
+        api = Trading(domain=domain, config_file=PATH_TO_YAML,
                       siteid=site_id, warnings=True, timeout=60)
 
         response = api.execute('GetCategories', {'DetailLevel': 'ReturnAll',
@@ -429,9 +475,12 @@ def get_categories(site_id=default_site_id):
 def get_features(site_id=default_site_id):
     """Load the eBay category features for the features cache."""
 
+    domain = frappe.get_value(
+        'eBay Manager Settings', fieldname='ebay_api_domain')
+
     try:
         # Initialize TradingAPI; default timeout is 20.
-        api = Trading(config_file=PATH_TO_YAML,
+        api = Trading(domain=domain, config_file=PATH_TO_YAML,
                       siteid=site_id, warnings=True, timeout=60)
 
     except ConnectionError as e:
@@ -560,9 +609,12 @@ def get_features(site_id=default_site_id):
 def get_eBay_details(site_id=default_site_id, detail_name=None):
     """Perform a GeteBayDetails call."""
 
+    domain = frappe.get_value(
+        'eBay Manager Settings', fieldname='ebay_api_domain')
+
     try:
         # Initialize TradingAPI; default timeout is 20.
-        api = Trading(config_file=PATH_TO_YAML,
+        api = Trading(domain=domain, config_file=PATH_TO_YAML,
                       siteid=site_id, warnings=True, timeout=20)
 
         api_options = {}
