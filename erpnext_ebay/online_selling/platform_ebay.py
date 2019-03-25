@@ -44,6 +44,13 @@ class eBayPlatform(OnlineSellingPlatformClass):
                     new_listing.insert(ignore_permissions=True)
                     doc.online_selling_items.append(new_listing)
 
+    @classmethod
+    def item_update(cls, doc, subtype, update_dict):
+        """We have a number of updates. Revise our item appropriately."""
+        if 'standard_rate' in update_dict:
+            # update standard price
+            pass
+
     @staticmethod
     def get_site_ids(subtypes):
         """Get all eBay site_ids from the Online Selling Subtypes associated

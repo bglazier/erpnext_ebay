@@ -39,8 +39,7 @@ fixtures = [
         "filters": {
             "name": "eBay Administrator"
         }
-    }
-    ]
+    }]
 # Add custom scripts
 doctype_js = {
     "Item": "custom_scripts/item.js"
@@ -112,7 +111,9 @@ doc_events = {
     },
     "Item": {
         "onload":
-            "erpnext_ebay.custom_methods.item_methods.item_onload"
+            "erpnext_ebay.custom_methods.item_methods.item_onload",
+        "update":
+            "erpnext_ebay.custom_methods.item_methods.item_update"
     }
 }
 

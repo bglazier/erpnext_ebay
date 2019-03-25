@@ -20,3 +20,8 @@ class OnlineSellingPlatformClass(object):
         If delete_onload is true, then old entries will have been deleted.
         """
         pass
+
+    @classmethod
+    def item_update(cls, doc, subtypes, update_dict):
+        """Pass updates to the Online Selling Items."""
+        pass
