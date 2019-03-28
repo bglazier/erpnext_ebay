@@ -25,3 +25,8 @@ class OnlineSellingPlatformClass(object):
     def item_update(cls, doc, subtypes, update_dict):
         """Pass updates to the Online Selling Items."""
         pass
+
+    @classmethod
+    def item_price_update(cls, doc, subtypes, update_dict):
+        """Pass Item Price updates to linked Online Selling Items."""
+        pass

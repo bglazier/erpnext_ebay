@@ -13,7 +13,7 @@ def item_onload(doc, _method):
     item_onload_platform(doc)
 
 
-def item_update(doc, _method):
+def item_on_update(doc, _method):
     """On item update docevent."""
     item_update_platform(doc)
 
@@ -69,6 +69,9 @@ def item_update_platform(doc):
             'Online Selling Platform',
             online_selling_item.selling_platform,
             'update_fields')
+        if not platform_update_fields:
+            # No updating fields for this platform
+            continue
         # Parse out update_fields against a whitelist of A..Za..z0..9_
         update_fields = [
             ''.join([c for c in x.strip() if c in whitelist])
@@ -88,4 +91,5 @@ def item_update_platform(doc):
                 import traceback
                 traceback.print_exc()
                 frappe.msgprint(
-                    'Error in Online Selling Platform\n' + traceback.format_exc())
+                    'Error in Online Selling Platform\n'
+                    + traceback.format_exc())

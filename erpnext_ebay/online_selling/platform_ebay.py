@@ -47,9 +47,13 @@ class eBayPlatform(OnlineSellingPlatformClass):
     @classmethod
     def item_update(cls, doc, subtype, update_dict):
         """We have a number of updates. Revise our item appropriately."""
-        if 'standard_rate' in update_dict:
-            # update standard price
-            pass
+        print('Updating items not yet implemented: ', update_dict)
+
+    @classmethod
+    def item_price_update(cls, doc, subtypes, update_dict):
+        """Pass Item Price updates to linked Online Selling Items."""
+        print('Updating price not yet implemented: ', update_dict)
+
 
     @staticmethod
     def get_site_ids(subtypes):

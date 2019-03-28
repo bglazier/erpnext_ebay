@@ -112,8 +112,12 @@ doc_events = {
     "Item": {
         "onload":
             "erpnext_ebay.custom_methods.item_methods.item_onload",
-        "update":
-            "erpnext_ebay.custom_methods.item_methods.item_update"
+        "on_update":
+            "erpnext_ebay.custom_methods.item_methods.item_on_update"
+    },
+    "Item Price": {
+        "on_update":
+            "erpnext_ebay.custom_methods.item_price_methods.item_price_on_update"
     }
 }
 
