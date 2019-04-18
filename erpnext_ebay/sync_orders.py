@@ -939,15 +939,13 @@ def sanitize_country(country):
         return None
 
     # Special quick case for UK names
-    if country in ['UK', 'GB', 'Great Britain', 'United Kingdomm']:
-        print('UK special case')
+    if country in ['UK', 'GB', 'Great Britain', 'United Kingdom']:
         return 'United Kingdom'
 
     # Simple check for country
     country_query = frappe.db.get_value(
         'Country', filters={'name': country}, fieldname='name')
     if country_query:
-        print('country query: ', country, '\n', country_query)
         return country_query
 
     # Country codes
@@ -957,7 +955,6 @@ def sanitize_country(country):
             # Translate to Frappe countries
             if country in ISO_COUNTRIES_TO_DB:
                 country = ISO_COUNTRIES_TO_DB[country]
-            print('ISO_COUNTRIES_TO_DB country code')
         except KeyError:
             # Country code not found
             return None
@@ -990,28 +987,23 @@ def sanitize_country(country):
 
             # Try twice - second time with comma unwrapping
             for i in range(2):
-                print('testing against: ', test_country)
                 # Trim off extraneous commas and extra whitespace
                 test_country = ' '.join(test_country.strip(', ').split())
 
                 # Check list of Frappe countries
                 if test_country in db_countries_dict:
-                    print('frappe countries: testing against ', test_country)
                     return db_countries_dict[test_country]
 
                 # Check list of ISO-> frappe translations
                 if test_country in ISO_COUNTRIES_TO_DB_LOWERCASE:
-                    print('ISO_COUNTRIES_TO_DB_LOWERCASE: testing against ', test_country)
                     return ISO_COUNTRIES_TO_DB_LOWERCASE[test_country]
 
                 # Check list of apolitical names
                 if test_country in APOLITICAL_COUNTRIES_NAMES:
-                    print('APOLITICAL_NAMES: testing against ', test_country)
                     return APOLITICAL_COUNTRIES_NAMES[test_country]
 
                 # Check other list of common names
                 if test_country in EXTRA_COUNTRIES:
-                    print('EXTRA_COUNTRIES: testing against ', test_country)
                     return EXTRA_COUNTRIES[test_country]
 
                 # Unwrap test string
