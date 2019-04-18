@@ -977,16 +977,36 @@ def sanitize_country(country):
         test_string = re.sub(r'\bn\.|\bn\b', 'north', test_string)
         test_string = re.sub(r'\bs\.|\bs\b', 'south', test_string)
         country_search_list.append(test_string)
+        test_string = re.sub(r'\bn\.|\bn\b', 'north', country_shorter)
+        test_string = re.sub(r'\bs\.|\bs\b', 'south', test_string)
+        country_search_list.append(test_string)
+        test_string = re.sub(r'\bn\.|\bn\b', 'north', country_lower)
+        test_string = re.sub(r'\bs\.|\bs\b', 'south', test_string)
+        country_search_list.append(test_string)
 
         # Get Frappe countries list
         db_countries_dict = {x['name'].lower(): x['name'] for x in
                              frappe.get_all('Country')}
 
-        for test_country in country_search_list:
+        for outer_test_country in country_search_list:
             # Loop over increasingly aggressive test strings
 
+            wrapped_list = [outer_test_country]
+            if outer_test_country.count(', ') == 1:
+                # Unwrap outer test country
+                end, _comma, start = outer_test_country.partition(', ')
+                outer_test_country = '{} {}'.format(start, end)
+                wrapped_list.append(outer_test_country)
+
+            if outer_test_country.count(',') == 0:
+                # All possible re-wrappings
+                words = outer_test_country.split()
+                for i in range(1, len(words)):
+                    wrapped = ' '.join(words[i:]) + ', ' + ' '.join(words[:i])
+                    wrapped_list.append(wrapped)
+
             # Try twice - second time with comma unwrapping
-            for i in range(2):
+            for test_country in wrapped_list:
                 # Trim off extraneous commas and extra whitespace
                 test_country = ' '.join(test_country.strip(', ').split())
 
@@ -1005,15 +1025,6 @@ def sanitize_country(country):
                 # Check other list of common names
                 if test_country in EXTRA_COUNTRIES:
                     return EXTRA_COUNTRIES[test_country]
-
-                # Unwrap test string
-                if test_country.count(', ') == 1:
-                    end, _comma, start = test_country.partition(', ')
-                    test_country = '{} {}'.format(start, end)
-
-                else:
-                    # No unwrapping to do
-                    break
 
         # Failed to find a country
         return None
