@@ -5,9 +5,12 @@ from __future__ import print_function
 import sys
 import datetime
 import traceback
+import re
 from types import MethodType
 
 import six
+from iso3166 import countries, countries_by_name
+
 import frappe
 from frappe import msgprint, _
 from frappe.utils import cstr, strip_html
@@ -43,6 +46,54 @@ EBAY_ID_NAMES = {'Customer': 'ebay_user_id',
                  'Address': 'ebay_address_id',
                  'eBay order': 'ebay_order_id',
                  'Sales Invoice': 'ebay_order_id'}
+
+# Disagreements between iso3166 and Frappe's country list
+# Key = ISO code, value = Frappe docname
+ISO_COUNTRIES_TO_DB = {'Cabo Verde': 'Cape Verde',
+                       'Congo, Democratic Republic of the':
+                           'Congo, The Democratic Republic of the',
+                       'Czechia': 'Czech Republic',
+                       "Côte d'Ivoire": 'Ivory Coast',
+                       'Eswatini': 'Swaziland',  # old country name
+                       'Holy See': 'Holy See (Vatican City State)',
+                       'Iran, Islamic Republic of': 'Iran',
+                       "Korea, Democratic People's Republic of":
+                           'Korea, Democratic Peoples Republic of',
+                       "Kosovo": None,  # No entry
+                       "Lao People's Democratic Republic":
+                           'Lao Peoples Democratic Republic',
+                       'North Macedonia': 'Macedonia',  # old country name
+                       'Palestine, State of': 'Palestinian Territory, Occupied',
+                       'Syrian Arab Republic': 'Syria',
+                       'Taiwan, Province of China': 'Taiwan',
+                       'Tanzania, United Republic of': 'Tanzania',
+                       'United Kingdom of Great Britain and Northern Ireland':
+                           'United Kingdom',
+                       'United States of America': 'United States',
+                       'Viet Nam': 'Vietnam'}
+ISO_COUNTRIES_TO_DB_LOWERCASE = {key.lower(): value for key, value
+                                 in ISO_COUNTRIES_TO_DB.items()}
+APOLITICAL_COUNTRIES_NAMES = {x.apolitical_name.lower(): x.name
+                              for x in countries_by_name.values()}
+# Convert ISO names to Frappe country names
+for short_name, iso_name in APOLITICAL_COUNTRIES_NAMES.items():
+    if iso_name in ISO_COUNTRIES_TO_DB:
+        APOLITICAL_COUNTRIES_NAMES[short_name] = ISO_COUNTRIES_TO_DB[iso_name]
+
+EXTRA_COUNTRIES = {
+    'america': 'United States',
+    'bolivia': 'Bolivia, Plurinational State of',
+    'falklands': 'Falkland Islands (Malvinas)',
+    'falkland islands': 'Falkland Islands (Malvinas)',
+    'great britain': 'United Kingdom',
+    'great britain and northern ireland': 'United Kingdom',
+    'laos': 'Lao Peoples Democratic Republic',
+    'micronesia': 'Micronesia, Federated States of',
+    'north korea': 'Korea, Democratic Peoples Republic of',
+    'russia': 'Russian Federation',
+    'south korea': 'Korea, Republic of',
+    'venezuela': 'Venezuela, Bolivarian Republic of'
+    }
 
 VAT_RATES = {'Sales - URTL': 0.2,
              'Sales Non EU - URTL': 0.0}
@@ -229,20 +280,17 @@ def extract_customer(order):
             # bump into the first address line (which must not be empty)
             address_line1, address_line2 = address_line2, ''
 
-        if country is not None:
-            country = country.title()
+        # Find the system name for the country
+        db_country = sanitize_country(country)
 
-            if country in ['UK', 'GB', 'Great Britain']:
-                country = 'United Kingdom'
-
-            country_query = frappe.db.get_value(
-                'Country', filters={'name': country}, fieldname='name')
-            if country_query is None:
-                if address_line2:
-                    address_line2 = address_line2 + '\n' + country
-                else:
-                    address_line2 = country
-                country = None
+        if db_country is None:
+            if address_line2:
+                address_line2 = address_line2 + '\n' + country
+            else:
+                address_line2 = country
+            country = None
+        else:
+            country = db_country
 
         # If we have a pickup order, there is no eBay AddressID (so make one)
         if is_pickup_order:
@@ -879,6 +927,104 @@ def sanitize_postcode(in_postcode):
     postcode = postcode[:-3] + ' ' + postcode[-3:]
 
     return postcode
+
+
+def sanitize_country(country):
+    """Attempt to match the input string with a country.
+
+    Returns a valid Frappe Country document name if one can be matched.
+    Returns None if no country can be identified.
+    """
+    if country is None:
+        return None
+
+    # Special quick case for UK names
+    if country in ['UK', 'GB', 'Great Britain', 'United Kingdomm']:
+        print('UK special case')
+        return 'United Kingdom'
+
+    # Simple check for country
+    country_query = frappe.db.get_value(
+        'Country', filters={'name': country}, fieldname='name')
+    if country_query:
+        print('country query: ', country, '\n', country_query)
+        return country_query
+
+    # Country codes
+    if len(country) < 4:
+        try:
+            country = countries.get(country).name
+            # Translate to Frappe countries
+            if country in ISO_COUNTRIES_TO_DB:
+                country = ISO_COUNTRIES_TO_DB[country]
+            print('ISO_COUNTRIES_TO_DB country code')
+        except KeyError:
+            # Country code not found
+            return None
+        return country
+
+    if country is not None:
+        country_lower = country.lower()
+
+        country_search_list = [country_lower]
+        country_shorter = re.sub(r'\bof\b|\bthe\b', '', country_lower)
+        country_search_list.append(country_shorter)
+
+        test_string = re.sub(r'\brepublic\b', '', country_shorter)
+        country_search_list.append(test_string)
+
+        test_string = re.sub(r'\bkingdom\b', '', country_shorter)
+        country_search_list.append(test_string)
+        test_string = re.sub(r"\brepublic\b|\bdemocratic\b|\bpeoples\b|\bpeople's\b|\bstate\b|\bstates\b|\bfederated\b", '', country_shorter)
+        country_search_list.append(test_string)
+        test_string = re.sub(r'\bn\.|\bn\b', 'north', test_string)
+        test_string = re.sub(r'\bs\.|\bs\b', 'south', test_string)
+        country_search_list.append(test_string)
+
+        # Get Frappe countries list
+        db_countries_dict = {x['name'].lower(): x['name'] for x in
+                             frappe.get_all('Country')}
+
+        for test_country in country_search_list:
+            # Loop over increasingly aggressive test strings
+
+            # Try twice - second time with comma unwrapping
+            for i in range(2):
+                print('testing against: ', test_country)
+                # Trim off extraneous commas and extra whitespace
+                test_country = ' '.join(test_country.strip(', ').split())
+
+                # Check list of Frappe countries
+                if test_country in db_countries_dict:
+                    print('frappe countries: testing against ', test_country)
+                    return db_countries_dict[test_country]
+
+                # Check list of ISO-> frappe translations
+                if test_country in ISO_COUNTRIES_TO_DB_LOWERCASE:
+                    print('ISO_COUNTRIES_TO_DB_LOWERCASE: testing against ', test_country)
+                    return ISO_COUNTRIES_TO_DB_LOWERCASE[test_country]
+
+                # Check list of apolitical names
+                if test_country in APOLITICAL_COUNTRIES_NAMES:
+                    print('APOLITICAL_NAMES: testing against ', test_country)
+                    return APOLITICAL_COUNTRIES_NAMES[test_country]
+
+                # Check other list of common names
+                if test_country in EXTRA_COUNTRIES:
+                    print('EXTRA_COUNTRIES: testing against ', test_country)
+                    return EXTRA_COUNTRIES[test_country]
+
+                # Unwrap test string
+                if test_country.count(', ') == 1:
+                    end, _comma, start = test_country.partition(', ')
+                    test_country = '{} {}'.format(start, end)
+
+                else:
+                    # No unwrapping to do
+                    break
+
+        # Failed to find a country
+        return None
 
 
 def sync_error(changes, error_message, ebay_user_id=None, customer_name=None,
