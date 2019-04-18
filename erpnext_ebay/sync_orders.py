@@ -169,13 +169,24 @@ def sync(site_id=None):
     try:
         for order in orders:
             try:
-                # Check if this is on the correct eBay site.
-                site_id_order = order[
-                    'TransactionArray']['Transaction'][0]['TransactionSiteID']
-                if (ebay_site_id is not None
-                        and site_id_order != ebay_site_id):
-                    # Not from this site_id - skip
-                    continue
+                # Check if this item was _listed_ on the correct eBay site.
+                # This is not the same as TransactionSiteID which gives the
+                # eBay site where the item was sold.
+                #site_id_order = order[
+                #    'TransactionArray']['Transaction'][0]['TransactionSiteID']
+                try:
+                    site_id_order = order[
+                        'TransactionArray']['Transaction'][0]['Item']['Site']
+                except (KeyError, TypeError) as e:
+                    msgprint_log.append(
+                        'WARNING: unable to identify site ID from:'
+                        + '\n{}\n{}'.format(
+                            order['TransactionArray'], str(e)))
+                else:
+                    if (ebay_site_id is not None
+                            and site_id_order != ebay_site_id):
+                        # Not from this site_id - skip
+                        continue
 
                 # Create/update Customer
                 cust_details, address_details = extract_customer(order)
