@@ -335,7 +335,8 @@ def create_website_image(fname, item):
             files = frappe.get_all(
                 'File', filters={'file_url': web_url})
             for file in files:
-                frappe.delete_doc('File', file['name'])
+                frappe.delete_doc('File', file['name'],
+                                  ignore_permissions=True)
             os.symlink(file_fpath, web_fpath)
         else:
             raise
