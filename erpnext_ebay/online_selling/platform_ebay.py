@@ -35,9 +35,7 @@ class eBayPlatform(OnlineSellingPlatformClass):
         for item_id in item_ids:
             # Use the US site as we don't know what site_id we have yet
             item_dict = get_item(item_id=item_id, site_id=0)
-            print('item_dict: ', item_dict)
             site_id = EBAY_SITE_NAMES[item_dict['Site']]
-            print('site_id: ', site_id)
             if site_id not in site_ids:
                 # We don't handle this site_id
                 continue
