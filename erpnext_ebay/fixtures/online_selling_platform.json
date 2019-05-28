@@ -3,8 +3,14 @@
   "description": "For listings on any eBay site, whether Buy It Now or Auction.", 
   "docstatus": 0, 
   "doctype": "Online Selling Platform", 
-  "modified": "2019-03-01 09:57:13.433072", 
+  "modified": "2019-03-28 16:16:20.025719", 
   "name": "eBay", 
-  "selling_platform": "eBay"
+  "parent": null, 
+  "parentfield": null, 
+  "parenttype": null, 
+  "price_list": "eBay Selling", 
+  "selling_platform": "eBay", 
+  "update_fields": "", 
+  "update_item_price": 1
  }
 ]

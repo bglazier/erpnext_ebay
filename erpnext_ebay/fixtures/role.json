@@ -6,6 +6,9 @@
   "doctype": "Role", 
   "modified": "2019-03-06 15:05:04.985968", 
   "name": "eBay Administrator", 
+  "parent": null, 
+  "parentfield": null, 
+  "parenttype": null, 
   "restrict_to_domain": null, 
   "role_name": "eBay Administrator", 
   "two_factor_auth": 0
