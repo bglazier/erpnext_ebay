@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 
 import frappe
 
+from erpnext_ebay.ebay_constants import EBAY_SITE_NAMES
 from erpnext_ebay.ebay_requests import get_seller_list, get_item
 from erpnext_ebay.sync_listings import create_ebay_online_selling_item
 from erpnext_ebay.online_selling.platform_base import OnlineSellingPlatformClass
@@ -25,24 +26,27 @@ class eBayPlatform(OnlineSellingPlatformClass):
 
         site_ids = cls.get_site_ids(subtypes)
 
-        for site_id in site_ids:
-            # Loop over all installed eBay global sites
+        # Get list of ItemIDs from GetSellerList
+        # There may be multiple as this is not filtered by site
+        get_seller_listings = get_seller_list([item_code], 0)
 
-            # Get list of ItemIDs from GetSellerList (should really be only one!)
-            get_seller_listings = get_seller_list([item_code], site_id)
+        item_ids = [x['ItemID'] for x in get_seller_listings]
 
-            item_ids = [x['ItemID'] for x in get_seller_listings]
-
-            # Should really be only one listing per item, but support it
-            # anyway...
-            for item_id in item_ids:
-                item_dict = get_item(item_id=item_id, site_id=site_id)
-                new_listing = create_ebay_online_selling_item(
-                    item_dict, item_code, site_id=site_id)
-                if new_listing is not None:
-                    # Check this was a supported listing type (else None)
-                    new_listing.insert(ignore_permissions=True)
-                    doc.online_selling_items.append(new_listing)
+        for item_id in item_ids:
+            # Use the US site as we don't know what site_id we have yet
+            item_dict = get_item(item_id=item_id, site_id=0)
+            print('item_dict: ', item_dict)
+            site_id = EBAY_SITE_NAMES[item_dict['Site']]
+            print('site_id: ', site_id)
+            if site_id not in site_ids:
+                # We don't handle this site_id
+                continue
+            new_listing = create_ebay_online_selling_item(
+                item_dict, item_code, site_id=site_id)
+            if new_listing is not None:
+                # Check this was a supported listing type (else None)
+                new_listing.insert(ignore_permissions=True)
+                doc.online_selling_items.append(new_listing)
 
     @staticmethod
     def get_site_ids(subtypes):

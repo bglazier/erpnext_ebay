@@ -32,6 +32,8 @@ EBAY_SITE_IDS = {0: 'US',
                  212: 'Poland',
                  216: 'Singapore'}
 
+EBAY_SITE_NAMES = {name: siteid for siteid, name in EBAY_SITE_IDS.items()}
+
 EBAY_TRANSACTION_SITE_IDS = {0: 'US',
                              2: 'Canada',
                              3: 'UK',

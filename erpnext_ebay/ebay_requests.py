@@ -260,7 +260,9 @@ def get_listings(listings_type='Summary', api_options=None,
 
 
 def get_seller_list(item_codes=None, site_id=default_site_id):
-    """Runs GetSellerList to obtain a list of items."""
+    """Runs GetSellerList to obtain a list of items.
+    Note that this call does NOT filter by SiteID.
+    """
 
     # Create eBay acceptable datetime stamps for EndTimeTo and EndTimeFrom
     end_from = datetime.utcnow().isoformat()[:-3] + 'Z'
@@ -278,14 +280,16 @@ def get_seller_list(item_codes=None, site_id=default_site_id):
         while True:
             # TradingAPI results are paginated, so loop until
             # all pages have been obtained
-            api.execute('GetSellerList', {
-                'SKUArray': {'SKU': item_codes},
+            api_dict = {
                 'EndTimeTo': end_to,
                 'EndTimeFrom': end_from,
                 'Pagination': {
                     'EntriesPerPage': 50,
                     'PageNumber': page}
-                })
+                }
+            if item_codes is not None:
+                api_dict['SKUArray'] = {'SKU': item_codes}
+            api.execute('GetSellerList', api_dict)
 
             listings_api = api.response.dict()
             test_for_message(listings_api)
