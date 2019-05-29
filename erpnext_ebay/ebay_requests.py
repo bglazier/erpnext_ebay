@@ -20,6 +20,8 @@ from frappe import _, msgprint
 from ebaysdk.exception import ConnectionError
 from ebaysdk.trading import Connection as Trading
 
+from ebay_constants import EBAY_SITE_NAMES
+
 PATH_TO_YAML = os.path.join(
     os.sep, frappe.utils.get_bench_path(), 'sites', frappe.get_site_path(), 'ebay.yaml')
 
@@ -223,11 +225,18 @@ def get_listings(listings_type='Summary', api_options=None,
                 else:
                     summary = None
                 if listings_type in INNER_PAGINATE:
-                    n_pages = int(
-                        (listings_api[listings_type]
-                         ['PaginationResult']['TotalNumberOfPages']))
+                    if 'PaginationResult' in listings_api[listings_type]:
+                        n_pages = int(
+                            (listings_api[listings_type]
+                                ['PaginationResult']['TotalNumberOfPages']))
+                    else:
+                        n_pages = 1
                 print('n_pages = ', n_pages)
-            print('page {} / {}'.format(page, n_pages))
+                if 'ItemArray' in listings_api[listings_type]:
+                    print('n_items = ', len(
+                        listings_api[listings_type]['ItemArray']['Item']))
+            if n_pages > 1:
+                print('page {} / {}'.format(page, n_pages))
 
             # Locate the appropriate results
             field, array = RESPONSE_FIELDS[listings_type]
@@ -313,13 +322,16 @@ def get_seller_list(item_codes=None, site_id=default_site_id):
     return listings
 
 
-def get_item(item_id=None, item_code=None, site_id=default_site_id):
+def get_item(item_id=None, item_code=None, site_id=default_site_id,
+             output_selector=None):
     """Returns a single listing from the eBay TradingAPI."""
 
     if not (item_code or item_id):
         raise ValueError('No item_code or item_id passed to get_item!')
 
     api_dict = {'IncludeWatchCount': True}
+    if output_selector:
+        api_dict['OutputSelector'] = output_selector
     if item_code:
         api_dict['SKU'] = item_code
     if item_id:

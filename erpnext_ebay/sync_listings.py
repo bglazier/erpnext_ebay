@@ -11,8 +11,9 @@ import bleach
 
 import frappe
 
-from ebay_requests import get_listings, default_site_id, get_shipping_details
-from ebay_constants import LISTING_DURATION_TOKEN_DICT
+from ebay_requests import (get_listings, default_site_id, get_shipping_details,
+                           get_item)
+from ebay_constants import LISTING_DURATION_TOKEN_DICT, EBAY_SITE_NAMES
 
 if six.PY2:
     from collections import Sequence
@@ -20,10 +21,17 @@ else:
     from collections.abc import Sequence
 
 
+OUTPUT_SELECTOR = ['ItemID', 'SKU', 'Site', 'CurrentPrice', 'QuantitySold',
+                   'Quantity', 'ListingType', 'ListingDuration', 'ViewItemURL',
+                   'HitCount', 'QuestionCount', 'WatchCount', 'Title',
+                   'StartTime', 'ShippingDetails']
+
+
 def get_active_listings():
     """Returns a list of active listings from the eBay TradingAPI."""
 
-    outer_opts = {}  # {'DetailLevel': 'ReturnAll'}
+    outer_opts = {'OutputSelector': ['ItemID', 'SKU', 'ListingType']}
+    # outer_opts = {'DetailLevel': 'ReturnAll'}
     inner_opts = {'Include': 'true',
                   'IncludeWatchCount': 'true'}
 
@@ -207,10 +215,17 @@ def sync(site_id=default_site_id):
             # This listing type is not supported?
             unsupported_listing_type.append(listing)
             continue
+        # Get item listing from US site (we don't know the SiteID yet)
+        item_dict = get_item(item_id=listing['ItemID'], site_id=0,
+                             output_selector=OUTPUT_SELECTOR)
+        item_site_id = EBAY_SITE_NAMES[item_dict['Site']]
+        if item_site_id != site_id:
+            # Not from this site
+            continue
 
         print(item_code)
         new_listing = create_ebay_online_selling_item(
-            listing, item_code, site_id, subtype_dict, subtype_tax_dict)
+            item_dict, item_code, site_id, subtype_dict, subtype_tax_dict)
         new_listing.insert(ignore_permissions=True)
 
     frappe.msgprint('{} listings had no SKU'.format(len(no_SKU_items)))
