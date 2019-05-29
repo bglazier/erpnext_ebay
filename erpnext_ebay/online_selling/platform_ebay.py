@@ -33,6 +33,7 @@ class eBayPlatform(OnlineSellingPlatformClass):
 
         item_ids = [x['ItemID'] for x in get_seller_listings]
 
+        idx = 0
         for item_id in item_ids:
             # Use the US site as we don't know what site_id we have yet
             item_dict = get_item(item_id=item_id, site_id=0,
@@ -45,8 +46,10 @@ class eBayPlatform(OnlineSellingPlatformClass):
                 item_dict, item_code, site_id=item_site_id)
             if new_listing is not None:
                 # Check this was a supported listing type (else None)
+                new_listing.idx = idx
                 new_listing.insert(ignore_permissions=True)
                 doc.online_selling_items.append(new_listing)
+                idx += 1
 
     @staticmethod
     def get_site_ids(subtypes):
