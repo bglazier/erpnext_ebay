@@ -146,9 +146,9 @@ def get_orders():
             test_for_message(orders_api)
 
             n_orders = int(orders_api['ReturnedOrderCountActual'])
-            if n_orders == 1:
-                orders.append(orders_api['OrderArray']['Order'])
-            elif n_orders > 0:
+            if n_orders > 0:
+                if not isinstance(orders_api['OrderArray']['Order'], list):
+                    raise AssertionError('Invalid type in get_orders!')
                 orders.extend(orders_api['OrderArray']['Order'])
             if orders_api['HasMoreOrders'] == 'false':
                 break
