@@ -177,16 +177,17 @@ def sync(site_id=None):
                 try:
                     site_id_order = order[
                         'TransactionArray']['Transaction'][0]['Item']['Site']
+                    print('site_id_order: ', site_id_order)
                 except (KeyError, TypeError) as e:
                     msgprint_log.append(
                         'WARNING: unable to identify site ID from:'
                         + '\n{}\n{}'.format(
                             order['TransactionArray'], str(e)))
-                else:
-                    if (ebay_site_id is not None
-                            and site_id_order != ebay_site_id):
+                #else:
+                    #if (ebay_site_id is not None
+                            #and site_id_order != ebay_site_id):
                         # Not from this site_id - skip
-                        continue
+                        #continue
 
                 # Create/update Customer
                 cust_details, address_details = extract_customer(order)
@@ -197,7 +198,8 @@ def sync(site_id=None):
                 create_ebay_order(order_details, changes, order)
 
                 # Create/update Sales Invoice
-                create_sales_invoice(order_details, order, changes)
+                create_sales_invoice(order_details, order, ebay_site_id,
+                                     site_id_order, msgprint_log, changes)
             except ErpnextEbaySyncError as e:
                 # Continue to next order
                 frappe.db.rollback()
@@ -634,7 +636,8 @@ def create_ebay_order(order_dict, changes, order):
     return None
 
 
-def create_sales_invoice(order_dict, order, changes):
+def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
+                         msgprint_log, changes):
     """
     Create a Sales Invoice from the eBay order.
     """
@@ -871,6 +874,7 @@ def create_sales_invoice(order_dict, order, changes):
         "title": title,
         "customer": db_cust_name,
         "ebay_order_id": ebay_order_id,
+        "ebay_site_id": site_id_order,
         "contact_email": cust_email,
         "posting_date": posting_date,
         "posting_time": "00:00:00",
@@ -908,6 +912,11 @@ def create_sales_invoice(order_dict, order, changes):
                     "customer": db_cust_name,
                     "address": order_fields['address'],
                     "ebay_order": order_fields['name']})
+
+    if ebay_site_id and (ebay_site_id != site_id_order):
+        msgprint_log.append(
+            'WARNING: Sales Invoice {} originated from eBay site {}'.format(
+                sinv.name, site_id_order))
 
     # Commit changes to database
     if updated_db:
