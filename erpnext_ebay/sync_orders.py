@@ -9,6 +9,7 @@ import re
 from types import MethodType
 
 import six
+from country_data import lowercase_country_dict
 from iso3166 import countries, countries_by_name
 
 import frappe
@@ -1003,6 +1004,10 @@ def sanitize_country(country):
         test_string = re.sub(r'\bn\.|\bn\b', 'north', country_lower)
         test_string = re.sub(r'\bs\.|\bs\b', 'south', test_string)
         country_search_list.append(test_string)
+
+        lowercase_country = lowercase_country_dict.get(country_lower, None)
+        if lowercase_country:
+            country_search_list.append(lowercase_country)
 
         # Get Frappe countries list
         db_countries_dict = {x['name'].lower(): x['name'] for x in
