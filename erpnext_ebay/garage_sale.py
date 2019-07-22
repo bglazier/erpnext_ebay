@@ -190,54 +190,16 @@ def run_cron_create_xml():
                 print('Problem with this brand: ', brand)
 
 
-            dom_ship_free = ET.fromstring("".join(["""<domesticShippingService """,
-                                                   """serviceAdditionalFee="0.00"  """,
-                                                   """serviceFee="0.00">UPS Next Day</domesticShippingService>"""]))
-            dom_ship_pallet = ET.fromstring("".join(["""<domesticShippingService """,
-                                                     """serviceAdditionalFee="0.00" """,
-                                                     """serviceFee="60.00">Other Courier 3 days</domesticShippingService>"""]))
-            dom_ship_collection = ET.fromstring("".join(["""<domesticShippingService """
-                                                         """serviceAdditionalFee="0.00" """
-                                                         """serviceFee="0.00">Collection in Person</domesticShippingService>"""]))
+            if r.delivery_type == 'Pallet': 
+                ET.SubElement(doc, "shippingProfile").text = 'A. Pallet Shipping'
+            if r.delivery_type == 'Standard Parcel': 
+                pounds, ounces = kg_to_imperial(29)
+                ET.SubElement(doc, "shippingProfile").text = 'A. Standard Parcel'
+            if r.delivery_type == 'Collection Only': 
+                ET.SubElement(doc, "shippingProfile").text = 'Collection in person.'
 
 
-            if r.delivery_type == 'No GSP':
-                doc.append(dom_ship_free)
-                #ET.SubElement(doc, "useGlobalShipping").text = "false"
 
-            if r.delivery_type == 'Pallet':
-                doc.append(dom_ship_pallet)
-
-            if r.delivery_type == 'Collection Only':
-                doc.append(dom_ship_collection)
-
-            if r.delivery_type == 'Standard Parcel':
-                doc.append(dom_ship_free)
-
-            # We don't want GSP for now
-            #ET.SubElement(doc, "useGlobalShipping").text = "false"
-
-
-            ''''
-            int_ship_free = ET.fromstring("".join(["""<internationalShippingService """,
-                                                   """serviceAdditionalFee="0.00"  """,
-                                                   """serviceFee="0.00">Sellers Standard International Rate</domesticShippingService>"""]))
-
-
-            if r.delivery_type == 'No GSP':
-                doc.append(int_ship_free)
-                #ET.SubElement(doc, "useGlobalShipping").text = "false"
-
-            if r.delivery_type == 'Pallet':
-                doc.append(int_ship_pallet)
-
-            if r.delivery_type == 'Collection Only':
-                doc.append(int_ship_collection)
-
-            if r.delivery_type == 'Standard Parcel':
-                doc.append(int_ship_free)
-
-            '''
 
 
             ET.SubElement(doc, "duration").text = str(duration)
