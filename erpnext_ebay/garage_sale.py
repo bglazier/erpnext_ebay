@@ -191,7 +191,7 @@ def run_cron_create_xml():
 
 
             if r.delivery_type == 'Pallet': 
-                ET.SubElement(doc, "shippingProfile").text = 'A. Pallet Shipping'
+                ET.SubElement(doc, "shippingProfile").text = 'B. Pallet Shipping'
             if r.delivery_type == 'Standard Parcel': 
                 pounds, ounces = kg_to_imperial(29)
                 ET.SubElement(doc, "shippingProfile").text = 'A. Standard Parcel'
