@@ -123,13 +123,12 @@ def run_cron_create_xml():
     records = get_item_records_by_item_status()
 
     for r in records:
+        item_code = r.name
+        
         post_code = "NP4 0HZ"
-        if is_scotland:
+        if is_scotland(item_code):
             post_code = "DG1 3PH"
 
-        item_code = r.name
-        print(item_code)
-        
         is_auction = False
         
         quantity = r.actual_qty + r.unsubmitted_prec_qty - get_draft_sales(item_code)
