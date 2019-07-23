@@ -49,6 +49,19 @@ footer = """<br><br>The price includes VAT and we can provide VAT invoices.\
             <br><br>Universities and colleges - purchase orders accepted - please contact us."""
 
 
+
+
+def is_scotland(item_code):
+    
+    sl = frappe.db.sql("select sl.container from `tabStock Locations` sl where sl.item_code = %s", (item_code,))
+    
+    if not sl: return False
+
+    if sl[0][0] == 'Scotland': 
+        return True
+    else: 
+        return False
+
 def get_draft_sales(item_code):
     
     sql = """
@@ -97,7 +110,7 @@ def run_cron_create_xml():
     sync_ebay_ids()
     set_item_ebay_first_listed_date()
 
-    post_code = "NP4 0HZ"
+
     design = "Pro: Classic"
     layout = "thumb gallery"
     #decline = 0.9
@@ -110,6 +123,10 @@ def run_cron_create_xml():
     records = get_item_records_by_item_status()
 
     for r in records:
+        post_code = "NP4 0HZ"
+        if is_scotland:
+            post_code = "DG1 3PH"
+
         item_code = r.name
         print(item_code)
         
@@ -153,8 +170,8 @@ def run_cron_create_xml():
 
             body += footer
             body += """<br><br>sku: {}""".format(item_code)
-            body += """<br>approx (unit) weight: {}""".format(r.weight_per_unit)
-            body += """<br>approx l x w x h: {} x {} x {}""".format(r.length, r.width, r.height)
+            #body += """<br>approx (unit) weight: {}""".format(r.weight_per_unit)
+            #body += """<br>approx l x w x h: {} x {} x {}""".format(r.length, r.width, r.height)
             body += "]]"
 
             doc = ET.SubElement(root, "item")
