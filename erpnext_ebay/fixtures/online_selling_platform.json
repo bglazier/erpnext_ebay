@@ -8,9 +8,6 @@
   "parent": null, 
   "parentfield": null, 
   "parenttype": null, 
-  "price_list": "eBay Selling", 
-  "selling_platform": "eBay", 
-  "update_fields": "", 
-  "update_item_price": 1
+  "selling_platform": "eBay"
  }
 ]
