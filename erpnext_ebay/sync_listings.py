@@ -1,24 +1,18 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-from __future__ import print_function
 
 import operator
 from datetime import datetime, timedelta
-import six
 
 import pytz
 import bleach
 
 import frappe
 
-from ebay_requests import (get_listings, default_site_id, get_shipping_details,
-                           get_item)
-from ebay_constants import LISTING_DURATION_TOKEN_DICT, EBAY_SITE_NAMES
+from .ebay_requests import (get_listings, default_site_id, get_shipping_details,
+                            get_item)
+from .ebay_constants import LISTING_DURATION_TOKEN_DICT, EBAY_SITE_NAMES
 
-if six.PY2:
-    from collections import Sequence
-else:
-    from collections.abc import Sequence
+from collections.abc import Sequence
 
 
 OUTPUT_SELECTOR = ['ItemID', 'SKU', 'Site', 'CurrentPrice', 'QuantitySold',
@@ -183,7 +177,7 @@ def sync(site_id=default_site_id):
 
     # Find all existing Online Selling Items that match eBay and our subtypes
     all_selling_items = []
-    for subtype in subtype_dict.values():
+    for subtype in list(subtype_dict.values()):
         subtype_items = frappe.get_all('Online Selling Item', filters={
             'selling_platform': 'eBay',
             'selling_subtype': subtype})

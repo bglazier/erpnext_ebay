@@ -1,18 +1,12 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-from __future__ import print_function
 
 import os
 import sys
 import operator
-import six
 
 from datetime import datetime, timedelta
 
-if six.PY2:
-    from collections import Sequence
-else:
-    from collections.abc import Sequence
+from collections.abc import Sequence
 
 import frappe
 from frappe import _, msgprint
@@ -20,10 +14,11 @@ from frappe import _, msgprint
 from ebaysdk.exception import ConnectionError
 from ebaysdk.trading import Connection as Trading
 
-from ebay_constants import EBAY_SITE_NAMES
+from .ebay_constants import EBAY_SITE_NAMES
 
 PATH_TO_YAML = os.path.join(
-    os.sep, frappe.utils.get_bench_path(), 'sites', frappe.get_site_path(), 'ebay.yaml')
+    os.sep, frappe.utils.get_bench_path(), 'sites',
+    frappe.get_site_path(), 'ebay.yaml')
 
 default_site_id = 3  # eBay site id: 0=US, 3=UK
 
@@ -74,34 +69,6 @@ def test_for_message(api_dict):
             error['SeverityCode'], error['ErrorCode'], error['LongMessage']))
     msgprint('\n'.join(messages))
     print('\n'.join(messages))
-
-
-def convert_to_unicode(obj):
-    """Take an object, and recursively convert strings to unicode.
-
-    FOR PYTHON 2 ONLY
-    Opens lists and dictionary items recursively.
-
-    Returns a new/modified string/list/dictionary/nested object as appropriate.
-    """
-
-    if isinstance(obj, dict):
-        # Dictionary
-        for key, value in obj.iteritems():
-            obj[key] = convert_to_unicode(value)
-        return obj
-    elif isinstance(obj, list):
-        obj[:] = [convert_to_unicode(x) for x in obj]
-        return obj
-    elif isinstance(obj, str):
-        # Convert string to unicode
-        return obj.decode('utf-8')
-    elif isinstance(obj, unicode):
-        # Already unicode - do nothing.
-        return obj
-    else:
-        # Unhandled type
-        return obj
 
 
 def get_orders():
@@ -156,10 +123,6 @@ def get_orders():
 
     except ConnectionError as e:
         handle_ebay_error(e)
-
-    if six.PY2:
-        # Convert all strings to unicode
-        orders = convert_to_unicode(orders)
 
     return orders, num_days
 
@@ -261,10 +224,6 @@ def get_listings(listings_type='Summary', api_options=None,
     except ConnectionError as e:
         handle_ebay_error(e)
 
-    if six.PY2:
-        # Convert all strings to unicode
-        listings = convert_to_unicode(listings)
-
     return listings, summary
 
 
@@ -315,10 +274,6 @@ def get_seller_list(item_codes=None, site_id=default_site_id):
     except ConnectionError as e:
         handle_ebay_error(e)
 
-    if six.PY2:
-        # Convert all strings to unicode
-        listings = convert_to_unicode(listings)
-
     return listings
 
 
@@ -350,10 +305,6 @@ def get_item(item_id=None, item_code=None, site_id=default_site_id,
 
     except ConnectionError as e:
         handle_ebay_error(e)
-
-    if six.PY2:
-        # Convert all strings to unicode
-        listing = convert_to_unicode(listing)
 
     return listing['Item']
 
@@ -400,10 +351,6 @@ def get_categories(site_id=default_site_id):
 
     categories_data = response.dict()
 
-    if six.PY2:
-        # Convert all strings to unicode
-        categories_data = convert_to_unicode(categories_data)
-
     # Process the remaining categories data
     cl = categories_data['CategoryArray']['Category']
     # Use one dictionary element per level, to store each Category against its
@@ -422,7 +369,7 @@ def get_categories(site_id=default_site_id):
 
     # Loop over all deeper levels; connect categories to their parents
     for parent_level, level_dict in enumerate(levels[2:], start=1):
-        for cat in level_dict.values():
+        for cat in list(level_dict.values()):
             parent = levels[parent_level][cat['CategoryParentID']]
             parent['Children'].append(cat)
 
@@ -431,7 +378,7 @@ def get_categories(site_id=default_site_id):
         cat['Children'].sort(key=operator.itemgetter('CategoryName'))
 
     # Sort the top level list according to the CategoryName of the categories
-    top_level = levels[1].values()
+    top_level = list(levels[1].values())
     top_level.sort(key=operator.itemgetter('CategoryName'))
 
     categories_data['TopLevel'] = top_level
@@ -505,10 +452,6 @@ def get_features(site_id=default_site_id):
             handle_ebay_error(e)
         response_dict = response.dict()
         test_for_message(response_dict)
-
-        if six.PY2:
-            # Convert all strings to unicode
-            response_dict = convert_to_unicode(response_dict)
 
         if features_data is None:
             # First batch of new categories
@@ -592,10 +535,6 @@ def get_eBay_details(site_id=default_site_id, detail_name=None):
 
     response_dict = response.dict()
     test_for_message(response_dict)
-
-    if six.PY2:
-        # Convert all strings to unicode
-        response_dict = convert_to_unicode(response_dict)
 
     return response_dict
 

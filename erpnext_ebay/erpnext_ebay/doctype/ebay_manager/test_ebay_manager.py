@@ -2,7 +2,7 @@
 # Copyright (c) 2015, Ben Glazier and Contributors
 # See license.txt
 
-from __future__ import unicode_literals
+
 
 import unittest
 

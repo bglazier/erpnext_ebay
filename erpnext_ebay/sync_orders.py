@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-from __future__ import print_function
 
 import sys
 import datetime
@@ -8,16 +6,15 @@ import traceback
 import re
 from types import MethodType
 
-import six
-from country_data import lowercase_country_dict
+from .country_data import lowercase_country_dict
 from iso3166 import countries, countries_by_name
 
 import frappe
 from frappe import msgprint, _
 from frappe.utils import cstr, strip_html
 
-from ebay_requests import get_orders
-from ebay_constants import EBAY_TRANSACTION_SITE_IDS
+from .ebay_requests import get_orders
+from .ebay_constants import EBAY_TRANSACTION_SITE_IDS
 
 # Option to use eBay shipping address name as customer name.
 # eBay does not normally provide buyer name.
@@ -112,10 +109,7 @@ def debug_msgprint(message):
 
     Doesn't msgprint if msgprint_debug is not true.
     """
-    if six.PY2:
-        print(message.encode('ascii', errors='xmlcharrefreplace'))
-    else:
-        print(message)
+    print(message)
     if msgprint_debug:
         msgprint(message)
 

@@ -1,9 +1,5 @@
 # -*- coding: utf-8 -*-
 """Functions to deal with eBay categories and relevant category options."""
-from __future__ import unicode_literals
-from __future__ import print_function
-
-import six
 
 import operator
 import os
@@ -13,8 +9,8 @@ import collections
 import frappe
 from frappe import msgprint
 
-from ebay_requests import get_categories_versions, get_categories, get_features
-from ebay_constants import *
+from .ebay_requests import get_categories_versions, get_categories, get_features
+from .ebay_constants import *
 
 
 USE_FEATURES = False
@@ -29,7 +25,7 @@ def _infinite_strings(key=None):
     def _sort_func(value):
         if key is not None:
             value = key(value)
-        if isinstance(value, six.string_types) or value is None:
+        if isinstance(value, str) or value is None:
             value = float('inf')
         else:
             value = float(value)
@@ -248,9 +244,9 @@ def create_ebay_categories_cache(categories_data):
             info_od[key] = False
     frappe.db.sql("""
         INSERT INTO eBay_categories_info
-            (""" + ", ".join(info_od.keys()) + """)
+            (""" + ", ".join(list(info_od.keys())) + """)
             VALUES (""" + _s_for(info_od.values()) + """)
-        """, info_od.values())  # nosec
+        """, list(info_od.values()))  # nosec
     # nosec: keys are hardcoded, and values are passed by parameterisation.
 
     # Load the categories into the database
@@ -267,7 +263,7 @@ def create_ebay_categories_cache(categories_data):
         INSERT INTO eBay_categories_hierarchy
             (""" + ", ".join(hierarchy_od.keys()) + """)
             VALUES (""" + _s_for(hierarchy_od.values()) + """)
-        """, hierarchy_od.values())  # nosec
+        """, list(hierarchy_od.values()))  # nosec
     # nosec: keys are hardcoded, and values are passed by parameterisation.
 
     for cat in categories_data['TopLevel']:
@@ -283,7 +279,7 @@ def create_ebay_categories_cache(categories_data):
             INSERT INTO eBay_categories_hierarchy
                 (""" + ", ".join(hierarchy_od.keys()) + """)
                 VALUES (""" + _s_for(hierarchy_od.values()) + """)
-            """, hierarchy_od.values())
+            """, list(hierarchy_od.values()))
 
         # Add the children
         cat_children = cat['Children']
@@ -291,7 +287,7 @@ def create_ebay_categories_cache(categories_data):
             # Breadth-first walk through categories
             next_level = []
             for cat_child in cat_children:
-                for key in hierarchy_od.keys():
+                for key in list(hierarchy_od.keys()):
                     if key in cat_child:
                         hierarchy_od[key] = _bool_process(cat_child[key])
                     else:
@@ -300,7 +296,7 @@ def create_ebay_categories_cache(categories_data):
                 INSERT INTO eBay_categories_hierarchy
                     (""" + ", ".join(hierarchy_od.keys()) + """)
                     VALUES (""" + _s_for(hierarchy_od.values()) + """)
-                """, hierarchy_od.values())  # nosec
+                """, list(hierarchy_od.values()))  # nosec
                 # nosec: keys are hardcoded, and values
                 # are passed by parameterisation.
                 next_level.extend(cat_child['Children'])
@@ -471,7 +467,7 @@ def create_ebay_features_cache(features_data):
     frappe.db.sql("""
         INSERT INTO eBay_features_info (""" + ", ".join(info_od.keys()) + """)
             VALUES (""" + _s_for(info_od.values()) + """)
-        """, info_od.values())
+        """, list(info_od.values()))
 
     # Set up the eBay_features_FeatureDefinitions table
     for fd in features_data['FeatureDefinitions']:
@@ -486,7 +482,7 @@ def create_ebay_features_cache(features_data):
 
     # Set up the eBay_features_ListingDurations table
     for ld_key, tokens in features_data['ListingDurations'].items():
-        if isinstance(tokens, six.string_types):
+        if isinstance(tokens, str):
             tokens = (tokens,)
         for token in tokens:
             frappe.db.sql("""
@@ -519,7 +515,7 @@ def create_ebay_features_cache(features_data):
                     ld_key_str = 'ListingDuration' + ld_dict['_type']
                     cat_od[ld_key_str] = ld_dict['value']
             elif key == 'PaymentMethod':
-                if isinstance(value, six.string_types):
+                if isinstance(value, str):
                     value = (value,)
                 for payment_method in value:
                     frappe.db.sql("""
@@ -549,7 +545,7 @@ def create_ebay_features_cache(features_data):
                 if key in local_unsupported:
                     continue
                 if (
-                        not isinstance(value, six.string_types)
+                        not isinstance(value, str)
                         or len(key) > EBAY_ATTR_LEN
                         or len(value) > EBAY_VALUE_LEN):
                     print('Unsupported eBay attribute/value: {} : {}'.format(
@@ -567,9 +563,9 @@ def create_ebay_features_cache(features_data):
 
         # Insert the completed row for this category
         frappe.db.sql("""
-            INSERT INTO eBay_features (""" + ", ".join(cat_od.keys()) + """)
+            INSERT INTO eBay_features (""" + ", ".join(list(cat_od.keys())) + """)
                 VALUES (""" + _s_for(cat_od.values()) + """)
-            """, cat_od.values())
+            """, list(cat_od.values()))
 
     frappe.db.commit()
 

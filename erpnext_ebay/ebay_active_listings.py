@@ -2,10 +2,7 @@
 run from: premium report, garagsale_xml
 """
 
-from __future__ import unicode_literals
-from __future__ import print_function
-import __builtin__ as builtins
-
+import builtins
 
 import sys
 import os.path

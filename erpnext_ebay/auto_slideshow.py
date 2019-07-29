@@ -2,8 +2,6 @@
 # Copyright (c) 2015, Universal Resource Trading Limited and contributors
 # For license information, please see license.txt
 
-from __future__ import unicode_literals
-
 import os
 import re
 import shutil
@@ -355,21 +353,6 @@ def create_website_image(fname, item):
         "is_private": 0
     })
     f.insert(ignore_permissions=True)
-
-    # Document for the thumbnail is not required.
-    ## Document for thumbnail image
-    #f = frappe.get_doc({
-        #"doctype": "File",
-        #"file_url": thumb_url,
-        #"file_name": thumb_fname,
-        #"attached_to_doctype": "Item",
-        #"attached_to_name": item,
-        #"attached_to_field": None,
-        #"folder": 'Home/Attachments',
-        #"file_size": os.path.getsize(thumb_fpath),
-        #"is_private": 0
-    #})
-    #f.insert(ignore_permissions=True)
 
     return web_url, thumb_url
 

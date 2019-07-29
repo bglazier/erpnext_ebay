@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """Code for the eBay platform"""
-from __future__ import unicode_literals
 
 import frappe
 

@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """Custom methods for Item doctype"""
-from __future__ import unicode_literals
 
 import frappe
 

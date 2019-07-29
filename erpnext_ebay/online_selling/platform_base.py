@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 """Base class for Online Selling platform"""
-from __future__ import unicode_literals
-
 
 class OnlineSellingPlatformClass(object):
     """This is a class used only to store data and methods in an easy-to-pass

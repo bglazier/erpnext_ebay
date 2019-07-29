@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals
 
 app_name = "erpnext_ebay"
 app_title = "Erpnext Ebay"
@@ -8,7 +7,7 @@ app_description = "Ebay Integration"
 app_icon = "octicon octicon-file-directory"
 app_color = "grey"
 app_email = "ben@benjaminglazier.com"
-app_version = "0.0.1"
+app_version = "0.0.2"
 app_license = "MIT"
 
 #fixtures = ["Custom Field", "Custom Script", "Property Setter", "Print Format"]

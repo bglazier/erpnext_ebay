@@ -3,15 +3,13 @@
 # Copyright (c) 2015, Universal Resource Trading Limited and contributors
 # For license information, please see license.txt
 
-from __future__ import unicode_literals
-from __future__ import print_function
-import __builtin__ as builtins
+import builtins
 
 import os
 from inspect import cleandoc
 import shutil
 import cgi
-import urllib
+import urllib.request, urllib.parse, urllib.error
 import subprocess
 from datetime import date, timedelta
 
@@ -26,11 +24,10 @@ import jinja2
 import pymysql
 
 
-
 from ugscommon import get_unsubmitted_prec_qty
 import ugssettings
-from ebay_active_listings import generate_active_ebay_data, sync_ebay_ids
-from ebay_active_listings import set_item_ebay_first_listed_date
+from .ebay_active_listings import generate_active_ebay_data, sync_ebay_ids
+from .ebay_active_listings import set_item_ebay_first_listed_date
 
 
 NO_IMAGES = True
@@ -297,7 +294,7 @@ def download_xml(url, file_name):
     Saves a file to local machine
     """
 
-    urllib.urlretrieve(url, os.path.join(os.path.expanduser("~"), 'Downloads', file_name))
+    urllib.request.urlretrieve(url, os.path.join(os.path.expanduser("~"), 'Downloads', file_name))
 
     print(url)
     print(os.path.join(os.path.expanduser("~"), 'Downloads', file_name))
