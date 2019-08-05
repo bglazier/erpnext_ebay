@@ -78,8 +78,8 @@ def get_orders():
     by siteid.
     """
 
-    num_days = frappe.db.get_value(
-        'eBay Manager Settings', filters=None, fieldname='ebay_sync_days')
+    num_days = int(frappe.get_value(
+        'eBay Manager Settings', filters=None, fieldname='ebay_sync_days'))
 
     try:
         if num_days < 1:
