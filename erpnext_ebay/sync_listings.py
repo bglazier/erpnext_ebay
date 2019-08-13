@@ -10,7 +10,8 @@ import frappe
 
 from .ebay_requests import (get_listings, default_site_id, get_shipping_details,
                             get_item)
-from .ebay_constants import LISTING_DURATION_TOKEN_DICT, EBAY_SITE_NAMES
+from .ebay_constants import (LISTING_DURATION_TOKEN_DICT, EBAY_SITE_IDS,
+                             EBAY_SITE_NAMES)
 
 from collections.abc import Sequence
 
@@ -24,7 +25,8 @@ OUTPUT_SELECTOR = ['ItemID', 'SKU', 'Site', 'CurrentPrice', 'QuantitySold',
 def get_active_listings():
     """Returns a list of active listings from the eBay TradingAPI."""
 
-    outer_opts = {'OutputSelector': ['ItemID', 'SKU', 'ListingType']}
+    outer_opts = {'OutputSelector': ['ItemID', 'SKU',
+                                     'ListingType', 'PaginationResult']}
     # outer_opts = {'DetailLevel': 'ReturnAll'}
     inner_opts = {'Include': 'true',
                   'IncludeWatchCount': 'true'}
@@ -32,6 +34,15 @@ def get_active_listings():
     listings, _summary = get_listings('ActiveList', outer_opts, inner_opts)
 
     return listings
+
+
+def get_subtype_site_ids():
+    """Get all the supported eBay site IDs."""
+    subtypes = frappe.get_all(
+        'Online Selling Subtype',
+        fields=['subtype_id'],
+        filters={'selling_platform': 'eBay'})
+    return set(x['subtype_id'] for x in subtypes)
 
 
 def get_subtype_dicts(site_id):
@@ -157,11 +168,18 @@ def format_shipping_services(site_id, shipping):
 
 
 @frappe.whitelist()
-def sync(site_id=default_site_id):
+def sync(site_id=default_site_id, update_ebay_id=False):
     """
     Updates Online Selling Items for eBay across the site.
+    Also updates ebay_id for all items to the UK eBay ID.
     """
 
+    # Cast site_id to integer (in case passed from JS)
+    site_id = int(site_id)
+
+    # Create site-specific dictionary cache for subtype dicts
+    subtype_cache = {}
+  
     # This is a whitelisted function; check permissions.
     if not frappe.has_permission('eBay Manager'):
         frappe.throw('You do not have permission to access the eBay Manager',
@@ -170,29 +188,27 @@ def sync(site_id=default_site_id):
     # Load orders from Ebay
     listings = get_active_listings()
 
-    # Get subtype dicts for this site_id
-    subtype_dict, subtype_tax_dict = get_subtype_dicts(site_id)
+    # Get valid site IDs
+    valid_site_ids = get_subtype_site_ids()
 
-    # Find our BuyItNow and Auction subtypes
+    # Find all existing Online Selling Items that match eBay
+    all_selling_items = [x['name'] for x in frappe.get_all(
+        'Online Selling Item',
+        filters={'selling_platform': 'eBay'})]
 
-    # Find all existing Online Selling Items that match eBay and our subtypes
-    all_selling_items = []
-    for subtype in list(subtype_dict.values()):
-        subtype_items = frappe.get_all('Online Selling Item', filters={
-            'selling_platform': 'eBay',
-            'selling_subtype': subtype})
-        all_selling_items.extend([x['name'] for x in subtype_items])
-
-    # Delete all old listing entries matching eBay with this site_id
+    # Delete all old listing entries matching eBay
     for selling_item in all_selling_items:
         frappe.delete_doc('Online Selling Item', selling_item)
 
     # Get a list of all item codes
     item_codes = set(x['name'] for x in frappe.get_all('Item'))
 
+    ebay_id_dict = {}
+
     no_SKU_items = []
     not_found_SKU_items = []
     unsupported_listing_type = []
+    multiple_default_listings = []
 
     for listing in listings:
         # Loop over all listings
@@ -205,28 +221,47 @@ def sync(site_id=default_site_id):
             # This item does not exist!
             not_found_SKU_items.append(listing)
             continue
-        if listing['ListingType'] not in subtype_dict:
-            # This listing type is not supported?
-            unsupported_listing_type.append(listing)
-            continue
         # Get item listing from US site (we don't know the SiteID yet)
         item_dict = get_item(item_id=listing['ItemID'], site_id=0,
                              output_selector=OUTPUT_SELECTOR)
         item_site_id = EBAY_SITE_NAMES[item_dict['Site']]
-        if item_site_id != site_id:
-            # Not from this site
+        if item_site_id not in valid_site_ids:
+            # This site ID is not supported?
+            unsupported_listing_type.append(listing)
+            continue
+        # Get subtype dicts for this site_id, if necessary
+        if item_site_id not in subtype_cache:
+            subtype_cache[item_site_id] = get_subtype_dicts(item_site_id)
+        subtype_dict, subtype_tax_dict = subtype_cache[item_site_id]
+        if listing['ListingType'] not in subtype_dict:
+            # This listing type is not supported?
+            unsupported_listing_type.append(listing)
             continue
 
         print(item_code)
         new_listing = create_ebay_online_selling_item(
-            item_dict, item_code, site_id, subtype_dict, subtype_tax_dict)
+            item_dict, item_code, item_site_id, subtype_dict, subtype_tax_dict)
         new_listing.insert(ignore_permissions=True)
+
+        if item_site_id == site_id:
+            if item_code in ebay_id_dict:
+                multiple_default_listings.append(item_code)
+            else:
+                ebay_id_dict[item_code] = listing['ItemID']
+
+    if update_ebay_id:
+        for item_code, ebay_id in ebay_id_dict.items():
+            frappe.db.set_value('Item', item_code, 'ebay_id', ebay_id)
 
     frappe.msgprint('{} listings had no SKU'.format(len(no_SKU_items)))
     frappe.msgprint('{} listings had an SKU that could not be found'.format(
         len(not_found_SKU_items)))
     frappe.msgprint('{} listings had an unsupported listing type'.format(
         len(unsupported_listing_type)))
+    frappe.msgprint('{} listings had multiple eBay {} listings'.format(
+        len(multiple_default_listings), EBAY_SITE_IDS[site_id]))
+    if multiple_default_listings:
+        frappe.msgprint(', '.join(sorted(multiple_default_listings)))
 
     frappe.db.commit()
 

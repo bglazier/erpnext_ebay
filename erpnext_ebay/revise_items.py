@@ -19,7 +19,6 @@ PATH_TO_YAML = os.path.join(os.sep, frappe.utils.get_bench_path(), 'sites',
                             frappe.get_site_path(), 'ebay.yaml')
 
 
-@frappe.whitelist(allow_guest=True)
 def revise_generic_items(item_code):
     """Generic Revise eBay listings"""
 
@@ -115,41 +114,31 @@ def get_item_revisions(item_code):
     return tuple(records[0][0:13])
 
 
-@frappe.whitelist(allow_guest=True)
-def revise_ebay_price(item_code, new_price, is_auction):
+def revise_ebay_price(item_code, new_price, is_auction=False):
     """Given item_code and (inc vat) price, revise the listing on eBay"""
 
     # get the ebay id given the item_code
     ebay_id = frappe.get_value('Item', item_code, 'ebay_id')
-    if ebay_id and item_code and new_price:
+    if not ebay_id and item_code and new_price:
+        raise ValueError(
+            'Price Sync Error: There was a problem getting with the '
+            + 'item_code, price or eBay ID')
 
-        try:
-            new_price_inc = float(new_price)
-            api_trading = Trading(config_file=PATH_TO_YAML, warnings=True, timeout=20)
+        new_price_inc = float(new_price)
+        api_trading = Trading(config_file=PATH_TO_YAML, warnings=True, timeout=20)
 
-            if is_auction:
-                api_trading.execute(
-                    'ReviseItem',
-                    {'Item':
-                        {'ItemID': ebay_id, 'StartPrice': new_price_inc}})
-            else:
-                # ReviseInventoryStatus enables change to price and/or quantity
-                # of an active, fixed-price listing. 
-                # The fixed-price listing is identified with the ItemID of the
-                # listing or the SKUvalue of the item
-                api_trading.execute(
-                    'ReviseInventoryStatus',
-                    {'InventoryStatus':
-                        {'ItemID': ebay_id, 'StartPrice': new_price_inc}})
-
-        except ConnectionError:
-            return ("Connection Error - possibly ebay.yaml file not found")
-
-        except Exception:
-            return ("Price sync. There was a problem using the eBay Api")
-            #raise
-
+        if is_auction:
+            api_trading.execute(
+                'ReviseItem',
+                {'Item':
+                    {'ItemID': ebay_id, 'StartPrice': new_price_inc}})
         else:
-            return ("Price sync success - eBay listing updated!")
-    else:
-        return ("Price Sync Error: There was a problem getting with the item_code, price or ebayid")
+            # ReviseInventoryStatus enables change to price and/or quantity
+            # of an active, fixed-price listing. 
+            # The fixed-price listing is identified with the ItemID of the
+            # listing or the SKUvalue of the item
+            api_trading.execute(
+                'ReviseInventoryStatus',
+                {'InventoryStatus':
+                    {'ItemID': ebay_id, 'StartPrice': new_price_inc}})
+

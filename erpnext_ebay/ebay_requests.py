@@ -172,7 +172,7 @@ def get_listings(listings_type='Summary', api_options=None,
             # all pages have been obtained
             if listings_type in INNER_PAGINATE:
                 api_options[listings_type]['Pagination'] = {
-                    'EntriesPerPage': 50, 'PageNumber': page}
+                    'EntriesPerPage': 100, 'PageNumber': page}
 
             api.execute('GetMyeBaySelling', api_options)
 
