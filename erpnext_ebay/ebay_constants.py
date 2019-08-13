@@ -59,7 +59,7 @@ EBAY_TRANSACTION_SITE_IDS = {0: 'US',
                              216: 'Singapore'}
 
 EBAY_TRANSACTION_SITE_NAMES = {
-    name: siteid for siteid, name in EBAY_SITE_IDS.items()}
+    name: siteid for siteid, name in EBAY_TRANSACTION_SITE_IDS.items()}
 
 # eBay PaymentMethods and their descriptions
 PAYMENT_METHODS = {'AmEx': 'American Express',
