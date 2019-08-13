@@ -196,7 +196,7 @@ def get_listings(listings_type='Summary', api_options=None,
                         n_pages = 1
                 print('n_pages = ', n_pages)
                 if 'ItemArray' in listings_api[listings_type]:
-                    print('n_items = ', len(
+                    print('n_items per page = ', len(
                         listings_api[listings_type]['ItemArray']['Item']))
             if n_pages > 1:
                 print('page {} / {}'.format(page, n_pages))

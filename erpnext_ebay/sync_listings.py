@@ -11,7 +11,7 @@ import frappe
 from .ebay_requests import (get_listings, default_site_id, get_shipping_details,
                             get_item)
 from .ebay_constants import (LISTING_DURATION_TOKEN_DICT, EBAY_SITE_IDS,
-                             EBAY_SITE_NAMES)
+                             EBAY_TRANSACTION_SITE_NAMES)
 
 from collections.abc import Sequence
 
@@ -224,7 +224,7 @@ def sync(site_id=default_site_id, update_ebay_id=False):
         # Get item listing from US site (we don't know the SiteID yet)
         item_dict = get_item(item_id=listing['ItemID'], site_id=0,
                              output_selector=OUTPUT_SELECTOR)
-        item_site_id = EBAY_SITE_NAMES[item_dict['Site']]
+        item_site_id = EBAY_TRANSACTION_SITE_NAMES[item_dict['Site']]
         if item_site_id not in valid_site_ids:
             # This site ID is not supported?
             unsupported_listing_type.append(listing)
