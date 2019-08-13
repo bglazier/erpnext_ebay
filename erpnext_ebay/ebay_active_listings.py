@@ -2,27 +2,15 @@
 run from: premium report, garagsale_xml
 """
 
-import builtins
-
-import sys
 import os.path
 import datetime
 from datetime import date
-from types import MethodType
-import string
 
 import frappe
-from frappe import msgprint
-#from frappe.utils import cstr
-
-sys.path.insert(0, "/Users/ben/dev/ebaysdk-python/dist/ebaysdk-2.1.5-py2.7.egg")
-sys.path.insert(0, "/usr/local/lib/python2.7/dist-packages/ebaysdk-2.1.4-py2.7.egg")
-sys.path.insert(0, "/usr/local/lib/python2.7/dist-packages/lxml-3.6.4-py2.7-linux-i686.egg")
 
 from ebaysdk.exception import ConnectionError
 from ebaysdk.trading import Connection as Trading
 
-sys.path.insert(0, frappe.get_app_path('unigreenscheme'))
 PATH_TO_YAML = os.path.join(
     os.sep, frappe.utils.get_bench_path(), 'sites', frappe.get_site_path(), 'ebay.yaml')
 
@@ -43,7 +31,6 @@ def update_sold_statusDONOTUSE():
     """
 
 
-@frappe.whitelist()
 def generate_active_ebay_data():
     """Get all the active eBay listings and save them to table"""
 
@@ -237,6 +224,6 @@ def sync_ebay_ids():
             if r.item_code:
                 set_item_ebay_id(r.sku, r.live_ebay_id)
             else:
-                msgprint(
+                frappe.msgprint(
                     'The ebay item cannot be found on ERPNEXT so unable to record ebay id',
                     r.live_ebay_id)
