@@ -195,9 +195,14 @@ def get_listings(listings_type='Summary', api_options=None,
                     else:
                         n_pages = 1
                 print('n_pages = ', n_pages)
-                if 'ItemArray' in listings_api[listings_type]:
-                    print('n_items per page = ', len(
-                        listings_api[listings_type]['ItemArray']['Item']))
+                if ('ItemArray' in listings_api[listings_type]
+                        and listings_api[listings_type]['ItemArray']
+                        and 'Item' in listings_api[listings_type]['ItemArray']):
+                    n_items = len(
+                        listings_api[listings_type]['ItemArray']['Item'])
+                else:
+                    n_items = 0
+                print(f'n_items per page = {n_items}')
             if n_pages > 1:
                 print('page {} / {}'.format(page, n_pages))
 
@@ -280,8 +285,13 @@ def get_seller_list(item_codes=None, site_id=default_site_id,
                 n_pages = int(
                     listings_api['PaginationResult']['TotalNumberOfPages'])
                 print('n_pages = ', n_pages)
-                print('n_items per page = ', len(
-                    listings_api['ItemArray']['Item']))
+                if ('ItemArray' in listings_api
+                        and listings_api['ItemArray']
+                        and 'Item' in listings_api['ItemArray']):
+                    n_items = len(listings_api['ItemArray']['Item'])
+                else:
+                    n_items = 0
+                print(f'n_items per page = {n_items}')
             if n_pages > 1:
                 print('page {} / {}'.format(page, n_pages))
 
