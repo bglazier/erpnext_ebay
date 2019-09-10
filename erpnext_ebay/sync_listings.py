@@ -8,18 +8,37 @@ import bleach
 
 import frappe
 
-from .ebay_requests import (get_listings, default_site_id, get_shipping_details,
-                            get_item)
+from .ebay_requests import (get_listings, get_seller_list, get_item,
+                            default_site_id, get_shipping_details)
 from .ebay_constants import (LISTING_DURATION_TOKEN_DICT, EBAY_SITE_IDS,
                              EBAY_TRANSACTION_SITE_NAMES)
 
 from collections.abc import Sequence
 
-
-OUTPUT_SELECTOR = ['ItemID', 'SKU', 'Site', 'CurrentPrice', 'QuantitySold',
-                   'Quantity', 'ListingType', 'ListingDuration', 'ViewItemURL',
-                   'HitCount', 'QuestionCount', 'WatchCount', 'Title',
-                   'StartTime', 'ShippingDetails']
+OUTPUT_SELECTOR = [
+    'ItemArray.Item.ListingType',
+    'ItemArray.Item.ListingDuration',
+    'ItemArray.Item.ListingDetails.StartTime',
+    'ItemArray.Item.ListingDetails.ViewItemURL',
+    'ItemArray.Item.SKU',
+    'ItemArray.Item.HitCount',
+    'ItemArray.Item.WatchCount',
+    'ItemArray.Item.QuestionCount',
+    'ItemArray.Item.Quantity',
+    'ItemArray.Item.Title',
+    'ItemArray.Item.SellingStatus.CurrentPrice',
+    'ItemArray.Item.SellingStatus.QuantitySold']
+OUTPUT_SELECTOR += [
+    f'ItemArray.Item.ShippingDetails.ShippingServiceOptions.{x}' for x in [
+        'ShippingService', 'ShippingServicePriority', 'ShippingServiceCost',
+        'ShippingServiceAdditionalCost', 'ShippingTimeMin', 'ShippingTimeMax',
+        'FreeShipping', 'ExpeditedService', 'ShipToLocation']]
+OUTPUT_SELECTOR += [
+    f'ItemArray.Item.ShippingDetails.InternationalShippingServiceOption.{x}'
+    for x in [
+        'ShippingService', 'ShippingServicePriority', 'ShippingServiceCost',
+        'ShippingServiceAdditionalCost', 'ShippingTimeMin', 'ShippingTimeMax',
+        'FreeShipping', 'ExpeditedService', 'ShipToLocation']]
 
 
 def get_active_listings():
@@ -85,7 +104,11 @@ def format_shipping_options(options, shipping_option_descriptions):
         if option.get('ExpeditedService', False):
             extra_opts.append('Expedited Service')
         if 'ShipToLocation' in option:
-            extra_opts.append('Ships to: {}'.format(option['ShipToLocation']))
+            if isinstance(option['ShipToLocation'], str):
+                ship_to_location = option['ShipToLocation']
+            else:
+                ship_to_location = ', '.join(option['ShipToLocation'])
+            extra_opts.append(f'Ships to: {ship_to_location}')
         extra_opt_text = (' ({})'.format(', '.join(extra_opts))
                           if extra_opts else '')
         # Shipping cost
@@ -134,6 +157,10 @@ def format_shipping_services(site_id, shipping):
     shipping services available.
     """
 
+    if shipping is None:
+        # No shipping methods available
+        shipping = {}
+
     shipping_strings = []
 
     shipping_details = get_shipping_details(site_id=site_id)
@@ -179,14 +206,14 @@ def sync(site_id=default_site_id, update_ebay_id=False):
 
     # Create site-specific dictionary cache for subtype dicts
     subtype_cache = {}
-  
+
     # This is a whitelisted function; check permissions.
     if not frappe.has_permission('eBay Manager'):
         frappe.throw('You do not have permission to access the eBay Manager',
                      frappe.PermissionError)
     frappe.msgprint('Syncing eBay listings...')
     # Load orders from Ebay
-    listings = get_active_listings()
+    active_listings = get_active_listings()
 
     # Get valid site IDs
     valid_site_ids = get_subtype_site_ids()
@@ -204,14 +231,14 @@ def sync(site_id=default_site_id, update_ebay_id=False):
     item_codes = set(x['name'] for x in frappe.get_all('Item'))
 
     ebay_id_dict = {}
-
     no_SKU_items = []
     not_found_SKU_items = []
     unsupported_listing_type = []
-    multiple_default_listings = []
+    multiple_listings = []
 
-    for listing in listings:
-        # Loop over all listings
+    # Make list of active item codes
+    active_item_codes = set()
+    for listing in active_listings:
         if 'SKU' not in listing:
             # This item has no SKU
             no_SKU_items.append(listing)
@@ -221,10 +248,19 @@ def sync(site_id=default_site_id, update_ebay_id=False):
             # This item does not exist!
             not_found_SKU_items.append(listing)
             continue
-        # Get item listing from US site (we don't know the SiteID yet)
-        item_dict = get_item(item_id=listing['ItemID'], site_id=0,
-                             output_selector=OUTPUT_SELECTOR)
-        item_site_id = EBAY_TRANSACTION_SITE_NAMES[item_dict['Site']]
+        active_item_codes.add(item_code)
+
+    # Get data from GetSellerList
+    listings = get_seller_list(item_codes=list(active_item_codes),
+                               site_id=0,  # Use US site
+                               output_fields=OUTPUT_SELECTOR,
+                               granularity_level='Fine')
+
+    for listing in listings:
+        # Loop over all listings
+        item_code = listing['SKU']
+
+        item_site_id = EBAY_TRANSACTION_SITE_NAMES[listing['Site']]
         if item_site_id not in valid_site_ids:
             # This site ID is not supported?
             unsupported_listing_type.append(listing)
@@ -240,12 +276,12 @@ def sync(site_id=default_site_id, update_ebay_id=False):
 
         print(item_code)
         new_listing = create_ebay_online_selling_item(
-            item_dict, item_code, item_site_id, subtype_dict, subtype_tax_dict)
+            listing, item_code, item_site_id, subtype_dict, subtype_tax_dict)
         new_listing.insert(ignore_permissions=True)
 
         if item_site_id == site_id:
             if item_code in ebay_id_dict:
-                multiple_default_listings.append(item_code)
+                multiple_listings.append(item_code)
             else:
                 ebay_id_dict[item_code] = listing['ItemID']
 
@@ -259,9 +295,9 @@ def sync(site_id=default_site_id, update_ebay_id=False):
     frappe.msgprint('{} listings had an unsupported listing type'.format(
         len(unsupported_listing_type)))
     frappe.msgprint('{} listings had multiple eBay {} listings'.format(
-        len(multiple_default_listings), EBAY_SITE_IDS[site_id]))
-    if multiple_default_listings:
-        frappe.msgprint(', '.join(sorted(multiple_default_listings)))
+        len(multiple_listings), EBAY_SITE_IDS[site_id]))
+    if multiple_listings:
+        frappe.msgprint(', '.join(sorted(multiple_listings)))
 
     frappe.db.commit()
 
@@ -270,7 +306,7 @@ def create_ebay_online_selling_item(listing, item_code,
                                     site_id=None,
                                     subtype_dict=None,
                                     subtype_tax_dict=None):
-    """Convert results from GetMyeBaySelling or GetItem to an
+    """Convert results from GetSellerList or GetItem to an
     Online Selling Item which is ready for insertion.
     """
 
@@ -323,9 +359,6 @@ def create_ebay_online_selling_item(listing, item_code,
         selling_url, tags=['a'], attributes={'a': ['href']}, styles=[],
         strip=True, strip_comments=True)
 
-    # HitCount if available (only GetItem, not GetMyeBaySelling)
-    hit_count = listing.get('HitCount', 0)
-
     # Quantity (listed) and quantity sold
     qty_listed = int(listing['Quantity'])
     qty_sold = int(listing['SellingStatus'].get('QuantitySold', 0))
@@ -335,6 +368,8 @@ def create_ebay_online_selling_item(listing, item_code,
         site_id, listing['ShippingDetails'])
 
     # Create listing
+    # QuestionCount not available through GetSellerList
+    # HitCount not avaiable through GetMyeBaySelling
     new_listing = frappe.get_doc({
         'doctype': 'Online Selling Item',
         'parent': item_code,
@@ -354,7 +389,7 @@ def create_ebay_online_selling_item(listing, item_code,
         'ebay_listing_duration': duration_description,
         'ebay_watch_count': int(listing.get('WatchCount', 0)),
         'ebay_question_count': int(listing.get('QuestionCount', 0)),
-        'ebay_hit_count': hit_count,
+        'ebay_hit_count': int(listing.get('HitCount', 0)),
         'selling_url': selling_url,
         'shipping_options': shipping_string})
 

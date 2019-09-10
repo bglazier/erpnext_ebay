@@ -227,9 +227,10 @@ def get_listings(listings_type='Summary', api_options=None,
     return listings, summary
 
 
-def get_seller_list(item_codes=None, site_id=default_site_id):
+def get_seller_list(item_codes=None, site_id=default_site_id,
+                    output_fields=None, granularity_level='Coarse'):
     """Runs GetSellerList to obtain a list of items.
-    Note that this call does NOT filter by SiteID.
+    Note that this call does NOT filter by SiteID, but does return it.
     """
 
     # Create eBay acceptable datetime stamps for EndTimeTo and EndTimeFrom
@@ -238,12 +239,16 @@ def get_seller_list(item_codes=None, site_id=default_site_id):
 
     listings = []
 
+    if output_fields is None:
+        output_fields = []
+
     try:
         # Initialize TradingAPI; default timeout is 20.
 
         api = Trading(config_file=PATH_TO_YAML,
                       siteid=site_id, warnings=True, timeout=20)
 
+        n_pages = None
         page = 1
         while True:
             # TradingAPI results are paginated, so loop until
@@ -251,16 +256,34 @@ def get_seller_list(item_codes=None, site_id=default_site_id):
             api_dict = {
                 'EndTimeTo': end_to,
                 'EndTimeFrom': end_from,
+                'GranularityLevel': granularity_level,
                 'Pagination': {
-                    'EntriesPerPage': 50,
-                    'PageNumber': page}
+                    'EntriesPerPage': 100,
+                    'PageNumber': page},
+                'OutputSelector': [
+                    'ItemID', 'ItemArray.Item.Site',
+                    'PaginationResult', 'ReturnedItemCountActual',
+                    'HasMoreItems'] + output_fields
                 }
+            for field in output_fields:
+                if 'WatchCount' in field:
+                    api_dict['IncludeWatchCount'] = True
+                    break
             if item_codes is not None:
                 api_dict['SKUArray'] = {'SKU': item_codes}
             api.execute('GetSellerList', api_dict)
 
             listings_api = api.response.dict()
             test_for_message(listings_api)
+
+            if n_pages is None:
+                n_pages = int(
+                    listings_api['PaginationResult']['TotalNumberOfPages'])
+                print('n_pages = ', n_pages)
+                print('n_items per page = ', len(
+                    listings_api['ItemArray']['Item']))
+            if n_pages > 1:
+                print('page {} / {}'.format(page, n_pages))
 
             n_listings = int(listings_api['ReturnedItemCountActual'])
             if n_listings == 1:
