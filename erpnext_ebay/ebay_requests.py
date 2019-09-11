@@ -127,9 +127,9 @@ def get_orders():
     return orders, num_days
 
 
-def get_listings(listings_type='Summary', api_options=None,
-                 api_inner_options=None, site_id=default_site_id):
-    """Returns a list of listings from the eBay TradingAPI."""
+def get_my_ebay_selling(listings_type='Summary', api_options=None,
+                        api_inner_options=None, site_id=default_site_id):
+    """Returns a list of listings from the GetMyeBaySelling eBay TradingAPI."""
 
     INNER_PAGINATE = ('ActiveList', 'ScheduledList', 'SoldList', 'UnsoldList')
     RESPONSE_FIELDS = {
@@ -232,9 +232,23 @@ def get_listings(listings_type='Summary', api_options=None,
     return listings, summary
 
 
+def get_active_listings():
+    """Returns a list of active listings from GetMyeBaySelling."""
+
+    outer_opts = {'OutputSelector': ['ItemID', 'SKU',
+                                     'ListingType', 'PaginationResult']}
+    inner_opts = {'Include': 'true',
+                  'IncludeWatchCount': 'true'}
+
+    listings, _summary = get_my_ebay_selling(
+        'ActiveList', outer_opts, inner_opts)
+
+    return listings
+
+
 def get_seller_list(item_codes=None, site_id=default_site_id,
-                    output_fields=None, granularity_level='Coarse'):
-    """Runs GetSellerList to obtain a list of items.
+                    output_selector=None, granularity_level='Coarse'):
+    """Runs GetSellerList to obtain a list of (active) items.
     Note that this call does NOT filter by SiteID, but does return it.
     """
 
@@ -244,8 +258,8 @@ def get_seller_list(item_codes=None, site_id=default_site_id,
 
     listings = []
 
-    if output_fields is None:
-        output_fields = []
+    if output_selector is None:
+        output_selector = []
 
     try:
         # Initialize TradingAPI; default timeout is 20.
@@ -268,9 +282,9 @@ def get_seller_list(item_codes=None, site_id=default_site_id,
                 'OutputSelector': [
                     'ItemID', 'ItemArray.Item.Site',
                     'PaginationResult', 'ReturnedItemCountActual',
-                    'HasMoreItems'] + output_fields
+                    'HasMoreItems'] + output_selector
                 }
-            for field in output_fields:
+            for field in output_selector:
                 if 'WatchCount' in field:
                     api_dict['IncludeWatchCount'] = True
                     break
@@ -314,17 +328,19 @@ def get_item(item_id=None, item_code=None, site_id=default_site_id,
              output_selector=None):
     """Returns a single listing from the eBay TradingAPI."""
 
+    if output_selector is None:
+        output_selector = []
+
     if not (item_code or item_id):
         raise ValueError('No item_code or item_id passed to get_item!')
 
     api_dict = {'IncludeWatchCount': True}
     if output_selector:
-        api_dict['OutputSelector'] = output_selector
+        api_dict['OutputSelector'] = ['ItemID', 'Item.Site'] + output_selector
     if item_code:
         api_dict['SKU'] = item_code
     if item_id:
         api_dict['ItemID'] = item_id
-
     try:
         # Initialize TradingAPI; default timeout is 20.
 

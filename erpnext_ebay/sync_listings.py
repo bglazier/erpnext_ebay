@@ -8,7 +8,7 @@ import bleach
 
 import frappe
 
-from .ebay_requests import (get_listings, get_seller_list, get_item,
+from .ebay_requests import (get_active_listings, get_seller_list, get_item,
                             default_site_id, get_shipping_details)
 from .ebay_constants import (LISTING_DURATION_TOKEN_DICT, EBAY_SITE_IDS,
                              EBAY_TRANSACTION_SITE_NAMES)
@@ -40,19 +40,8 @@ OUTPUT_SELECTOR += [
         'ShippingServiceAdditionalCost', 'ShippingTimeMin', 'ShippingTimeMax',
         'FreeShipping', 'ExpeditedService', 'ShipToLocation']]
 
-
-def get_active_listings():
-    """Returns a list of active listings from the eBay TradingAPI."""
-
-    outer_opts = {'OutputSelector': ['ItemID', 'SKU',
-                                     'ListingType', 'PaginationResult']}
-    # outer_opts = {'DetailLevel': 'ReturnAll'}
-    inner_opts = {'Include': 'true',
-                  'IncludeWatchCount': 'true'}
-
-    listings, _summary = get_listings('ActiveList', outer_opts, inner_opts)
-
-    return listings
+GET_ITEM_OUTPUT_SELECTOR = [
+    x.replace('ItemArray.Item', 'Item') for x in OUTPUT_SELECTOR]
 
 
 def get_subtype_site_ids():
@@ -253,7 +242,7 @@ def sync(site_id=default_site_id, update_ebay_id=False):
     # Get data from GetSellerList
     listings = get_seller_list(item_codes=list(active_item_codes),
                                site_id=0,  # Use US site
-                               output_fields=OUTPUT_SELECTOR,
+                               output_selector=OUTPUT_SELECTOR,
                                granularity_level='Fine')
 
     for listing in listings:
