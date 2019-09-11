@@ -274,7 +274,6 @@ def sync(site_id=default_site_id, update_ebay_id=False):
             unsupported_listing_type.append(listing)
             continue
 
-        print(item_code)
         new_listing = create_ebay_online_selling_item(
             listing, item_code, item_site_id, subtype_dict, subtype_tax_dict)
         new_listing.insert(ignore_permissions=True)
@@ -295,9 +294,7 @@ def sync(site_id=default_site_id, update_ebay_id=False):
 
             if current_id and (not current_id.isdigit()) and not ebay_id:
                 # Current eBay ID is a placeholder; do not remove
-                #print(f'{item_code} NOT overriding {current_id} -> {ebay_id}')
                 continue
-            #print(f'{item_code} overriding {current_id} -> {ebay_id}')
             frappe.db.set_value('Item', item_code, 'ebay_id', ebay_id)
 
     frappe.msgprint('{} listings had no SKU'.format(len(no_SKU_items)))
