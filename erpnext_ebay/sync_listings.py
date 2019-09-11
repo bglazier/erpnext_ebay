@@ -286,7 +286,18 @@ def sync(site_id=default_site_id, update_ebay_id=False):
                 ebay_id_dict[item_code] = listing['ItemID']
 
     if update_ebay_id:
-        for item_code, ebay_id in ebay_id_dict.items():
+        item_list = [x.item_code for x in
+                     frappe.get_all('Item', fields=['item_code'])]
+        for item_code in item_list:
+            # Loop over every item in the system
+            current_id = frappe.get_value('Item', item_code, 'ebay_id')
+            ebay_id = ebay_id_dict.get(item_code, None)
+
+            if current_id and (not current_id.isdigit()) and not ebay_id:
+                # Current eBay ID is a placeholder; do not remove
+                #print(f'{item_code} NOT overriding {current_id} -> {ebay_id}')
+                continue
+            #print(f'{item_code} overriding {current_id} -> {ebay_id}')
             frappe.db.set_value('Item', item_code, 'ebay_id', ebay_id)
 
     frappe.msgprint('{} listings had no SKU'.format(len(no_SKU_items)))
