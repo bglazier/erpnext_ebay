@@ -258,9 +258,6 @@ def get_seller_list(item_codes=None, site_id=default_site_id,
 
     listings = []
 
-    if output_selector is None:
-        output_selector = []
-
     try:
         # Initialize TradingAPI; default timeout is 20.
 
@@ -279,15 +276,17 @@ def get_seller_list(item_codes=None, site_id=default_site_id,
                 'Pagination': {
                     'EntriesPerPage': 100,
                     'PageNumber': page},
-                'OutputSelector': [
+                }
+            if output_selector:
+                api_dict['OutputSelector'] = [
                     'ItemID', 'ItemArray.Item.Site',
+                    'ItemArray.Item.SellingStatus.ListingStatus',
                     'PaginationResult', 'ReturnedItemCountActual',
                     'HasMoreItems'] + output_selector
-                }
-            for field in output_selector:
-                if 'WatchCount' in field:
-                    api_dict['IncludeWatchCount'] = True
-                    break
+                for field in output_selector:
+                    if 'WatchCount' in field:
+                        api_dict['IncludeWatchCount'] = True
+                        break
             if item_codes is not None:
                 api_dict['SKUArray'] = {'SKU': item_codes}
             api.execute('GetSellerList', api_dict)
@@ -321,15 +320,15 @@ def get_seller_list(item_codes=None, site_id=default_site_id,
     except ConnectionError as e:
         handle_ebay_error(e)
 
+    listings = [x for x in listings
+                if x['SellingStatus']['ListingStatus'] == 'Active']
+
     return listings
 
 
 def get_item(item_id=None, item_code=None, site_id=default_site_id,
              output_selector=None):
     """Returns a single listing from the eBay TradingAPI."""
-
-    if output_selector is None:
-        output_selector = []
 
     if not (item_code or item_id):
         raise ValueError('No item_code or item_id passed to get_item!')
