@@ -632,6 +632,40 @@ def get_shipping_details(site_id=default_site_id):
     return shipping_details
 
 
+def get_trading_api(site_id=default_site_id):
+    """Get a TradingAPI instance which can be reused."""
+    try:
+        # Initialize TradingAPI; default timeout is 20.
+        trading_api = Trading(config_file=PATH_TO_YAML,
+                              siteid=site_id, warnings=True, timeout=20)
+
+    except ConnectionError as e:
+        handle_ebay_error(e)
+
+    return trading_api
+
+
+def revise_inventory_status(items, site_id=default_site_id, trading_api=None):
+    """Perform a ReviseInventoryStatus call."""
+
+    try:
+        # Initialize TradingAPI; default timeout is 20.
+        if not trading_api:
+            trading_api = Trading(config_file=PATH_TO_YAML,
+                                  siteid=site_id, warnings=True, timeout=20)
+
+        response = trading_api.execute('ReviseInventoryStatus',
+                                       {'InventoryStatus': items})
+
+    except ConnectionError as e:
+        handle_ebay_error(e)
+
+    response_dict = response.dict()
+    test_for_message(response_dict)
+
+    return response_dict
+
+
 #def verify_add_item(listing_dict, site_id=default_site_id):
     #"""Perform a VerifyAddItem call, and return useful information"""
 

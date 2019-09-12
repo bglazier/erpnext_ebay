@@ -9,6 +9,8 @@ import os.path
 import frappe
 from frappe import msgprint
 
+from erpnext_ebay.ebay_requests import get_trading_api, revise_inventory_status
+
 from ebaysdk.exception import ConnectionError
 from ebaysdk.trading import Connection as Trading
 from .garage_sale import jtemplate, lookup_condition
@@ -142,3 +144,27 @@ def revise_ebay_price(item_code, new_price, is_auction=False):
                 {'InventoryStatus':
                     {'ItemID': ebay_id, 'StartPrice': new_price_inc}})
 
+
+def revise_ebay_prices(price_data):
+    """Revises multiple eBay prices. Attempts to pack price updates into as few
+    ReviseInventoryStatus calls as possible.
+    Accepts a list of tuples, each of which contains:
+      - ebay_id
+      - new_price
+      - optional extra values
+    """
+
+    trading_api = get_trading_api()
+
+    items = []
+    for ebay_id, new_price, *_ in price_data:
+        items.append({'ItemID': ebay_id,
+                      'StartPrice': new_price})
+        if len(items) == 4:
+            # We have four items; submit the price updates.
+            revise_inventory_status(items)
+            items = []
+
+    if items:
+        # If there are unsubmitted items, submit them now.
+        revise_inventory_status(items)
