@@ -3,13 +3,11 @@
 # Copyright (c) 2015, Universal Resource Trading Limited and contributors
 # For license information, please see license.txt
 
-import builtins
-
 import os
 from inspect import cleandoc
 import shutil
 import cgi
-import urllib.request, urllib.parse, urllib.error
+import urllib.request
 import subprocess
 from datetime import date, timedelta
 
@@ -26,9 +24,8 @@ import pymysql
 
 from ugscommon import get_unsubmitted_prec_qty
 import ugssettings
-from .ebay_active_listings import generate_active_ebay_data, sync_ebay_ids
-from .ebay_active_listings import set_item_ebay_first_listed_date
-
+from .ebay_active_listings import (generate_active_ebay_data, sync_ebay_ids,
+                                   set_item_ebay_first_listed_date)
 
 NO_IMAGES = True
 USE_SERVER_IMAGES = True
@@ -36,7 +33,7 @@ USE_SERVER_IMAGES = True
 
 #Save to public directory so one can download
 garage_xml_path = (os.path.join(os.sep, frappe.utils.get_bench_path(), 'garagesale'))
-site_files_path = (os.path.join(os.sep, frappe.utils.get_bench_path(), 'sites', 
+site_files_path = (os.path.join(os.sep, frappe.utils.get_bench_path(), 'sites',
                    frappe.get_site_path(), 'public', 'files'))
 
 images_url = 'https://shop.unigreenscheme.co.uk'
@@ -46,57 +43,53 @@ footer = """<br><br>The price includes VAT and we can provide VAT invoices.\
             <br><br>Universities and colleges - purchase orders accepted - please contact us."""
 
 
-
-
 def is_scotland(item_code):
-    
-    sl = frappe.db.sql("select sl.container from `tabStock Locations` sl where sl.item_code = %s", (item_code,))
-    
-    if not sl: return False
+    """Determine if an item code is a Scottish item by reference to
+    stock locations (specifically, if the item is contained in the 'Scotland'
+    stock location).
+    TODO - this is broken for several obvious reasons
+    """
+    sl = frappe.db.sql("""
+        SELECT sl.container FROM `tabStock Locations` AS sl
+            WHERE sl.item_code = %s
+        """, (item_code,))
 
-    if sl[0][0] == 'Scotland': 
+    if sl and sl[0][0] == 'Scotland':
         return True
-    else: 
+    else:
         return False
 
+
 def get_draft_sales(item_code):
-    
-    sql = """
-    select ifnull(sum(qty), 0) as qty
-    from `tabSales Invoice Item` sii
-    
-    left join `tabSales Invoice` si
-    on si.name = sii.parent
-    
-    where si.docstatus = 0
-    and sii.item_code = '{}'
-    """.format(item_code)
-    result = frappe.db.sql(sql)
-    
-    return result[0][0]
+
+    return frappe.db.sql("""
+    SELECT IFNULL(SUM(qty), 0) AS qty
+        FROM `tabSales Invoice Item` AS sii
+    LEFT JOIN `tabSales Invoice` AS si
+        ON si.name = sii.parent
+    WHERE si.docstatus = 0
+        AND sii.item_code = %s
+    """, (item_code,))[0][0]
 
 
 def change_status_to_garagesale(item_code):
     """
-    Change the ebay_id field to note that item has been sent to Garagesale but may not be live on
-    eBay
+    Change the ebay_id field to note that item has been sent to Garagesale
+    but may not be live on eBay.
     """
 
-    sql = """
-    update `tabItem` it
-    set it.ebay_id = '{}'
-    where it.item_code = '{}'
-    """.format(ugssettings.AWAITING_GARAGESALE_STATUS, item_code)
-
-    frappe.db.sql(sql, auto_commit=True)
-
+    frappe.db.sql("""
+        UPDATE `tabItem` AS it
+            SET it.ebay_id = %s
+        WHERE it.item_code = %s
+    """, (ugssettings.AWAITING_GARAGESALE_STATUS, item_code))
 
 
 @frappe.whitelist()
 def run_cron_create_xml():
     """
     # NOTE Should run sync ebay_ids before running anything else so database is up to date
-    
+
     If is_auction then specify a startingBid which switches on auction mode
     """
 
@@ -106,7 +99,6 @@ def run_cron_create_xml():
     generate_active_ebay_data()
     sync_ebay_ids()
     set_item_ebay_first_listed_date()
-
 
     design = "Pro: Classic"
     layout = "thumb gallery"
@@ -121,13 +113,13 @@ def run_cron_create_xml():
 
     for r in records:
         item_code = r.name
-        
+
         post_code = "NP4 0HZ"
         if is_scotland(item_code):
             post_code = "DG1 3PH"
 
         is_auction = False
-        
+
         quantity = r.actual_qty + r.unsubmitted_prec_qty - get_draft_sales(item_code)
 
         # Don't run if quantity not matching stock locations qty
@@ -135,7 +127,8 @@ def run_cron_create_xml():
         # Garagesale (see sql query)
         #if quantity > 0.0 and quantity == r.sum_sl: FUDGE THIS FOR THE MOMENT
         if quantity > 0.0 and r.sum_sl > 0.0:
-            if r.sum_sl < quantity: quantity = r.sum_sl
+            if r.sum_sl < quantity:
+                quantity = r.sum_sl
 
             title = ""
             title += r.item_name
@@ -147,12 +140,10 @@ def run_cron_create_xml():
             else:
                 ebay_price = r.item_price * ugssettings.VAT
 
-
             #resize_images(item_code)
             #image = r.image
             ws_image = r.website_image
             ss_images_list = get_slideshow_records(r.slideshow)
-
 
             pounds, ounces = kg_to_imperial(r.net_weight)
 
@@ -178,17 +169,16 @@ def run_cron_create_xml():
             ET.SubElement(doc, "buyItNowPrice").text = str(ebay_price)
             ET.SubElement(doc, "category").text = category
             #ET.SubElement(doc, "category2").text =
-            
+
             condition_desc, condition_id = lookup_condition(r.condition, r.function_grade)
             ET.SubElement(doc, "condition").text = str(condition_desc)
             ET.SubElement(doc, "conditionDescription").text = r.grade_details
-            
-            
+
             ET.SubElement(doc, "convertDescriptionToHTML").text = "false"
             ET.SubElement(doc, "convertMarkdownToHTML").text = "false"
             ET.SubElement(doc, "description").text = body
             ET.SubElement(doc, "design").text = design
-            
+
             # Ensure that blank brands are set as unbranded
             if r.brand == '':
                 brand = 'Unbranded'
@@ -199,11 +189,10 @@ def run_cron_create_xml():
                 st = """<customSpecific> <specificName>Brand</specificName> <specificValue>{}</specificValue></customSpecific>""".format(brand)
                 brand_xml = ET.fromstring(st)
                 doc.append(brand_xml)
-            except:
+            except Exception:
                 print('Problem with this brand: ', brand)
 
-
-            if r.delivery_type == 'Pallet': 
+            if r.delivery_type == 'Pallet':
                 ET.SubElement(doc, "shippingProfile").text = 'B. Pallet Shipping'
             if r.delivery_type == 'Standard Parcel': 
                 pounds, ounces = kg_to_imperial(29)
@@ -211,17 +200,13 @@ def run_cron_create_xml():
             if r.delivery_type == 'Collection Only': 
                 ET.SubElement(doc, "shippingProfile").text = 'Collection in person.'
 
-
-
-
-
             ET.SubElement(doc, "duration").text = str(duration)
             ET.SubElement(doc, "handlingTime").text = str(handling_time)
 
             if USE_SERVER_IMAGES:
                 for ssi in ss_images_list:
                     print(ssi)
-                    if ssi.image: # and exists(images_url + ssi.image):
+                    if ssi.image:  # and exists(images_url + ssi.image):
                         ET.SubElement(doc, "imageURL").text = images_url + ssi.image
                         '''''
                             # IF there is no slideshow then try the ws_image
@@ -256,37 +241,35 @@ def run_cron_create_xml():
                 # TODO This item also includes our " + r.warranty_period + " Day Limited Warranty 
                 # (please see our terms and conditions for details)."
 
-
             ET.SubElement(doc, "returnsAccepted").text = "true"
             ET.SubElement(doc, "returnsWithinDays").text = "45"
 
             #ET.SubElement(doc, "reservePrice").text = ""
             #ET.SubElement(doc, "siteName").text = ""
             ET.SubElement(doc, "SKU").text = item_code
-            if is_auction: ET.SubElement(doc, "startingBid").text = str(ebay_price)
+            if is_auction:
+                ET.SubElement(doc, "startingBid").text = str(ebay_price)
             #ET.SubElement(doc, ****storCategory).text = ""
             #ET.SubElement(doc, "subTitle").text = sub_title
             ET.SubElement(doc, "title").text = title
             #ET.SubElement(doc, "variation").text = ""
             ET.SubElement(doc, "zipCode").text = post_code
 
-
             tree = ET.ElementTree(root)
             file_name = (os.path.join(os.sep, garage_xml_path, str(date.today()) + "_garageimportfile.xml"))
             # must create xml directory for this to work
             tree.write(file_name)
 
-            change_status_to_garagesale(item_code)
+            # Update ebay_id to 'Awaiting Garagesale' marker
+            frappe.db.set_value(
+                'Item', item_code, 'ebay_id',
+                ugssettings.AWAITING_GARAGESALE_STATUS)
 
     # Xml file created now download it (does not work properly)
     #download_xml(site_url + '/files/xml/' + str(date.today()) + "_garageimportfile.xml",
     #             str(date.today()) + "_garageimportfile.xml")
 
     frappe.msgprint("Export completed.")
-
-
-    return
-
 
 
 def download_xml(url, file_name):
@@ -298,6 +281,7 @@ def download_xml(url, file_name):
 
     print(url)
     print(os.path.join(os.path.expanduser("~"), 'Downloads', file_name))
+
 
 def render(tpl_path, context):
     """
@@ -312,9 +296,6 @@ def render(tpl_path, context):
     return rendered
 
 
-
-
-
 def jtemplate(version, description, function_grade, grade_details, condition, tech_details,
               delivery_type, accessories_extras, power_cable_included, power_supply_included,
               remote_control_included, case_included, warranty_period):
@@ -327,40 +308,26 @@ def jtemplate(version, description, function_grade, grade_details, condition, te
     else:
         ae = ''
 
-    try:
-        context = {
-            'version': version,
-            'description': description,
-            'function_grade' : function_grade,
-            'grade_details' : grade_details,
-            'condition': condition,
-            'tech_details': tech_details,
-            'delivery_type': delivery_type,
-            'accessories_extras': ae,
-            'power_cable_included': power_cable_included,
-            'power_supply_included': power_supply_included,
-            'remote_control_included': remote_control_included,
-            'case_included': case_included,
-            'warranty_period': warranty_period
-        }
+    context = {
+        'version': version,
+        'description': description,
+        'function_grade': function_grade,
+        'grade_details': grade_details,
+        'condition': condition,
+        'tech_details': tech_details,
+        'delivery_type': delivery_type,
+        'accessories_extras': ae,
+        'power_cable_included': power_cable_included,
+        'power_supply_included': power_supply_included,
+        'remote_control_included': remote_control_included,
+        'case_included': case_included,
+        'warranty_period': warranty_period
+    }
 
-
-        result = render(os.path.join(os.sep, frappe.get_app_path('erpnext_ebay'),
-                                     'item_garage_sale.html'), context)
-
-    except:
-        raise
-        result = ""
-
+    result = render(os.path.join(os.sep, frappe.get_app_path('erpnext_ebay'),
+                                 'item_garage_sale.html'), context)
 
     return result
-
-
-
-
-
-
-
 
 
 def lookup_condition(con_db, func_db):
@@ -393,58 +360,56 @@ def lookup_condition(con_db, func_db):
         condition = "For parts or not working"
         condition_id = 7000
 
+    """Note: eBay's condition ids are:
 
-    """Note: ebays condition ids are:
-        
-        ID	Typical Name	Typical Definition
-        1000	New	
+        ID      Typical Name    Typical Definition
+        1000    New
                     A brand-new, unused, unopened, unworn, undamaged item. Most categories support 
                     this condition (as long as condition is an applicable concept).
-        1500	New other (see details)	
+        1500    New other (see details)
                     A brand-new new, unused item with no signs of wear. Packaging may be missing 
                     or opened. The item may be a factory second or have defects.
-        1750	New with defects	
+        1750    New with defects
                     A brand-new, unused, and unworn item. The item may have cosmetic defects, 
                     and/or may contain mismarked tags (e.g., incorrect size tags from the 
                     manufacturer). Packaging may be missing or opened. The item may be a new 
                     factory second or irregular.
-        2000	Manufacturer refurbished	
+        2000    Manufacturer refurbished
                     An item in excellent condition that has been professionally restored to working
                     order by a manufacturer or manufacturer-approved vendor. 
                     The item may or may not be in the original packaging.
-        2500	Seller refurbished	
+        2500    Seller refurbished
                     An item that has been restored to working order by the eBay seller or a third 
                     party who is not approved by the manufacturer. This means the seller indicates 
                     that the item is in full working order and is in excellent condition. The item 
                     may or may not be in original packaging.
-        3000	Used	
+        3000    Used
                     An item that has been used previously. The item may have some signs of cosmetic
                     wear, but is fully operational and functions as intended. This item may be a 
                     floor model or store return that has been used. Most categories support this 
                     condition (as long as condition is an applicable concept).
-        4000	Very Good	An item that is used but still in very good condition. No obvious 
+        4000    Very Good
+                    An item that is used but still in very good condition. No obvious 
                     damage to the cover or jewel case. No missing or damaged pages or liner notes. 
                     The instructions (if applicable) are included in the box. May have very minimal 
                     identifying marks on the inside cover. Very minimal wear and tear.
-        5000	Good	
+        5000    Good
                     An item in used but good condition. May have minor external damage including 
                     scuffs, scratches, or cracks but no holes or tears. For books, liner notes, or 
                     instructions, the majority of pages have minimal damage or markings 
                     and no missing pages.
-        6000	Acceptable	
+        6000    Acceptable
                     An item with obvious or significant wear, but still operational. For books, 
                     liner notes, or instructions, the item may have some damage to the cover but 
                     the integrity is still intact. Instructions and/or box may be missing. For 
                     books, possible writing in margins, etc., but no missing pages or anything 
                     that would compromise the legibility or understanding of the text.
-        7000	For parts or not working	
+        7000    For parts or not working
                     An item that does not function as intended and is not fully operational. 
                     This includes items that are defective in ways that render them difficult 
                     to use, items that require service or repair, or items missing essential 
                     components. Supported in categories where parts or non-working items are of 
                     interest to people who repair or collect related items.
-
-
         """
 
     return condition, condition_id
@@ -457,18 +422,13 @@ def lookup_category(cat_db, ebay_cat_db):
 
     val = 0
 
-
     if cat_db:
         val = frappe.get_value("Item Group", str(cat_db), "ebay_category_code")
 
     if ebay_cat_db:
         val = frappe.get_value("Item Group eBay", str(ebay_cat_db), "ebay_category_id")
 
-
     return val
-
-
-
 
 
 def get_item_records_by_item_status():
@@ -477,7 +437,7 @@ def get_item_records_by_item_status():
 
     #having sum(sl.qty) > 0 and sum(sl.qty) = sum(bin.actual_qty) WILL NOT WORK WITH DRAFT PREC
     # Therefore See alternative method in main function using get_unsubmitted_prec
-    
+
     Note: do not sum actual_qty as this will be multiplied by any occurence of 1+ locations.
     """
 
@@ -509,6 +469,7 @@ def get_item_records_by_item_status():
         ifnull(it.length, 0.0) as length,
         ifnull(it.width, 0.0) as width,
         ifnull(it.height,0.0) as height,
+
         it.delivery_type,
         ifnull(it.standard_rate,0.0) as price,
         ifnull(ip.price_list_rate,0.0) as item_price,
@@ -523,23 +484,22 @@ def get_item_records_by_item_status():
             and pri.item_code = it.item_code
             group by pri.item_code
         ),0.0) as unsubmitted_prec_qty
-        
+
         from `tabItem` it
-        
+
         left join `tabBin` bin
         on  bin.item_code = it.name
-        
+
         left join `tabItem Price` ip
         on ip.item_code = it.name
-        
+
         left join `tabStock Locations` sl
         on sl.item_code = it.item_code
-        
+
         where 
         it.item_status = 'QC Passed'
         and (it.ebay_id is Null or it.ebay_id ='')
-        
-        
+
         and (actual_qty > 0 or 
         (
         select ifnull(sum(pri.received_qty), 0.0)
@@ -553,7 +513,7 @@ def get_item_records_by_item_status():
         group by it.item_code
         order by it.item_code
     """
-    
+
     #LIMIT to IP and ip.selling = 1
 
     entries = frappe.db.sql(sql2, as_dict=1)
@@ -561,25 +521,18 @@ def get_item_records_by_item_status():
     return entries
 
 
-
-
-
-
-
-
-
-
 def get_slideshow_records(ss_name):
     """
     Returns slideshow records for an item
     """
     records = []
-    if ss_name != None:
-        sql ="""
+
+    if ss_name is not None:
+        sql = """
             select
             wsi.image
             from `tabWebsite Slideshow Item` wsi
-        
+
             where wsi.parent = '{}'
             order by wsi.idx
             """.format(ss_name)
@@ -589,20 +542,20 @@ def get_slideshow_records(ss_name):
     return records
 
 
-
-
 '''UTILITIES'''
+
 
 def kg_to_imperial(kg):
     """
     Convert Kg to imperial
+    TODO - fix exceptions
     """
-    
+
     try:
         ounces = kg * 35.27396195
         pounds = kg * 2.2046226218
         ounces = ounces - (pounds * 12.0)
-    except:
+    except Exception:
         pounds = 0.0
         ounces = 0.0
     return pounds, ounces
@@ -612,7 +565,7 @@ def first_lower(s):
     """
     Changes first char in string to lowercase
     """
-    
+
     if not s:
         return ""
     return s[0].lower() + s[1:]
@@ -622,7 +575,7 @@ def exists(path):
     """
     Check if path exists
     """
-    
+
     #r = requests.head(path)
     #return r.status_code == requests.codes.ok
     return True
@@ -630,14 +583,10 @@ def exists(path):
 
 def add_breaks(non_html):
     """
-    Replace linebreak with <li> 
+    Replace linebreak with <li>
     """
-    
+
     escaped = cgi.escape(non_html.rstrip()).replace("\n", "</li><li>")
     non_html = "<li>%s</li>" % escaped
 
     return non_html
-
-
-
-

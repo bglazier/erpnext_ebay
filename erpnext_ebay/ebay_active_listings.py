@@ -4,137 +4,98 @@ run from: premium report, garagsale_xml
 
 import os.path
 import datetime
-from datetime import date
 
 import frappe
 
 from ebaysdk.exception import ConnectionError
 from ebaysdk.trading import Connection as Trading
 
-PATH_TO_YAML = os.path.join(
-    os.sep, frappe.utils.get_bench_path(), 'sites', frappe.get_site_path(), 'ebay.yaml')
+from .ebay_constants import EBAY_TRANSACTION_SITE_IDS
+from .ebay_requests import get_seller_list, default_site_id, PATH_TO_YAML
+
+OUTPUT_SELECTOR = [
+    'ItemArray.Item.SKU',
+    'ItemArray.Item.Quantity',
+    'ItemArray.Item.SellingStatus.CurrentPrice',
+    'ItemArray.Item.SellingStatus.QuantitySold']
 
 
-def update_sold_statusDONOTUSE():
-    sql = """
-    DONT DO THIS UNLESS ABSOLUTELT SURE ABOUT QTY BETTER TO DO VIA IMPORT???????
-    update set it.workflow_state = 'Sold'
+#def update_sold_statusDONOTUSE():
+    #sql = """
+    #DONT DO THIS UNLESS ABSOLUTELT SURE ABOUT QTY BETTER TO DO VIA IMPORT???????
+    #update set it.workflow_state = 'Sold'
 
-    select it.item_code, bin.actual_qty
-    from `tabItem` it
-    right join `tabBin` bin
-    on bin.item_code = it.item_code
+    #select it.item_code, bin.actual_qty
+    #from `tabItem` it
+    #right join `tabBin` bin
+    #on bin.item_code = it.item_code
 
-    right join `zEbayListings` el
-    on el.sku = it.item_code
-    where el.qty =0 and bin.actual_qty =0
-    """
+    #right join `zeBayListings` el
+    #on el.sku = it.item_code
+    #where el.qty =0 and bin.actual_qty =0
+    #"""
 
 
 def generate_active_ebay_data():
-    """Get all the active eBay listings and save them to table"""
-
-    # set up the zEbayListings table
-    create_ebay_listings_table()
-
-    page = 1
-    listings_dict = get_myebay_selling_request(page)
-    pages = int(listings_dict['ActiveList']['PaginationResult']['TotalNumberOfPages'])
-    #timestamp = listings_dict['Timestamp']
-
-    while pages >= page:
-
-        for item in listings_dict['ActiveList']['ItemArray']['Item']:
-            ebay_id = item['ItemID']
-            qty = int(item['QuantityAvailable'])
-            sku = item.get('SKU', '')
-            #price = item['BuyItNowPrice']['value']
-            #THSI IS 0        print(item['BuyItNowPrice']['value'])
-            #Example: {'_currencyID': 'USD', 'value': '0.0'}   print(item['BuyItNowPrice'])
-            curr_ebay_price = float(item['SellingStatus']['CurrentPrice']['value'])
-            #curr_ex_vat = curr_ebay_price / 1.2  # TODO VAT RATE
-            #currency = item['SellingStatus']['CurrentPrice']['_currencyID']  # or ['Currency']
-            #converted_price = item['ListingDetails]['ConvertedBuyItNowPrice']['value']
-            #description = item['Description']
-            hit_count = 0  # int(item['HitCount'])
-            watch_count = 0  # int(item['WatchCount'])
-            question_count = 0  # int(item['TotalQuestionCount'])
-            #title = item['Title']
-            #conv_title = title.encode('ascii', 'ignore').decode('ascii')
-            #new_title = MySQLdb.escape_string(conv_title)
-            site = ''
-            insert_ebay_listing(
-                sku, ebay_id, qty, curr_ebay_price, site, hit_count, watch_count, question_count)
-
-        page += 1
-        if pages >= page:
-            listings_dict = get_myebay_selling_request(page)
-        else:
-            break
-
-
-def get_myebay_selling_request(page):
-    """get_myebay_selling_request"""
-    try:
-        api_trading = Trading(config_file=PATH_TO_YAML, warnings=True, timeout=20)
-
-        api_request = {
-            "ActiveList": {
-                "Include": True,
-                "Pagination": {
-                    "EntriesPerPage": 100,
-                    "PageNumber": page
-                    },
-                "IncludeWatchCount": True
-                },
-            'DetailLevel': 'ReturnAll'
-            }
-
-        api_trading.execute('GetMyeBaySelling', api_request)
-        products = api_trading.response.dict()
-
-    except ConnectionError as e:
-        print(e)
-        print(e.response.dict())
-        raise e
-
-    return products
-
-
-def create_ebay_listings_table():
-    """Set up the zEbayListings temp table"""
-
-    sql = """
-        create table if not exists `zEbayListings` (
-        `sku` varchar(20),
-        `ebay_id` varchar(38),
-        `qty` integer,
-        `price` decimal(18,6),
-        `site` varchar(6),
-        `hit_count` integer,
-        `watch_count` integer,
-        `question_count` integer
-        );
+    """Get all the active eBay listings for the selected eBay site
+    and save them to the temporary data table.
     """
 
-    frappe.db.sql(sql, auto_commit=True)
+    # Set up the zeBayListings table
+    frappe.db.sql("""DROP TABLE IF EXISTS `zeBayListings`;""", auto_commit=True)
 
-    sql2 = """truncate table `zEbayListings`;"""
+    frappe.db.sql("""
+    CREATE TABLE IF NOT EXISTS `zeBayListings` (
+        sku VARCHAR(20) NOT NULL,
+        ebay_id VARCHAR(38),
+        qty INTEGER,
+        price DECIMAL(18,6),
+        site VARCHAR(40)
+        );
+    """, auto_commit=True)
 
-    frappe.db.sql(sql2, auto_commit=True)
+    frappe.db.sql("""TRUNCATE TABLE `zeBayListings`;""", auto_commit=True)
 
+    # Get data from GetSellerList
+    listings = get_seller_list(site_id=0,  # Use US site
+                               output_selector=OUTPUT_SELECTOR,
+                               granularity_level='Fine')
 
-def insert_ebay_listing(sku, ebay_id, qty, price,
-                        site, hits, watches, questions):
-    """insert ebay listings into a temp table"""
+    multiple_check = set()
+    multiple_error = set()
 
-    sql = """
-        INSERT INTO `zEbayListings`
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
-        """
-    parameters = (sku, ebay_id, qty, price, site, hits, watches, questions)
+    for item in listings:
+        # Loop over each eBay item on each site
+        ebay_id = item['ItemID']
+        original_qty = int(item['Quantity'])
+        qty_sold = int(item['SellingStatus']['QuantitySold'])
+        sku = item.get('SKU', '')
+        price = float(item['SellingStatus']['CurrentPrice']['value'])
+        site = item['Site']
 
-    frappe.db.sql(sql, parameters, auto_commit=True)
+        if sku:
+            # Check that this item appears only once
+            mult_tuple = (sku, site)
+            if mult_tuple in multiple_check:
+                multiple_error.add(mult_tuple)
+                continue
+            multiple_check.add(mult_tuple)
+
+        qty = original_qty - qty_sold
+
+        # Insert eBay listings into the zeBayListings temporary table"""
+        frappe.db.sql("""
+            INSERT INTO `zeBayListings`
+                VALUES (%s, %s, %s, %s, %s);
+            """, (sku, ebay_id, qty, price, site),
+            auto_commit=True)
+
+    if multiple_error:
+        msgs = []
+        for sku, site in multiple_error:
+            msgs.append(f'The item {sku} has multiple ebay listings on the '
+                        + f'eBay site {site}!')
+        frappe.throw('\n'.join(msgs))
 
 
 # *********************************************
@@ -147,83 +108,82 @@ def set_item_ebay_id(item_code, ebay_id):
     """Given an item_code set the ebay_id field to the live eBay ID
     also does not overwrite Awaiting Garagesale if ebay_id is blank
     """
-    if ebay_id == '':
-        sql = """update `tabItem` it
-            set it.ebay_id = '{}'
-            where it.item_code = '{}' 
-            and it.ebay_id <> '{}'
-            """.format(ebay_id, item_code, 'Awaiting Garagesale')
-    else:
-        sql = """update `tabItem` it
-            set it.ebay_id = '{}'
-            where it.item_code = '{}' 
-            """.format(ebay_id, item_code)
 
-    try:
-        frappe.db.sql(sql, auto_commit=True)
+    awaiting_garagesale_filter = """AND it.ebay_id <> 'Awaiting Garagesale'"""
 
-    except Exception as inst:
-        print("Unexpected error running ebay_id sync.", item_code)
-        raise
-
-    return True
+    frappe.db.sql(f"""
+        UPDATE `tabItem` AS it
+            SET it.ebay_id = %s
+            WHERE it.item_code = %s
+                {'' if ebay_id else awaiting_garagesale_filter};
+        """, (ebay_id, item_code),
+        auto_commit=True)
 
 
-@frappe.whitelist()
 def set_item_ebay_first_listed_date():
     """
     Given an ebay_id set the first listed on date.
-    
+
     select it.item_code from `tabItem` it
     where it.on_sale_from_date is NULL
     and it.ebay_id REGEXP '^[0-9]+$';
     """
 
-    date_today = date.today()
+    date_today = datetime.date.today()
 
-    sql = """
+    frappe.db.sql("""
         UPDATE `tabItem` it
             SET it.on_sale_from_date = %s
             WHERE it.on_sale_from_date is NULL
                 AND it.ebay_id REGEXP '^[0-9]+$';
-    """
-
-    try:
-        frappe.db.sql(sql, (date_today.isoformat()), auto_commit=True)
-
-    except Exception as inst:
-        print("Unexpected error setting first listed date.")
-        raise
+        """, (datetime.date.today().isoformat()),
+        auto_commit=True)
 
 
-def sync_ebay_ids():
-    """Return only items that don't match"""
+def sync_ebay_ids(site_id=default_site_id):
+    """Synchronize system eBay IDs to the temporary table"""
 
-    sql = """
-    select * from (
-        SELECT t1.sku, t2.item_code, ifnull(t1.ebay_id, '') as live_ebay_id,
-        ifnull(t2.ebay_id, '') as dead_ebay_id FROM `zEbayListings` t1
-        LEFT JOIN `tabItem` t2 ON t1.sku = t2.item_code
-        UNION
-        SELECT t1.sku, t2.item_code, ifnull(t1.ebay_id, '') as live_ebay_id,
-        ifnull(t2.ebay_id, '') as dead_ebay_id FROM `zEbayListings` t1
-        RIGHT JOIN `tabItem` t2 ON t1.sku = t2.item_code
-    ) as t
-    where t.live_ebay_id <> t.dead_ebay_id
-    """
+    site_name = EBAY_TRANSACTION_SITE_IDS[site_id]
 
-    records = frappe.db.sql(sql, as_dict=True)
+    # This is a full outer join of the eBay data and the current Item data
+    # which is subsequently filtered to identify only changes.
+    # Each (non-empty) SKU is guaranteed (by earlier checks) only to appear
+    # once per site.
+    records = frappe.db.sql("""
+        SELECT * FROM (
+            SELECT item.item_code,
+                ebay.ebay_id AS live_ebay_id,
+                item.ebay_id AS dead_ebay_id
+            FROM `zeBayListings` AS ebay
+            LEFT JOIN `tabItem` AS item
+                ON ebay.sku = item.item_code
+            WHERE ebay.site = %s
+                AND ebay.sku <> ''
+            UNION
+            SELECT item.item_code,
+                ebay.ebay_id AS live_ebay_id,
+                item.ebay_id AS dead_ebay_id
+            FROM `zeBayListings` AS ebay
+            RIGHT JOIN `tabItem` AS item
+                ON ebay.sku = item.item_code
+            WHERE ebay.site = %s
+                AND ebay.sku <> ''
+        ) AS t
+        WHERE t.live_ebay_id <> t.dead_ebay_id
+        """, (site_name, site_name), as_dict=True)
 
     for r in records:
-
-        # If not live id then clear any value on system (unless Awaiting Garagaesale)
-        if r.live_ebay_id == '':
-            set_item_ebay_id(r.item_code, '')
-        else:
-            # ok so item is live but id's don't match so update system with live version
+        if r.live_ebay_id:
             if r.item_code:
+                # Item is live but eBay IDs don't match
+                # Update system with live version
                 set_item_ebay_id(r.sku, r.live_ebay_id)
             else:
+                # eBay item does not appear on system
                 frappe.msgprint(
-                    'The ebay item cannot be found on ERPNEXT so unable to record ebay id',
-                    r.live_ebay_id)
+                    'eBay item cannot be found the system; '
+                    + f'unable to record eBay id {r.live_ebay_id}')
+        else:
+            # No live eBay ID; clear any value on system
+            # (unless Awaiting Garagesale)
+            set_item_ebay_id(r.item_code, None)

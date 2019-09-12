@@ -82,7 +82,7 @@ def get_mismatched_prices():
     left join `tabItem` it
     on it.item_code = ip.item_code
 
-    left join `zEbayListings` el
+    left join `zeBayListings` el
     on el.sku = it.item_code
 
     where it.ebay_id REGEXP '[0-9]'
