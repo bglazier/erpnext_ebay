@@ -8,7 +8,7 @@ import bleach
 
 import frappe
 
-from .ebay_requests import (get_active_listings, get_seller_list, get_item,
+from .ebay_requests import (get_seller_list, get_item,
                             default_site_id, get_shipping_details)
 from .ebay_constants import (LISTING_DURATION_TOKEN_DICT, EBAY_SITE_IDS,
                              EBAY_TRANSACTION_SITE_NAMES)
