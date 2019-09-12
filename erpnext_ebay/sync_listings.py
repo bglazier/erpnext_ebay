@@ -201,8 +201,6 @@ def sync(site_id=default_site_id, update_ebay_id=False):
         frappe.throw('You do not have permission to access the eBay Manager',
                      frappe.PermissionError)
     frappe.msgprint('Syncing eBay listings...')
-    # Load orders from Ebay
-    active_listings = get_active_listings()
 
     # Get valid site IDs
     valid_site_ids = get_subtype_site_ids()
@@ -225,9 +223,13 @@ def sync(site_id=default_site_id, update_ebay_id=False):
     unsupported_listing_type = []
     multiple_listings = []
 
-    # Make list of active item codes
-    active_item_codes = set()
-    for listing in active_listings:
+    # Get data from GetSellerList
+    listings = get_seller_list(site_id=0,  # Use US site
+                               output_selector=OUTPUT_SELECTOR,
+                               granularity_level='Fine')
+
+    for listing in listings:
+        # Loop over all listings
         if 'SKU' not in listing:
             # This item has no SKU
             no_SKU_items.append(listing)
@@ -237,17 +239,6 @@ def sync(site_id=default_site_id, update_ebay_id=False):
             # This item does not exist!
             not_found_SKU_items.append(listing)
             continue
-        active_item_codes.add(item_code)
-
-    # Get data from GetSellerList
-    listings = get_seller_list(item_codes=list(active_item_codes),
-                               site_id=0,  # Use US site
-                               output_selector=OUTPUT_SELECTOR,
-                               granularity_level='Fine')
-
-    for listing in listings:
-        # Loop over all listings
-        item_code = listing['SKU']
 
         item_site_id = EBAY_TRANSACTION_SITE_NAMES[listing['Site']]
         if item_site_id not in valid_site_ids:
