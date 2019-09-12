@@ -277,15 +277,20 @@ def sync(site_id=default_site_id, update_ebay_id=False):
                 continue
             frappe.db.set_value('Item', item_code, 'ebay_id', ebay_id)
 
-    frappe.msgprint('{} listings had no SKU'.format(len(no_SKU_items)))
-    frappe.msgprint('{} listings had an SKU that could not be found'.format(
-        len(not_found_SKU_items)))
-    frappe.msgprint('{} listings had an unsupported listing type'.format(
-        len(unsupported_listing_type)))
-    frappe.msgprint('{} listings had multiple eBay {} listings'.format(
-        len(multiple_listings), EBAY_SITE_IDS[site_id]))
+    messages = [
+        f'{len(no_SKU_items)} listings had no SKU',
+        f'{len(not_found_SKU_items)} listings had an unknown SKU',
+        f'{len(unsupported_listing_type)} listings had an unsupported listing '
+        + 'type',
+        f'{len(multiple_listings)} listings had multiple eBay '
+        + f'{EBAY_SITE_IDS[site_id]} listings',
+        ]
     if multiple_listings:
-        frappe.msgprint(', '.join(sorted(multiple_listings)))
+        messages.append(', '.join(sorted(multiple_listings)))
+
+    messages = '\n'.join(messages)
+    frappe.msgprint(messages)
+    print(messages)
 
     frappe.db.commit()
 
