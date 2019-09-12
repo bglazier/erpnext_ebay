@@ -11,7 +11,8 @@ import frappe
 from .ebay_requests import (get_seller_list, get_item,
                             default_site_id, get_shipping_details)
 from .ebay_constants import (LISTING_DURATION_TOKEN_DICT, EBAY_SITE_IDS,
-                             EBAY_TRANSACTION_SITE_NAMES)
+                             EBAY_TRANSACTION_SITE_NAMES,
+                             EBAY_SITE_DOMAINS)
 
 from collections.abc import Sequence
 
@@ -351,6 +352,8 @@ def create_ebay_online_selling_item(listing, item_code,
     selling_url = bleach.clean(
         selling_url, tags=['a'], attributes={'a': ['href']}, styles=[],
         strip=True, strip_comments=True)
+    site_domain = EBAY_SITE_DOMAINS[site_id]
+    selling_url = selling_url.replace('ebay.com', f'ebay.{site_domain}')
 
     # Quantity (listed) and quantity sold
     qty_listed = int(listing['Quantity'])

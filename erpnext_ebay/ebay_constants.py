@@ -61,6 +61,30 @@ EBAY_TRANSACTION_SITE_IDS = {0: 'US',
 EBAY_TRANSACTION_SITE_NAMES = {
     name: siteid for siteid, name in EBAY_TRANSACTION_SITE_IDS.items()}
 
+# eBay Site IDs
+EBAY_SITE_DOMAINS = {0: 'com',
+                     2: 'ca',
+                     3: 'co.uk',
+                     15: 'com.au',
+                     16: 'at',
+                     23: 'be',
+                     71: 'fr',
+                     77: 'de',
+                     100: 'com',
+                     101: 'it',
+                     123: 'be',
+                     146: 'nl',
+                     186: 'es',
+                     193: 'ch',
+                     201: 'com.hk',
+                     203: '.in',
+                     205: '.ie',
+                     207: 'com.my',
+                     210: '.ca',
+                     211: 'ph',
+                     212: 'pl',
+                     216: 'com.sg'}
+
 # eBay PaymentMethods and their descriptions
 PAYMENT_METHODS = {'AmEx': 'American Express',
                    'CashInPerson': 'Cash in person (US/CA Motors only)',
