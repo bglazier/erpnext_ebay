@@ -925,7 +925,11 @@ def determine_income_account(country):
     if not country or country.lower() == "united kingdom":
         return "Sales - URTL"
 
-    if country.lower() in EU_COUNTRIES:
+    # This is repeated here (having already been carried out in
+    # extract_customer) for simplicity
+    country = sanitize_country(country)
+
+    if country and country.lower() in EU_COUNTRIES:
         return "Sales - URTL"
 
     return "Sales Non EU - URTL"
