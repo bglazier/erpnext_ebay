@@ -13,6 +13,8 @@ import frappe
 from frappe import msgprint, _
 from frappe.utils import cstr, strip_html
 
+from erpnext.setup.utils import get_exchange_rate
+
 from .ebay_requests import get_orders
 from .ebay_constants import EBAY_TRANSACTION_SITE_IDS
 
@@ -96,6 +98,7 @@ EXTRA_COUNTRIES = {
 COMPANY_ACRONYM = 'URTL'
 WAREHOUSE = f'Mamhilad - {COMPANY_ACRONYM}'
 SHIPPING_ITEM = 'ITEM-00358'
+DEFAULT_CURRENCY = 'GBP'
 
 VAT_RATES = {f'Sales - {COMPANY_ACRONYM}': 0.2,
              f'Sales Non EU - {COMPANY_ACRONYM}': 0.0}
@@ -703,6 +706,10 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
     amount_paid_dict = order['AmountPaid']
     currency = amount_paid_dict['_currencyID']
     amount_paid = float(amount_paid_dict['value'])
+    if currency != DEFAULT_CURRENCY:
+        conversion_rate = get_exchange_rate(currency, DEFAULT_CURRENCY)
+    else:
+        conversion_rate = None
 
     sku_list = []
 
@@ -874,6 +881,7 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
         "due_date": posting_date,
         "set_posting_time": 1,
         "currency": currency,
+        "conversion_rate": conversion_rate,
         "ignore_pricing_rule": 1,
         "apply_discount_on": "Net Total",
         "status": "Draft",
@@ -902,10 +910,10 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
                     "address": order_fields['address'],
                     "ebay_order": order_fields['name']})
 
-    if ebay_site_id and (ebay_site_id != site_id_order):
-        msgprint_log.append(
-            'WARNING: Sales Invoice {} originated from eBay site {}'.format(
-                sinv.name, site_id_order))
+    #if ebay_site_id and (ebay_site_id != site_id_order):
+        #msgprint_log.append(
+            #'WARNING: Sales Invoice {} originated from eBay site {}'.format(
+                #sinv.name, site_id_order))
 
     # Commit changes to database
     if updated_db:
