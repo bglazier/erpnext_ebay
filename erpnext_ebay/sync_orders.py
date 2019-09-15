@@ -93,11 +93,13 @@ EXTRA_COUNTRIES = {
     'venezuela': 'Venezuela, Bolivarian Republic of'
     }
 
-VAT_RATES = {'Sales - URTL': 0.2,
-             'Sales Non EU - URTL': 0.0}
-VAT_PERCENT = {k: 100*v for k, v in VAT_RATES.items()}
-
+COMPANY_ACRONYM = 'URTL'
+WAREHOUSE = f'Mamhilad - {COMPANY_ACRONYM}'
 SHIPPING_ITEM = 'ITEM-00358'
+
+VAT_RATES = {f'Sales - {COMPANY_ACRONYM}': 0.2,
+             f'Sales Non EU - {COMPANY_ACRONYM}': 0.0}
+VAT_PERCENT = {k: 100*v for k, v in VAT_RATES.items()}
 
 
 class ErpnextEbaySyncError(Exception):
@@ -164,25 +166,15 @@ def sync(site_id=None):
     try:
         for order in orders:
             try:
-                # Check if this item was _listed_ on the correct eBay site.
-                # This is not the same as TransactionSiteID which gives the
-                # eBay site where the item was sold.
-                #site_id_order = order[
-                #    'TransactionArray']['Transaction'][0]['TransactionSiteID']
+                # Identify the eBay site on which the item was listed.
                 try:
                     site_id_order = order[
                         'TransactionArray']['Transaction'][0]['Item']['Site']
-                    print('site_id_order: ', site_id_order)
                 except (KeyError, TypeError) as e:
                     msgprint_log.append(
                         'WARNING: unable to identify site ID from:'
                         + '\n{}\n{}'.format(
                             order['TransactionArray'], str(e)))
-                #else:
-                    #if (ebay_site_id is not None
-                            #and site_id_order != ebay_site_id):
-                        # Not from this site_id - skip
-                        #continue
 
                 # Create/update Customer
                 cust_details, address_details = extract_customer(order)
@@ -709,10 +701,8 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
     taxes = []
 
     amount_paid_dict = order['AmountPaid']
-    if amount_paid_dict['_currencyID'] == 'GBP':
-        amount_paid = float(amount_paid_dict['value'])
-    else:
-        amount_paid = -1.0
+    currency = amount_paid_dict['_currencyID']
+    amount_paid = float(amount_paid_dict['value'])
 
     sku_list = []
 
@@ -753,10 +743,14 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
 
         shipping_cost_dict = transaction['ActualShippingCost']
         handling_cost_dict = transaction['ActualHandlingCost']
-        if shipping_cost_dict['_currencyID'] == 'GBP':
+        if shipping_cost_dict['_currencyID'] == currency:
             shipping_cost += float(shipping_cost_dict['value'])
-        if handling_cost_dict['_currencyID'] == 'GBP':
+        else:
+            raise ErpnextEbaySyncError('Inconsistent currencies in order!')
+        if handling_cost_dict['_currencyID'] == currency:
             shipping_cost += float(handling_cost_dict['value'])
+        else:
+            raise ErpnextEbaySyncError('Inconsistent currencies in order!')
 
         qty = float(transaction['QuantityPurchased'])
         try:
@@ -798,13 +792,13 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
         item_list.append({
                 "item_code": sku,
                 "description": description,
-                "warehouse": "Mamhilad - URTL",
+                "warehouse": WAREHOUSE,
                 "qty": qty,
                 "rate": exc_vat,
                 "valuation_rate": 0.0,
                 "income_account": income_account,
-                "expense_account": "Cost of Goods Sold - URTL",
-                "cost_center": "Main - URTL"
+                "expense_account": f"Cost of Goods Sold - {COMPANY_ACRONYM}",
+                "cost_center": f"Main - {COMPANY_ACRONYM}"
          })
 
     if shipping_cost > 0.0001:
@@ -822,12 +816,12 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
         item_list.append({
             "item_code": SHIPPING_ITEM,
             "description": "Shipping costs (from eBay)",
-            "warehouse": "Mamhilad - URTL",
+            "warehouse": WAREHOUSE,
             "qty": 1.0,
             "rate": exc_vat,
             "valuation_rate": 0.0,
             "income_account": income_account,
-            "expense_account": "Shipping - URTL"
+            "expense_account": f"Shipping - {COMPANY_ACRONYM}"
         })
 
     # Taxes are a single line item not each transaction
@@ -835,7 +829,7 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
         taxes.append({
                     "charge_type": "Actual",
                     "description": "VAT {}%".format(VAT_PERCENT[income_account]),
-                    "account_head": "VAT - URTL",
+                    "account_head": f"VAT - {COMPANY_ACRONYM}",
                     "rate": VAT_PERCENT[income_account],
                     "tax_amount": sum_vat})
 
@@ -847,8 +841,12 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
                              "amount": 0.0})
         elif checkout['PaymentMethod'] == 'PayPal':
             # PayPal - add amount as it has been paid
+            paypal_acct = f'PayPal {currency}'
+            if not frappe.db.exists('Mode of Payment', paypal_acct):
+                raise ErpnextEbaySyncError(
+                    f'Mode of Payment "{paypal_acct}" does not exist!')
             if amount_paid > 0.0:
-                payments.append({"mode_of_payment": "Paypal",
+                payments.append({"mode_of_payment": paypal_acct,
                                 "amount": amount_paid})
         elif checkout['PaymentMethod'] == 'PersonalCheck':
             # Personal cheque - may not yet be paid (set to zero)
@@ -875,9 +873,7 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
         "posting_time": "00:00:00",
         "due_date": posting_date,
         "set_posting_time": 1,
-        "selling_price_list": "Standard Selling",
-        "price_list_currency": "GBP",
-        "price_list_exchange_rate": 1,
+        "currency": currency,
         "ignore_pricing_rule": 1,
         "apply_discount_on": "Net Total",
         "status": "Draft",
@@ -885,9 +881,7 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
         "is_pos": 1,
         "taxes": taxes,
         "payments": payments,
-        "items": item_list,
-        "notification_email_address": cust_email,
-        "notify_by_email": 1}
+        "items": item_list}
 
     sinv = frappe.get_doc(sinv_dict)
 
@@ -923,16 +917,16 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
 def determine_income_account(country):
     """Determine correct EU or non-EU income account."""
     if not country or country.lower() == "united kingdom":
-        return "Sales - URTL"
+        return f"Sales - {COMPANY_ACRONYM}"
 
     # This is repeated here (having already been carried out in
     # extract_customer) for simplicity
     country = sanitize_country(country)
 
     if country and country.lower() in EU_COUNTRIES:
-        return "Sales - URTL"
+        return f"Sales - {COMPANY_ACRONYM}"
 
-    return "Sales Non EU - URTL"
+    return f"Sales Non EU - {COMPANY_ACRONYM}"
 
 
 def sanitize_postcode(in_postcode):
