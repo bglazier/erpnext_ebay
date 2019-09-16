@@ -61,6 +61,7 @@ def resize_image(filename, out=None, thumbnail=False):
         image_size = frappe.db.get_value(
             'eBay Manager Settings', filters=None,
             fieldname='ebay_image_size')
+    image_size = int(image_size)
 
     if image_size < 1:
         frappe.throw('Invalid image size: ' + str(image_size))
