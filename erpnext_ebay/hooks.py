@@ -129,11 +129,11 @@ scheduler_events = {
     ],
     "hourly": [
         #"erpnext_ebay.tasks.hourly"
-        "erpnext_ebay.erpnext_ebay.sync_orders.sync"
+        "erpnext_ebay.sync_orders.sync"
     ],
     "daily": [
         #"erpnext_ebay.tasks.daily"
-        "erpnext_ebay.erpnext_ebay.ebay_active_listings.set_item_ebay_first_listed_date",
+        "erpnext_ebay.ebay_active_listings.set_item_ebay_first_listed_date",
         "erpnext_ebay.ebay_categories.category_sync"
     ],
     "weekly": [
