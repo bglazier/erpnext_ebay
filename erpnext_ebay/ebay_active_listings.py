@@ -111,6 +111,13 @@ def generate_active_ebay_data(drop_table=True):
 # *********************************************
 
 
+def update_ebay_data():
+    """Get eBay data, set eBay IDs and set eBay first listed dates."""
+    generate_active_ebay_data()
+    set_item_ebay_id()
+    set_item_ebay_first_listed_date()
+
+
 # if item is on ebay then set the ebay_id field
 def set_item_ebay_id(item_code, ebay_id):
     """Given an item_code set the ebay_id field to the live eBay ID

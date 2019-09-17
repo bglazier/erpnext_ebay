@@ -125,22 +125,17 @@ write_file = "erpnext_ebay.auto_slideshow.ugs_save_file_on_filesystem_hook"
 
 scheduler_events = {
     "all": [
-        #"erpnext_ebay.tasks.all"
     ],
     "hourly": [
-        #"erpnext_ebay.tasks.hourly"
         "erpnext_ebay.sync_orders.sync"
     ],
     "daily": [
-        #"erpnext_ebay.tasks.daily"
-        "erpnext_ebay.ebay_active_listings.set_item_ebay_first_listed_date",
+        "erpnext_ebay.ebay_active_listings.update_ebay_data",
         "erpnext_ebay.ebay_categories.category_sync"
     ],
     "weekly": [
-        #"erpnext_ebay.tasks.weekly"
     ],
     "monthly": [
-        #"erpnext_ebay.tasks.monthly"
     ]
 }
 

@@ -24,8 +24,7 @@ import pymysql
 
 from ugscommon import get_unsubmitted_prec_qty
 import ugssettings
-from .ebay_active_listings import (generate_active_ebay_data, sync_ebay_ids,
-                                   set_item_ebay_first_listed_date)
+from .ebay_active_listings import update_ebay_data
 
 NO_IMAGES = True
 USE_SERVER_IMAGES = True
@@ -96,9 +95,7 @@ def run_cron_create_xml():
     frappe.msgprint("Exporting all listings in QC Passed status")
 
     #Before doing anything sync the ebay_id to Erpnext
-    generate_active_ebay_data()
-    sync_ebay_ids()
-    set_item_ebay_first_listed_date()
+    update_ebay_data()
 
     design = "Pro: Classic"
     layout = "thumb gallery"
