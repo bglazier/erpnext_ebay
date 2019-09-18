@@ -49,7 +49,7 @@ def is_scotland(item_code):
     TODO - this is broken for several obvious reasons
     """
     sl = frappe.db.sql("""
-        SELECT sl.container FROM `tabStock Locations` AS sl
+        SELECT sl.container FROM `tabStock Location` AS sl
             WHERE sl.item_code = %s
         """, (item_code,))
 
@@ -490,7 +490,7 @@ def get_item_records_by_item_status():
         left join `tabItem Price` ip
         on ip.item_code = it.name
 
-        left join `tabStock Locations` sl
+        left join `tabStock Location` sl
         on sl.item_code = it.item_code
 
         where 
