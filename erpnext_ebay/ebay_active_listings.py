@@ -37,7 +37,7 @@ OUTPUT_SELECTOR = [
 
 
 @frappe.whitelist()
-def generate_active_ebay_data(drop_table=True):
+def generate_active_ebay_data(drop_table=True, print=print):
     """Get all the active eBay listings for the selected eBay site
     and save them to the temporary data table.
     """
@@ -47,6 +47,7 @@ def generate_active_ebay_data(drop_table=True):
         frappe.throw('You do not have permission to access the eBay Manager',
                      frappe.PermissionError)
 
+    print('Setting up zeBayListings table')
     # Set up the zeBayListings table
     if drop_table:
         frappe.db.sql("""DROP TABLE IF EXISTS `zeBayListings`;""", auto_commit=True)
@@ -64,14 +65,17 @@ def generate_active_ebay_data(drop_table=True):
     else:
         frappe.db.sql("""TRUNCATE TABLE `zeBayListings`;""", auto_commit=True)
 
+    print('Getting data from eBay via GetSellerList call')
     # Get data from GetSellerList
     listings = get_seller_list(site_id=0,  # Use US site
                                output_selector=OUTPUT_SELECTOR,
-                               granularity_level='Fine')
+                               granularity_level='Fine',
+                               print=print)
 
     multiple_check = set()
     multiple_error = set()
 
+    print('Updating table and checking data')
     for item in listings:
         # Loop over each eBay item on each site
         ebay_id = item['ItemID']

@@ -247,7 +247,8 @@ def get_active_listings():
 
 
 def get_seller_list(item_codes=None, site_id=default_site_id,
-                    output_selector=None, granularity_level='Coarse'):
+                    output_selector=None, granularity_level='Coarse',
+                    print=print):
     """Runs GetSellerList to obtain a list of (active) items.
     Note that this call does NOT filter by SiteID, but does return it.
     """

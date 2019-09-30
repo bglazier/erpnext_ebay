@@ -3,6 +3,7 @@
 
 import builtins
 
+import math
 import sys
 import os.path
 
@@ -145,7 +146,7 @@ def revise_ebay_price(item_code, new_price, is_auction=False):
                     {'ItemID': ebay_id, 'StartPrice': new_price_inc}})
 
 
-def revise_ebay_prices(price_data):
+def revise_ebay_prices(price_data, print=print):
     """Revises multiple eBay prices. Attempts to pack price updates into as few
     ReviseInventoryStatus calls as possible.
     Accepts a list of tuples, each of which contains:
@@ -157,7 +158,20 @@ def revise_ebay_prices(price_data):
     trading_api = get_trading_api()
 
     items = []
-    for ebay_id, new_price, *_ in price_data:
+
+    prev_percent = -1000.0
+    n_items = len(price_data)
+
+    if n_items == 0:
+        print('No prices to update!')
+        return
+
+    for i, (ebay_id, new_price, *_) in enumerate(price_data):
+        percent = math.floor(100.0 * i / n_items)
+        if percent - prev_percent > 9.9:
+            print(f' - {int(percent)}% complete...')
+        prev_percent = percent
+
         items.append({'ItemID': ebay_id,
                       'StartPrice': new_price})
         if len(items) == 4:
@@ -168,3 +182,4 @@ def revise_ebay_prices(price_data):
     if items:
         # If there are unsubmitted items, submit them now.
         revise_inventory_status(items)
+    print(' - 100% complete.')
