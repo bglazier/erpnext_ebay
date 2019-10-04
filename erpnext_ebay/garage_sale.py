@@ -71,19 +71,6 @@ def get_draft_sales(item_code):
     """, (item_code,))[0][0]
 
 
-def change_status_to_garagesale(item_code):
-    """
-    Change the ebay_id field to note that item has been sent to Garagesale
-    but may not be live on eBay.
-    """
-
-    frappe.db.sql("""
-        UPDATE `tabItem` AS it
-            SET it.ebay_id = %s
-        WHERE it.item_code = %s
-    """, (ugssettings.AWAITING_GARAGESALE_STATUS, item_code))
-
-
 @frappe.whitelist()
 def run_cron_create_xml():
     """

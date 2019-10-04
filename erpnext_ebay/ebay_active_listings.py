@@ -118,8 +118,8 @@ def generate_active_ebay_data(drop_table=True, print=print):
 def update_ebay_data():
     """Get eBay data, set eBay IDs and set eBay first listed dates."""
     generate_active_ebay_data()
-    set_item_ebay_id()
-    set_item_ebay_first_listed_date()
+    sync_ebay_ids()
+    set_on_sale_from_date()
 
 
 # if item is on ebay then set the ebay_id field
@@ -139,13 +139,10 @@ def set_item_ebay_id(item_code, ebay_id):
         auto_commit=True)
 
 
-def set_item_ebay_first_listed_date():
+def set_on_sale_from_date():
     """
-    Given an ebay_id set the first listed on date.
-
-    select it.item_code from `tabItem` it
-    where it.on_sale_from_date is NULL
-    and it.ebay_id REGEXP '^[0-9]+$';
+    For all items with a numeric eBay ID and no on_sale_from_date,
+    set the on_sale_from date to today.
     """
 
     date_today = datetime.date.today()
