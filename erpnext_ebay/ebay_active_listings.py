@@ -157,7 +157,7 @@ def set_on_sale_from_date():
 
 
 def sync_ebay_ids(site_id=default_site_id):
-    """Synchronize system eBay IDs to the temporary table"""
+    """Synchronize system eBay IDs from the temporary table"""
 
     site_name = EBAY_TRANSACTION_SITE_IDS[site_id]
 
@@ -197,7 +197,7 @@ def sync_ebay_ids(site_id=default_site_id):
             else:
                 # eBay item does not appear on system
                 frappe.msgprint(
-                    'eBay item cannot be found the system; '
+                    'eBay item cannot be found in the system; '
                     + f'unable to record eBay id {r.live_ebay_id}')
         else:
             # No live eBay ID; clear any value on system
