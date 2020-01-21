@@ -12,9 +12,6 @@ import json
 import frappe
 
 uploads_path = os.path.join(os.sep, 'home', 'uploads')
-#uploads_path= os.path.join(os.sep, 'Users', 'ben', 'uploads')
-
-site_url = 'http://www.universaleresourcetrading.com'
 
 re_digitsearch = re.compile('([0-9]+)')
 
@@ -108,20 +105,28 @@ def ugs_save_file_on_filesystem_hook(*args, **kwargs):
     return ret
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def view_slideshow_py(slideshow):
+
+    # Whitelisted function; check permissions
+    if not frappe.has_permission('Item', 'read'):
+        frappe.throw('Need read permissions on Item!',
+                     frappe.PermissionError)
 
     images_path = os.path.abspath(frappe.get_site_path('public'))
 
-    sql = ("select image from `tabWebsite Slideshow Item` "
-           "where parent='{}' order by idx").format(slideshow)
-    image_list = frappe.db.sql(sql, as_dict=False)
+    image_list = frappe.db.sql("""
+        SELECT image
+        FROM `tabWebsite Slideshow Item`
+        WHERE parent=%s
+        ORDER BY idx;
+        """, (slideshow,), as_dict=False)
     image_list = [x[0] for x in image_list]
 
     return image_list
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def process_new_images(item_code, rte_id, tag):
     """Read images from 'uploads' folder, sort and rename them, resize and
     auto-orient them, copy them to the site public images folder and finally
@@ -129,6 +134,11 @@ def process_new_images(item_code, rte_id, tag):
 
     Server-side part of auto-slideshow, called from a button on item page.
     """
+
+    # Whitelisted function; check permissions
+    if not frappe.has_permission('Item', 'write'):
+        frappe.throw('Need write permissions on Item!',
+                     frappe.PermissionError)
 
     public_site_files_path = os.path.abspath(
         frappe.get_site_path('public', 'files'))
