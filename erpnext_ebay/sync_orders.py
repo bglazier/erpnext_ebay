@@ -98,6 +98,7 @@ EXTRA_COUNTRIES = {
 COMPANY_ACRONYM = 'URTL'
 WAREHOUSE = f'Mamhilad - {COMPANY_ACRONYM}'
 SHIPPING_ITEM = 'ITEM-00358'
+CAR_ITEM = 'ITEM-11658'
 DEFAULT_CURRENCY = 'GBP'
 
 VAT_RATES = {f'Sales - {COMPANY_ACRONYM}': 0.2,
@@ -156,7 +157,7 @@ def sync(site_id=None):
                      frappe.PermissionError)
     frappe.msgprint('Syncing eBay orders...')
     # Load orders from Ebay
-    orders, num_days = get_orders()
+    orders, num_days = get_orders(order_status='Completed')
 
     # Create a synchronization log
     log_dict = {"doctype": "eBay sync log",
@@ -535,7 +536,7 @@ def create_customer(customer_dict, address_dict, changes=None):
 
         except frappe.DuplicateEntryError as e:
             # An address based on address_title autonaming already exists
-                # Get new doc, add a digit to the name and retry
+            # Get new doc, add a digit to the name and retry
             frappe.db.rollback()
             for suffix_id in range(1, maximum_address_duplicates+1):
                 address_doc = frappe.get_doc(address_dict)
@@ -571,6 +572,12 @@ def create_ebay_order(order_dict, changes, order):
     changes - A sync log list to append to.
 
     Returns a list of dictionaries for eBay sync log entries."""
+
+    # OrderID will change once order is paid, so don't create eBay Order
+    # for incomplete order.
+    if (order['OrderStatus'] != 'Completed'
+            or order['CheckoutStatus']['Status'] != 'Completed'):
+        return
 
     if changes is None:
         changes = []
@@ -633,6 +640,11 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
     """
     updated_db = False
 
+    # Don't create SINV from incomplete order
+    if (order['OrderStatus'] != 'Completed'
+            or order['CheckoutStatus']['Status'] != 'Completed'):
+        return
+
     ebay_order_id = order_dict['ebay_order_id']
     ebay_user_id = order_dict['ebay_user_id']
 
@@ -679,25 +691,14 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
                         "ebay_order": order_fields['name']})
         return
 
-    if order['OrderStatus'] != 'Completed':
-        # This order has not been paid yet
-        # Consequently we will not generally have a shipping address, and
-        # so cannot correctly assign VAT. We will therefore not create
-        # the sales invoice yet.
-        debug_msgprint('Order has not yet been paid: '
-                       + ebay_user_id + ' : ' + order_fields['ebay_order_id'])
-        changes.append({"ebay_change": "Order not yet paid",
-                        "ebay_user_id": ebay_user_id,
-                        "customer_name": order_fields['customer_name'],
-                        "customer": db_cust_name,
-                        "address": order_fields['address'],
-                        "ebay_order": order_fields['name']})
-        return
     # Create a sales invoice
 
     # eBay date format: YYYY-MM-DDTHH:MM:SS.SSSZ
-    posting_date = datetime.datetime.strptime(
-        order['CreatedTime'][:-1] + 'UTC', '%Y-%m-%dT%H:%M:%S.%f%Z')
+    if 'PaidTime' in order:
+        paid_datetime = order['PaidTime'][:-1] + 'UTC'
+    else:
+        paid_datetime = order['CreatedTime'][:-1] + 'UTC'
+    posting_date = datetime.datetime.strptime(paid_datetime, '%Y-%m-%dT%H:%M:%S.%f%Z')
     order_status = order['OrderStatus']
     item_list = []
     payments = []
@@ -718,6 +719,7 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
     sum_vat = 0.0
     sum_paid = 0.0
     shipping_cost = 0.0
+    ebay_car = 0.0  # eBay Collect and Remit sales taxes
 
     transactions = order['TransactionArray']['Transaction']
     cust_email = transactions[0]['Buyer']['Email']
@@ -758,6 +760,14 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
             shipping_cost += float(handling_cost_dict['value'])
         else:
             raise ErpnextEbaySyncError('Inconsistent currencies in order!')
+
+        if transaction['eBayCollectAndRemitTax'] == 'true':
+            ebay_car_dict = (
+                transaction['eBayCollectAndRemitTaxes']['TotalTaxAmount'])
+            if ebay_car_dict['_currencyID'] == currency:
+                ebay_car += float(ebay_car_dict['value'])
+            else:
+                raise ErpnextEbaySyncError('Inconsistent currencies in order!')
 
         qty = float(transaction['QuantityPurchased'])
         try:
@@ -808,8 +818,8 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
                 "cost_center": f"Main - {COMPANY_ACRONYM}"
          })
 
+    # Add a single line item for shipping services
     if shipping_cost > 0.0001:
-        # Add a single line item for shipping services
 
         inc_vat = shipping_cost
         exc_vat = round(float(inc_vat) / (1.0 + vat_rate), 2)
@@ -831,6 +841,19 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
             "expense_account": f"Shipping - {COMPANY_ACRONYM}"
         })
 
+    # Add a single line item for eBay Collect and Remit taxes
+    if ebay_car > 0.0001:
+        item_list.append({
+            "item_code": CAR_ITEM,
+            "description": "eBay Collect and Remit taxes",
+            "warehouse": WAREHOUSE,
+            "qty": 1.0,
+            "rate": ebay_car,
+            "valuation_rate": 0.0,
+            "income_account": income_account,
+            "expense_account": f"Cost of Goods Sold - {COMPANY_ACRONYM}"
+        })
+
     # Taxes are a single line item not each transaction
     if VAT_RATES[income_account] > 0.00001:
         taxes.append({
@@ -841,28 +864,27 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
                     "tax_amount": sum_vat})
 
     checkout = order['CheckoutStatus']
-    if checkout['Status'] == 'Complete':
-        if checkout['PaymentMethod'] in ('PayOnPickup', 'CashOnPickup'):
-            # Cash on delivery - may not yet be paid (set to zero)
-            payments.append({"mode_of_payment": "Cash",
-                             "amount": 0.0})
-        elif checkout['PaymentMethod'] == 'PayPal':
-            # PayPal - add amount as it has been paid
-            paypal_acct = f'PayPal {currency}'
-            if not frappe.db.exists('Mode of Payment', paypal_acct):
-                raise ErpnextEbaySyncError(
-                    f'Mode of Payment "{paypal_acct}" does not exist!')
-            if amount_paid > 0.0:
-                payments.append({"mode_of_payment": paypal_acct,
-                                "amount": amount_paid})
-        elif checkout['PaymentMethod'] == 'PersonalCheck':
-            # Personal cheque - may not yet be paid (set to zero)
-            payments.append({"mode_of_payment": "Cheque",
-                             "amount": 0.0})
-        elif checkout['PaymentMethod'] == 'MOCC':
-            # Postal order/banker's draft - may not yet be paid (set to zero)
-            payments.append({"mode_of_payment": "eBay",
-                             "amount": 0.0})
+    if checkout['PaymentMethod'] in ('PayOnPickup', 'CashOnPickup'):
+        # Cash on delivery - may not yet be paid (set to zero)
+        payments.append({"mode_of_payment": "Cash",
+                         "amount": 0.0})
+    elif checkout['PaymentMethod'] == 'PayPal':
+        # PayPal - add amount as it has been paid
+        paypal_acct = f'PayPal {currency}'
+        if not frappe.db.exists('Mode of Payment', paypal_acct):
+            raise ErpnextEbaySyncError(
+                f'Mode of Payment "{paypal_acct}" does not exist!')
+        if amount_paid > 0.0:
+            payments.append({"mode_of_payment": paypal_acct,
+                            "amount": amount_paid})
+    elif checkout['PaymentMethod'] == 'PersonalCheck':
+        # Personal cheque - may not yet be paid (set to zero)
+        payments.append({"mode_of_payment": "Cheque",
+                         "amount": 0.0})
+    elif checkout['PaymentMethod'] == 'MOCC':
+        # Postal order/banker's draft - may not yet be paid (set to zero)
+        payments.append({"mode_of_payment": "eBay",
+                         "amount": 0.0})
 
     title = 'eBay: {} [{}]'.format(
         order_fields['customer_name'],
@@ -876,8 +898,8 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
         "ebay_order_id": ebay_order_id,
         "ebay_site_id": site_id_order,
         "contact_email": cust_email,
-        "posting_date": posting_date,
-        "posting_time": "00:00:00",
+        "posting_date": posting_date.date(),
+        "posting_time": posting_date.time(),
         "due_date": posting_date,
         "set_posting_time": 1,
         "currency": currency,

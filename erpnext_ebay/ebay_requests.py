@@ -71,7 +71,7 @@ def test_for_message(api_dict):
     print('\n'.join(messages))
 
 
-def get_orders():
+def get_orders(order_status='All'):
     """Returns a list of recent orders from the eBay TradingAPI.
 
     This list is NOT filtered by a siteid as the API call does not filter
@@ -104,6 +104,7 @@ def get_orders():
             # all pages have been obtained
             api.execute('GetOrders', {
                 'NumberOfDays': num_days,
+                'OrderStatus': order_status,
                 'Pagination': {
                     'EntriesPerPage': 50,
                     'PageNumber': page}
