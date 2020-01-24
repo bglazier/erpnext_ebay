@@ -575,9 +575,6 @@ def create_ebay_order(order_dict, changes, order):
 
     # OrderID will change once order is paid, so don't create eBay Order
     # for incomplete order.
-    if (order['OrderStatus'] != 'Completed'
-            or order['CheckoutStatus']['Status'] != 'Completed'):
-        return
 
     if changes is None:
         changes = []
@@ -586,6 +583,12 @@ def create_ebay_order(order_dict, changes, order):
 
     ebay_order_id = order_dict['ebay_order_id']
     ebay_user_id = order_dict['ebay_user_id']
+
+    if (order['OrderStatus'] != 'Completed'
+            or order['CheckoutStatus']['Status'] != 'Complete'):
+        debug_msgprint('Order not complete: ' + ebay_user_id +
+                       ' : ' + ebay_order_id)
+        return
 
     order_fields = db_get_ebay_doc(
         "eBay order", ebay_order_id, fields=["name", "address"],
@@ -642,7 +645,7 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
 
     # Don't create SINV from incomplete order
     if (order['OrderStatus'] != 'Completed'
-            or order['CheckoutStatus']['Status'] != 'Completed'):
+            or order['CheckoutStatus']['Status'] != 'Complete'):
         return
 
     ebay_order_id = order_dict['ebay_order_id']
