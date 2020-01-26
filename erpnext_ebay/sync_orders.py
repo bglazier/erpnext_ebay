@@ -885,6 +885,7 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
                     "tax_amount": sum_vat})
 
     checkout = order['CheckoutStatus']
+    submit_on_pay = False
     if checkout['PaymentMethod'] in ('PayOnPickup', 'CashOnPickup'):
         # Cash on delivery - may not yet be paid (set to zero)
         payments.append({"mode_of_payment": "Cash",
@@ -898,6 +899,7 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
         if amount_paid > 0.0:
             payments.append({"mode_of_payment": paypal_acct,
                             "amount": amount_paid})
+            submit_on_pay = True
     elif checkout['PaymentMethod'] == 'PersonalCheck':
         # Personal cheque - may not yet be paid (set to zero)
         payments.append({"mode_of_payment": "Cheque",
@@ -937,11 +939,14 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
     sinv = frappe.get_doc(sinv_dict)
 
     sinv.insert()
-    #si.submit()
 
     if abs(amount_paid - sum_paid) > 0.005:
         sinv.add_comment('sync_orders: Unable to match totals - '
                          + 'please check this order manually.')
+    elif submit_on_pay:
+        # This is an order which adds up and has an approved payment method
+        # Submit immediately
+        sinv.submit()
 
     updated_db = True
 
@@ -952,11 +957,6 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
                     "customer": db_cust_name,
                     "address": order_fields['address'],
                     "ebay_order": order_fields['name']})
-
-    #if ebay_site_id and (ebay_site_id != site_id_order):
-        #msgprint_log.append(
-            #'WARNING: Sales Invoice {} originated from eBay site {}'.format(
-                #sinv.name, site_id_order))
 
     # Commit changes to database
     if updated_db:
