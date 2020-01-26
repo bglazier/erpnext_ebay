@@ -769,7 +769,7 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
             raise ErpnextEbaySyncError('Inconsistent currencies in order!')
 
         # Final Value Fee currently limited to being in *default* currency or
-        # sale currency
+        # sale currency, and does not include any VAT (for EU sellers).
         if final_value_fee_dict['_currencyID'] == default_currency:
             # final value fee typically in seller currency
             base_final_value_fee = float(final_value_fee_dict['value'])
