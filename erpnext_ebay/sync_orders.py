@@ -13,6 +13,7 @@ import frappe
 from frappe import msgprint, _
 from frappe.utils import cstr, strip_html
 
+from erpnext import get_default_currency
 from erpnext.setup.utils import get_exchange_rate
 
 from .ebay_requests import get_orders
@@ -99,7 +100,6 @@ COMPANY_ACRONYM = 'URTL'
 WAREHOUSE = f'Mamhilad - {COMPANY_ACRONYM}'
 SHIPPING_ITEM = 'ITEM-00358'
 CAR_ITEM = 'ITEM-11658'
-DEFAULT_CURRENCY = 'GBP'
 
 VAT_RATES = {f'Sales - {COMPANY_ACRONYM}': 0.2,
              f'Sales Non EU - {COMPANY_ACRONYM}': 0.0}
@@ -710,10 +710,12 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
     amount_paid_dict = order['AmountPaid']
     currency = amount_paid_dict['_currencyID']
     amount_paid = float(amount_paid_dict['value'])
-    if currency != DEFAULT_CURRENCY:
-        conversion_rate = get_exchange_rate(currency, DEFAULT_CURRENCY)
+    default_currency = get_default_currency()
+    if currency != default_currency:
+        conversion_rate = get_exchange_rate(currency, default_currency,
+                                            posting_date.date())
     else:
-        conversion_rate = None
+        conversion_rate = 1.0
 
     sku_list = []
 
@@ -755,12 +757,26 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
 
         shipping_cost_dict = transaction['ActualShippingCost']
         handling_cost_dict = transaction['ActualHandlingCost']
+        final_value_fee_dict = transaction['FinalValueFee']
+
         if shipping_cost_dict['_currencyID'] == currency:
             shipping_cost += float(shipping_cost_dict['value'])
         else:
             raise ErpnextEbaySyncError('Inconsistent currencies in order!')
         if handling_cost_dict['_currencyID'] == currency:
             shipping_cost += float(handling_cost_dict['value'])
+        else:
+            raise ErpnextEbaySyncError('Inconsistent currencies in order!')
+
+        # Final Value Fee currently limited to being in *default* currency or
+        # sale currency
+        if final_value_fee_dict['_currencyID'] == default_currency:
+            # final value fee typically in seller currency
+            base_final_value_fee = float(final_value_fee_dict['value'])
+            final_value_fee = base_final_value_fee / conversion_rate
+        elif final_value_fee_dict['_currencyID'] == currency:
+            final_value_fee = float(final_value_fee_dict['value'])
+            base_final_value_fee = final_value_fee * conversion_rate
         else:
             raise ErpnextEbaySyncError('Inconsistent currencies in order!')
 
@@ -815,6 +831,8 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
                 "warehouse": WAREHOUSE,
                 "qty": qty,
                 "rate": exc_vat,
+                "ebay_final_value_fee": final_value_fee,
+                "base_ebay_final_value_fee": base_final_value_fee,
                 "valuation_rate": 0.0,
                 "income_account": income_account,
                 "expense_account": f"Cost of Goods Sold - {COMPANY_ACRONYM}",
@@ -1018,7 +1036,9 @@ def sanitize_country(country):
 
         test_string = re.sub(r'\bkingdom\b', '', country_shorter)
         country_search_list.append(test_string)
-        test_string = re.sub(r"\brepublic\b|\bdemocratic\b|\bpeoples\b|\bpeople's\b|\bstate\b|\bstates\b|\bfederated\b", '', country_shorter)
+        test_string = re.sub(
+            r"\brepublic\b|\bdemocratic\b|\bpeoples\b|\bpeople's\b|"
+            + r"\bstate\b|\bstates\b|\bfederated\b", '', country_shorter)
         country_search_list.append(test_string)
         test_string = re.sub(r'\bn\.|\bn\b', 'north', test_string)
         test_string = re.sub(r'\bs\.|\bs\b', 'south', test_string)

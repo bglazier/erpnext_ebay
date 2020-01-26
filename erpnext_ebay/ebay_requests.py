@@ -71,7 +71,7 @@ def test_for_message(api_dict):
     print('\n'.join(messages))
 
 
-def get_orders(order_status='All'):
+def get_orders(order_status='All', include_final_value_fees=True):
     """Returns a list of recent orders from the eBay TradingAPI.
 
     This list is NOT filtered by a siteid as the API call does not filter
@@ -102,13 +102,17 @@ def get_orders(order_status='All'):
         while True:
             # TradingAPI results are paginated, so loop until
             # all pages have been obtained
-            api.execute('GetOrders', {
+            api_options = {
                 'NumberOfDays': num_days,
                 'OrderStatus': order_status,
                 'Pagination': {
                     'EntriesPerPage': 50,
                     'PageNumber': page}
-                })
+                }
+            if include_final_value_fees:
+                api_options['IncludeFinalValueFee'] = 'true'
+
+            api.execute('GetOrders', api_options)
 
             orders_api = api.response.dict()
             test_for_message(orders_api)
