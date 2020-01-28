@@ -2,6 +2,7 @@
 
 import sys
 import datetime
+import html
 import traceback
 import re
 from types import MethodType
@@ -701,8 +702,14 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
         paid_datetime = order['PaidTime'][:-1] + 'UTC'
     else:
         paid_datetime = order['CreatedTime'][:-1] + 'UTC'
-    posting_date = datetime.datetime.strptime(paid_datetime, '%Y-%m-%dT%H:%M:%S.%f%Z')
+    posting_date = datetime.datetime.strptime(paid_datetime,
+                                              '%Y-%m-%dT%H:%M:%S.%f%Z')
     order_status = order['OrderStatus']
+    buyer_checkout_message = order.get('BuyerCheckoutMessage', None)
+    if buyer_checkout_message:
+        buyer_checkout_message = html.escape(buyer_checkout_message,
+                                             quote=False)
+
     item_list = []
     payments = []
     taxes = []
@@ -738,8 +745,6 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
     vat_rate = VAT_RATES[income_account]
 
     # TODO
-    # Transaction.BuyerCheckoutMessage
-    # Transaction.FinalValueFee
     # isGSP = TransactionArray.Transaction.ContainingOrder.IsMultiLegShipping
     # Transaction.ContainingOrder.MonetaryDetails.Payments.Payment.PaymentStatus
     # Transaction.MonetaryDetails.Payments.Payment.PaymentStatus
@@ -940,9 +945,16 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
 
     sinv.insert()
 
+    if buyer_checkout_message:
+        msg = ('<strong>eBay Buyer Checkout Message</strong><br />'
+               + buyer_checkout_message)
+        sinv.add_comment('Comment', text=msg)
+
     if abs(amount_paid - sum_paid) > 0.005:
-        sinv.add_comment('sync_orders: Unable to match totals - '
-                         + 'please check this order manually.')
+        sinv.add_comment(
+            'Comment',
+            text='sync_orders: Unable to match totals - '
+                 + 'please check this order manually.')
     elif submit_on_pay:
         # This is an order which adds up and has an approved payment method
         # Submit immediately
