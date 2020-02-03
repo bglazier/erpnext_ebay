@@ -87,6 +87,7 @@ EXTRA_COUNTRIES = {
     'bolivia': 'Bolivia, Plurinational State of',
     'falklands': 'Falkland Islands (Malvinas)',
     'falkland islands': 'Falkland Islands (Malvinas)',
+    'france métropolitaine': 'France',
     'great britain': 'United Kingdom',
     'great britain and northern ireland': 'United Kingdom',
     'laos': 'Lao Peoples Democratic Republic',
