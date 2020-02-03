@@ -729,7 +729,7 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
     sum_inc_vat = 0.0
     sum_exc_vat = 0.0
     sum_vat = 0.0
-    sum_paid = 0.0
+    sum_to_pay = 0.0
     shipping_cost = 0.0
     ebay_car = 0.0  # eBay Collect and Remit sales taxes
 
@@ -822,7 +822,7 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
         sum_inc_vat += inc_vat
         sum_exc_vat += exc_vat
         sum_vat += vat * qty
-        sum_paid += inc_vat * qty
+        sum_to_pay += inc_vat * qty
 
         # Get item description in case it is empty, and we need to insert
         # filler text to avoid MandatoryError
@@ -854,7 +854,7 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
         sum_inc_vat += inc_vat
         sum_exc_vat += exc_vat
         sum_vat += vat
-        sum_paid += inc_vat
+        sum_to_pay += inc_vat
 
         item_list.append({
             "item_code": SHIPPING_ITEM,
@@ -879,6 +879,7 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
             "income_account": income_account,
             "expense_account": f"Cost of Goods Sold - {COMPANY_ACRONYM}"
         })
+        sum_to_pay += ebay_car
 
     # Taxes are a single line item not each transaction
     if VAT_RATES[income_account] > 0.00001:
@@ -950,11 +951,11 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
                + buyer_checkout_message)
         sinv.add_comment('Comment', text=msg)
 
-    if abs(amount_paid - sum_paid) > 0.005:
+    if abs(amount_paid - sum_to_pay) > 0.005:
         sinv.add_comment(
             'Comment',
-            text='sync_orders: Unable to match totals - '
-                 + 'please check this order manually.')
+            text='sync_orders: Unable to match totals - please check this '
+                 + f'order manually ({amount_paid} != {sum_to_pay})')
     elif submit_on_pay:
         # This is an order which adds up and has an approved payment method
         # Submit immediately
