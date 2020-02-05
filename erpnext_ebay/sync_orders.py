@@ -927,6 +927,7 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
         "customer": db_cust_name,
         "ebay_order_id": ebay_order_id,
         "ebay_site_id": site_id_order,
+        "buyer_message": buyer_checkout_message,
         "contact_email": cust_email,
         "posting_date": posting_date.date(),
         "posting_time": posting_date.time(),
@@ -946,11 +947,6 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
     sinv = frappe.get_doc(sinv_dict)
 
     sinv.insert()
-
-    if buyer_checkout_message:
-        msg = ('<strong>eBay Buyer Checkout Message</strong><br />'
-               + buyer_checkout_message)
-        sinv.add_comment('Comment', text=msg)
 
     if abs(amount_paid - sum_to_pay) > 0.005:
         sinv.add_comment(
