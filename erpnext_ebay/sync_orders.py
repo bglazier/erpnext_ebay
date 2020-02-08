@@ -37,12 +37,12 @@ continue_on_error = True
 maximum_address_duplicates = 4
 
 # EU countries
-EU_COUNTRIES = ['austria', 'belgium', 'bulgaria', 'croatia', 'cyprus',
-                'czech republic', 'denmark', 'estonia', 'finland', 'france',
-                'germany', 'greece', 'hungary', 'ireland', 'italy', 'latvia',
-                'lithuania', 'luxembourg', 'malta', 'netherlands', 'poland',
-                'portugal', 'romania', 'slovakia', 'slovenia', 'spain',
-                'sweden', 'united kingdom']
+EU_COUNTRIES = ['Austria', 'Belgium', 'Bulgaria', 'Croatia', 'Cyprus',
+                'Czech Republic', 'Denmark', 'Estonia', 'Finland', 'France',
+                'Germany', 'Greece', 'Hungary', 'Ireland', 'Italy', 'Latvia',
+                'Lithuania', 'Luxembourg', 'Malta', 'Netherlands', 'Poland',
+                'Portugal', 'Romania', 'Slovakia', 'Slovenia', 'Spain',
+                'Sweden', 'United Kingdom']
 
 EBAY_ID_NAMES = {'Customer': 'ebay_user_id',
                  'Address': 'ebay_address_id',
@@ -328,50 +328,6 @@ def extract_customer(order):
     return customer_dict, address_dict
 
 
-def extract_order_info(order, changes=None):
-    """Process an order, and extract limited transaction information.
-    order - a single order entry from the eBay TradingAPI.
-    changes - A sync log list to append to.
-    Returns dictionary for eBay order entries."""
-
-    if changes is None:
-        changes = []
-
-    ebay_user_id = order['BuyerUserID']
-
-    # Get customer information
-    cust_fields = db_get_ebay_doc(
-        "Customer", ebay_user_id, fields=["name", "customer_name"],
-        log=changes, none_ok=False)
-
-    # Get address information, if available
-    if ('AddressID' in order['ShippingAddress']
-            and order['ShippingAddress']['AddressID'] is not None):
-        ebay_address_id = order['ShippingAddress']['AddressID']
-        country = order['ShippingAddress']['Country']
-
-        db_address_name = db_get_ebay_doc(
-            "Address", ebay_address_id, fields=["name"],
-            log=changes, none_ok=False)["name"]
-    else:
-        country = "United Kingdom"
-        ebay_address_id = None
-        db_address_name = None
-
-    # Return dict of order information, ready for creating an eBay Order
-    order_dict = {"doctype": "eBay order",
-                  "name": order['OrderID'],
-                  "ebay_order_id": order['OrderID'],
-                  "ebay_user_id": order['BuyerUserID'],
-                  "ebay_address_id": ebay_address_id,
-                  "customer": cust_fields["name"],
-                  "customer_name": cust_fields["customer_name"],
-                  "address": db_address_name,
-                  "country": country}
-
-    return order_dict
-
-
 def create_customer(customer_dict, address_dict, changes=None):
     """Process an order and add the customer; add customer address.
     Does not duplicate entries where possible.
@@ -567,6 +523,47 @@ def create_customer(customer_dict, address_dict, changes=None):
     return None
 
 
+def extract_order_info(order, changes=None):
+    """Process an order, and extract limited transaction information.
+    order - a single order entry from the eBay TradingAPI.
+    changes - A sync log list to append to.
+    Returns dictionary for eBay order entries."""
+
+    if changes is None:
+        changes = []
+
+    ebay_user_id = order['BuyerUserID']
+
+    # Get customer information
+    cust_fields = db_get_ebay_doc(
+        "Customer", ebay_user_id, fields=["name", "customer_name"],
+        log=changes, none_ok=False)
+
+    # Get address information, if available
+    if ('AddressID' in order['ShippingAddress']
+            and order['ShippingAddress']['AddressID'] is not None):
+        ebay_address_id = order['ShippingAddress']['AddressID']
+
+        db_address_name = db_get_ebay_doc(
+            "Address", ebay_address_id, fields=["name"],
+            log=changes, none_ok=False)["name"]
+    else:
+        ebay_address_id = None
+        db_address_name = None
+
+    # Return dict of order information, ready for creating an eBay Order
+    order_dict = {"doctype": "eBay order",
+                  "name": order['OrderID'],
+                  "ebay_order_id": order['OrderID'],
+                  "ebay_user_id": order['BuyerUserID'],
+                  "ebay_address_id": ebay_address_id,
+                  "customer": cust_fields["name"],
+                  "customer_name": cust_fields["customer_name"],
+                  "address": db_address_name}
+
+    return order_dict
+
+
 def create_ebay_order(order_dict, changes, order):
     """Process an eBay order and add eBay order document.
     Does not duplicate entries where possible.
@@ -739,11 +736,11 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
     cust_email = transactions[0]['Buyer']['Email']
 
     # Find the correct VAT rate
-    country_name = order['ShippingAddress']['CountryName']
-    if country_name is None:
+    country = frappe.db.get_value('Address', order_dict['address'], 'country')
+    if country is None:
         raise ErpnextEbaySyncError(
             'No country for this order for user {}!'.format(ebay_user_id))
-    income_account = determine_income_account(country_name)
+    income_account = determine_income_account(country)
     vat_rate = VAT_RATES[income_account]
 
     # TODO
@@ -978,14 +975,7 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
 
 def determine_income_account(country):
     """Determine correct EU or non-EU income account."""
-    if not country or country.lower() == "united kingdom":
-        return f"Sales - {COMPANY_ACRONYM}"
-
-    # This is repeated here (having already been carried out in
-    # extract_customer) for simplicity
-    country = sanitize_country(country)
-
-    if country and country.lower() in EU_COUNTRIES:
+    if not country or country in EU_COUNTRIES:
         return f"Sales - {COMPANY_ACRONYM}"
 
     return f"Sales Non EU - {COMPANY_ACRONYM}"
