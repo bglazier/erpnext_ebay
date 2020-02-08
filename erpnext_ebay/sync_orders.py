@@ -90,6 +90,7 @@ EXTRA_COUNTRIES = {
     'france métropolitaine': 'France',
     'great britain': 'United Kingdom',
     'great britain and northern ireland': 'United Kingdom',
+    'litauen': 'Lithuania',
     'laos': 'Lao Peoples Democratic Republic',
     'micronesia': 'Micronesia, Federated States of',
     'north korea': 'Korea, Democratic Peoples Republic of',
