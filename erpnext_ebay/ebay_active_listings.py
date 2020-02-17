@@ -193,7 +193,7 @@ def sync_ebay_ids(site_id=default_site_id):
             if r.item_code:
                 # Item is live but eBay IDs don't match
                 # Update system with live version
-                set_item_ebay_id(r.sku, r.live_ebay_id)
+                set_item_ebay_id(r.item_code, r.live_ebay_id)
             else:
                 # eBay item does not appear on system
                 frappe.msgprint(
