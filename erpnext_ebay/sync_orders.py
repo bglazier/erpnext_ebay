@@ -954,9 +954,7 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
     elif submit_on_pay:
         # This is an order which adds up and has an approved payment method
         # Submit immediately
-        no_submit = sinv.run_method("erpnext_ebay_sinv_submit_check")
-        if not no_submit:
-            sinv.submit()
+        sinv.submit()
 
     updated_db = True
 
