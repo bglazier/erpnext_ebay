@@ -120,6 +120,7 @@ def update_ebay_data():
     generate_active_ebay_data()
     sync_ebay_ids()
     set_on_sale_from_date()
+    return True
 
 
 # if item is on ebay then set the ebay_id field
