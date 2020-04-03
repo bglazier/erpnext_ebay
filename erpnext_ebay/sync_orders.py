@@ -85,8 +85,10 @@ for short_name, iso_name in APOLITICAL_COUNTRIES_NAMES.items():
 EXTRA_COUNTRIES = {
     'america': 'United States',
     'bolivia': 'Bolivia, Plurinational State of',
+    'danemark': 'Denmark',
     'falklands': 'Falkland Islands (Malvinas)',
     'falkland islands': 'Falkland Islands (Malvinas)',
+    'frankreich': 'France',
     'france métropolitaine': 'France',
     'great britain': 'United Kingdom',
     'great britain and northern ireland': 'United Kingdom',
@@ -94,6 +96,7 @@ EXTRA_COUNTRIES = {
     'laos': 'Lao Peoples Democratic Republic',
     'micronesia': 'Micronesia, Federated States of',
     'north korea': 'Korea, Democratic Peoples Republic of',
+    'rumänien': 'Romania',
     'russia': 'Russian Federation',
     'south korea': 'Korea, Republic of',
     'venezuela': 'Venezuela, Bolivarian Republic of'
