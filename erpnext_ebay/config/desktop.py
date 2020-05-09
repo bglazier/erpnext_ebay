@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
 
-from frappe import _
 
 def get_data():
-	return [
-		{
-			"module_name": "Erpnext Ebay",
-			"color": "grey",
-			"icon": "octicon octicon-file-directory",
-			"type": "module",
-			"label": _("Erpnext Ebay")
-		}
-	]
+    return [
+        {
+            "module_name": "ERPnext eBay",
+            "category": "Modules",
+            "label": "ERPnext eBay",
+            "color": "#1abc9c",
+            "icon": "octicon octicon-tools",
+            "type": "module",
+            "description": "ERPNext eBay module"
+        }
+    ]
