@@ -11,6 +11,8 @@ from datetime import date
 import json
 import frappe
 
+from frappe.core.doctype.file.file import File as FrappeFileDoc
+
 uploads_path = os.path.join(os.sep, 'home', 'uploads')
 
 re_digitsearch = re.compile('([0-9]+)')
@@ -82,9 +84,17 @@ def ugs_save_file_on_filesystem_hook(*args, **kwargs):
     transparent. However, we can handle specific file types as we see fit - in
     this case we mogrify JPG and JPEG images. save_file_on_filesystem does
     strange things, so we need to reconstruct the filename using analagous
-    logic - this could break in future with Frappe changes."""
+    logic - this could break in future with Frappe changes.
 
-    ret = frappe.utils.file_manager.save_file_on_filesystem(*args, **kwargs)
+    Also this may now (V12) be called from a File doctype, which means we need
+    to check for this and deal with it appropriately.
+    """
+
+    if len(args) == 1 and isinstance(args[0], FrappeFileDoc):
+        # We are being called from a file-type doc
+        ret = args[0].save_file_on_filesystem()
+    else:
+        ret = frappe.utils.file_manager.save_file_on_filesystem(*args, **kwargs)
 
     file_name = ret['file_name']
     #file_url = ret['file_url'] # Not a consistent file system identifier
