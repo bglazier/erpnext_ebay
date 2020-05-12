@@ -9,13 +9,20 @@ def item_onload(doc, _method):
     item_onload_ebay(doc)
 
 # ********************************************************************
-# eBay update for Online Selling Item
+# Platform (eBay) update for Online Selling Item
 # ********************************************************************
 
 
 def item_onload_ebay(doc):
     """Get the latest active listings for this item."""
     from erpnext_ebay.online_selling import platform_dict
+
+    # Check if we have a role that should not run the platform onload event
+    roles = frappe.get_roles(frappe.session.user)
+    excluded_roles = frappe.get_hooks('no_online_selling_roles') or []
+    for excluded_role in excluded_roles:
+        if excluded_role in roles:
+            return
 
     online_selling_platforms = frappe.get_all(
         'Online Selling Platform', fields=['name', 'selling_platform'])

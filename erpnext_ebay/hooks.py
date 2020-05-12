@@ -141,6 +141,10 @@ scheduler_events = {
     ]
 }
 
+# Exclude roles from Online Selling on Item page
+
+no_online_selling_roles = []
+
 # Testing
 # -------
 
