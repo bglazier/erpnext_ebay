@@ -191,7 +191,8 @@ def sync(site_id=None):
                 create_customer(cust_details, address_details, changes)
 
                 # Create/update eBay Order
-                order_details = extract_order_info(order, changes)
+                order_details = extract_order_info(order, address_details,
+                                                   changes)
                 create_ebay_order(order_details, changes, order)
 
                 # Create/update Sales Invoice
@@ -304,8 +305,10 @@ def extract_customer(order):
 
         # If we have a pickup order, there is no eBay AddressID (so make one)
         if is_pickup_order:
-            ebay_address_id = (ebay_user_id + '_PICKUP_' +
-                               address_line1.replace(' ', '_'))
+            address_elements = (
+                ebay_user_id, 'PICKUP', address_line1, address_line2, city)
+            ebay_address_id = '_'.join([x.replace(' ', '_')
+                                        for x in address_elements if x])[0:60]
         else:
             ebay_address_id = order['ShippingAddress']['AddressID']
 
@@ -526,9 +529,10 @@ def create_customer(customer_dict, address_dict, changes=None):
     return None
 
 
-def extract_order_info(order, changes=None):
+def extract_order_info(order, address_details, changes=None):
     """Process an order, and extract limited transaction information.
     order - a single order entry from the eBay TradingAPI.
+    address_details - Address details from extract_customer
     changes - A sync log list to append to.
     Returns dictionary for eBay order entries."""
 
@@ -543,10 +547,8 @@ def extract_order_info(order, changes=None):
         log=changes, none_ok=False)
 
     # Get address information, if available
-    if ('AddressID' in order['ShippingAddress']
-            and order['ShippingAddress']['AddressID'] is not None):
-        ebay_address_id = order['ShippingAddress']['AddressID']
-
+    if address_details and address_details['ebay_address_id']:
+        ebay_address_id = address_details['ebay_address_id']
         db_address_name = db_get_ebay_doc(
             "Address", ebay_address_id, fields=["name"],
             log=changes, none_ok=False)["name"]
