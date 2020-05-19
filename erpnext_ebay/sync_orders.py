@@ -308,7 +308,7 @@ def extract_customer(order):
             address_elements = (
                 ebay_user_id, 'PICKUP', address_line1, address_line2, city)
             ebay_address_id = '_'.join([x.replace(' ', '_')
-                                        for x in address_elements if x])[0:60]
+                                        for x in address_elements if x])[0:80]
         else:
             ebay_address_id = order['ShippingAddress']['AddressID']
 
