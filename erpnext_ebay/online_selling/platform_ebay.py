@@ -3,7 +3,7 @@
 
 import frappe
 
-from erpnext_ebay.ebay_constants import EBAY_SITE_NAMES
+from erpnext_ebay.ebay_constants import EBAY_TRANSACTION_SITE_NAMES
 from erpnext_ebay.ebay_requests import get_seller_list, get_item
 from erpnext_ebay.sync_listings import (create_ebay_online_selling_item,
                                         GET_ITEM_OUTPUT_SELECTOR)
@@ -37,7 +37,7 @@ class eBayPlatform(OnlineSellingPlatformClass):
             # Use the US site as we don't know what site_id we have yet
             item_dict = get_item(item_id=item_id, site_id=0,
                                  output_selector=GET_ITEM_OUTPUT_SELECTOR)
-            item_site_id = EBAY_SITE_NAMES[item_dict['Site']]
+            item_site_id = EBAY_TRANSACTION_SITE_NAMES[item_dict['Site']]
             if item_site_id not in site_ids:
                 # We don't handle this site_id
                 continue
