@@ -106,7 +106,7 @@ def get_orders(order_status='All', include_final_value_fees=True):
                 'NumberOfDays': num_days,
                 'OrderStatus': order_status,
                 'Pagination': {
-                    'EntriesPerPage': 50,
+                    'EntriesPerPage': 100,
                     'PageNumber': page}
                 }
             if include_final_value_fees:
@@ -177,7 +177,7 @@ def get_my_ebay_selling(listings_type='Summary', api_options=None,
             # all pages have been obtained
             if listings_type in INNER_PAGINATE:
                 api_options[listings_type]['Pagination'] = {
-                    'EntriesPerPage': 100, 'PageNumber': page}
+                    'EntriesPerPage': 200, 'PageNumber': page}
 
             api.execute('GetMyeBaySelling', api_options)
 
@@ -280,7 +280,7 @@ def get_seller_list(item_codes=None, site_id=default_site_id,
                 'EndTimeFrom': end_from,
                 'GranularityLevel': granularity_level,
                 'Pagination': {
-                    'EntriesPerPage': 100,
+                    'EntriesPerPage': 200,
                     'PageNumber': page},
                 }
             if output_selector:
@@ -300,28 +300,28 @@ def get_seller_list(item_codes=None, site_id=default_site_id,
             listings_api = api.response.dict()
             test_for_message(listings_api)
 
-            if n_pages is None:
-                n_pages = int(
-                    listings_api['PaginationResult']['TotalNumberOfPages'])
-                print('n_pages = ', n_pages)
-                if ('ItemArray' in listings_api
-                        and listings_api['ItemArray']
-                        and 'Item' in listings_api['ItemArray']):
-                    n_items = len(listings_api['ItemArray']['Item'])
-                else:
-                    n_items = 0
-                print(f'n_items per page = {n_items}')
-            if n_pages > 1:
-                print('page {} / {}'.format(page, n_pages))
-
             n_listings = int(listings_api['ReturnedItemCountActual'])
             if n_listings == 1:
                 listings.append(listings_api['ItemArray']['Item'])
             elif int(listings_api['ReturnedItemCountActual']) > 0:
                 listings.extend(listings_api['ItemArray']['Item'])
+
+            if n_pages is None:
+                n_pages = int(
+                    listings_api['PaginationResult']['TotalNumberOfPages'])
+                total_entries = listings_api[
+                    'PaginationResult']['TotalNumberOfEntries']
+                print(f'n_pages = {n_pages}')
+                print(f'total number of items: {total_entries}')
+                print(f'n_items per page = {n_listings}')
+            if n_pages > 1:
+                print(f'page {page} / {n_pages} ({n_listings} items)')
+
             if listings_api['HasMoreItems'] == 'false':
                 break
             page += 1
+            # Ping the database so we don't time out on interactive console
+            frappe.db.get_connection().ping()
 
     except ConnectionError as e:
         handle_ebay_error(e)
