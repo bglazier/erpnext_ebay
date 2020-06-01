@@ -321,7 +321,8 @@ def get_seller_list(item_codes=None, site_id=default_site_id,
                 break
             page += 1
             # Ping the database so we don't time out on interactive console
-            frappe.db.get_connection().ping()
+            frappe.db.sql("""SELECT 1""")
+            frappe.db.commit()
 
     except ConnectionError as e:
         handle_ebay_error(e)
