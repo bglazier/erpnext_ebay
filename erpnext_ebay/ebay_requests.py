@@ -106,7 +106,7 @@ def get_orders(order_status='All', include_final_value_fees=True):
                 'NumberOfDays': num_days,
                 'OrderStatus': order_status,
                 'Pagination': {
-                    'EntriesPerPage': 100,
+                    'EntriesPerPage': 50,
                     'PageNumber': page}
                 }
             if include_final_value_fees:
@@ -177,7 +177,7 @@ def get_my_ebay_selling(listings_type='Summary', api_options=None,
             # all pages have been obtained
             if listings_type in INNER_PAGINATE:
                 api_options[listings_type]['Pagination'] = {
-                    'EntriesPerPage': 200, 'PageNumber': page}
+                    'EntriesPerPage': 100, 'PageNumber': page}
 
             api.execute('GetMyeBaySelling', api_options)
 
@@ -280,7 +280,7 @@ def get_seller_list(item_codes=None, site_id=default_site_id,
                 'EndTimeFrom': end_from,
                 'GranularityLevel': granularity_level,
                 'Pagination': {
-                    'EntriesPerPage': 200,
+                    'EntriesPerPage': 100,
                     'PageNumber': page},
                 }
             if output_selector:
