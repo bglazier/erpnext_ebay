@@ -125,8 +125,8 @@ def update_ebay_data():
 
 # if item is on ebay then set the ebay_id field
 def set_item_ebay_id(item_code, ebay_id):
-    """Given an item_code set the ebay_id field to the live eBay ID
-    also does not overwrite Awaiting Garagesale if ebay_id is blank
+    """Given an item_code, sets the ebay_id field to the live eBay ID.
+    Also, does not overwrite Awaiting Garagesale if ebay_id is blank.
     """
 
     awaiting_garagesale_filter = """AND it.ebay_id <> 'Awaiting Garagesale'"""
@@ -162,32 +162,33 @@ def sync_ebay_ids(site_id=default_site_id):
 
     site_name = EBAY_TRANSACTION_SITE_IDS[site_id]
 
-    # This is a full outer join of the eBay data and the current Item data
-    # which is subsequently filtered to identify only changes.
+    # This is a (slightly tweaked) full outer join of the eBay data and the
+    # current Item data filtered to identify only changes.
     # Each (non-empty) SKU is guaranteed (by earlier checks) only to appear
     # once per site.
     records = frappe.db.sql("""
-        SELECT * FROM (
-            SELECT item.item_code,
-                ebay.ebay_id AS live_ebay_id,
-                item.ebay_id AS dead_ebay_id
-            FROM `zeBayListings` AS ebay
-            LEFT JOIN `tabItem` AS item
-                ON ebay.sku = item.item_code
-            WHERE ebay.site = %s
-                AND ebay.sku <> ''
-            UNION
-            SELECT item.item_code,
-                ebay.ebay_id AS live_ebay_id,
-                item.ebay_id AS dead_ebay_id
-            FROM `zeBayListings` AS ebay
-            RIGHT JOIN `tabItem` AS item
-                ON ebay.sku = item.item_code
-            WHERE ebay.site = %s
-                AND ebay.sku <> ''
-        ) AS t
-        WHERE t.live_ebay_id <> t.dead_ebay_id
-        """, (site_name, site_name), as_dict=True)
+        SELECT item.item_code,
+            ebay.ebay_id AS live_ebay_id,
+            item.ebay_id AS dead_ebay_id
+        FROM `zeBayListings` AS ebay
+        LEFT JOIN `tabItem` AS item
+            ON ebay.sku = item.item_code
+        WHERE ebay.site = %(site_name)s
+            AND ebay.sku <> ''
+            AND item.ebay_id <> ebay.ebay_id
+
+        UNION ALL
+
+        SELECT item.item_code,
+            ebay.ebay_id AS live_ebay_id,
+            item.ebay_id AS dead_ebay_id
+        FROM `zeBayListings` AS ebay
+        RIGHT JOIN `tabItem` AS item
+            ON ebay.sku = item.item_code
+                AND ebay.site = %(site_name)s
+        WHERE ebay.ebay_id IS NULL
+            AND IFNULL(item.ebay_id, '') <> ''
+        """, {'site_name': site_name}, as_dict=True)
 
     for r in records:
         if r.live_ebay_id:
