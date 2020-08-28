@@ -2,7 +2,6 @@
 run from: premium report, garagsale_xml
 """
 
-import os.path
 import datetime
 
 import frappe
@@ -37,9 +36,13 @@ OUTPUT_SELECTOR = [
 
 
 @frappe.whitelist()
-def generate_active_ebay_data(drop_table=True, print=print):
+def generate_active_ebay_data(drop_table=True, print=print,
+                              multiple_error_sites=None):
     """Get all the active eBay listings for the selected eBay site
     and save them to the temporary data table.
+
+    If multiple_error_sites is supplied, only multiple entries for those
+    eBay sites are considered an error.
     """
 
     # This is a whitelisted function; check permissions.
@@ -74,6 +77,7 @@ def generate_active_ebay_data(drop_table=True, print=print):
 
     multiple_check = set()
     multiple_error = set()
+    multiple_warnings = set()
 
     print('Updating table and checking data')
     for item in listings:
@@ -89,7 +93,11 @@ def generate_active_ebay_data(drop_table=True, print=print):
             # Check that this item appears only once
             mult_tuple = (sku, site)
             if mult_tuple in multiple_check:
-                multiple_error.add(mult_tuple)
+                if (not multiple_error_sites
+                        or (site in multiple_error_sites)):
+                    multiple_error.add(mult_tuple)
+                else:
+                    multiple_warnings.add(mult_tuple)
                 continue
             multiple_check.add(mult_tuple)
 
@@ -108,6 +116,12 @@ def generate_active_ebay_data(drop_table=True, print=print):
             msgs.append(f'The item {sku} has multiple ebay listings on the '
                         + f'eBay site {site}!')
         frappe.throw('\n'.join(msgs))
+    if multiple_warnings:
+        msgs = []
+        for sku, site in multiple_warnings:
+            msgs.append(f'The item {sku} has multiple ebay listings on the '
+                        + f'eBay site {site}!')
+        frappe.msgprint('\n'.join(msgs))
 
 
 # *********************************************
@@ -115,9 +129,9 @@ def generate_active_ebay_data(drop_table=True, print=print):
 # *********************************************
 
 
-def update_ebay_data():
+def update_ebay_data(multiple_error_sites=None):
     """Get eBay data, set eBay IDs and set eBay first listed dates."""
-    generate_active_ebay_data()
+    generate_active_ebay_data(multiple_error_sites)
     sync_ebay_ids()
     set_on_sale_from_date()
     return True

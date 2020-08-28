@@ -82,7 +82,7 @@ def run_cron_create_xml():
     frappe.msgprint("Exporting all listings in QC Passed status")
 
     #Before doing anything sync the ebay_id to Erpnext
-    update_ebay_data()
+    update_ebay_data(multiple_error_sites=['UK'])
 
     design = "Pro: Classic"
     layout = "thumb gallery"
