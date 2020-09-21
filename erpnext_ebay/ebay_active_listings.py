@@ -131,7 +131,7 @@ def generate_active_ebay_data(drop_table=True, print=print,
 
 def update_ebay_data(multiple_error_sites=None):
     """Get eBay data, set eBay IDs and set eBay first listed dates."""
-    generate_active_ebay_data(multiple_error_sites)
+    generate_active_ebay_data(multiple_error_sites=multiple_error_sites)
     sync_ebay_ids()
     set_on_sale_from_date()
     return True
