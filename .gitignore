@@ -3,7 +3,7 @@ __pycache__/
 *.pyc
 *.egg-info
 *.swp
+*.kate-swp
 tags
-erpnext_ebay/docs/current
 .~lock*
 *.sublime-workspace
