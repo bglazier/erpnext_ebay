@@ -2,15 +2,20 @@
 
 import os
 import sys
+import time
+import threading
 import operator
 
 from datetime import datetime, timedelta
-
 from collections.abc import Sequence
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+import requests
 
 import frappe
 from frappe import _, msgprint
 
+from ebaysdk.response import Response
 from ebaysdk.exception import ConnectionError
 from ebaysdk.trading import Connection as Trading
 
@@ -21,6 +26,43 @@ PATH_TO_YAML = os.path.join(
     frappe.get_site_path(), 'ebay.yaml')
 
 default_site_id = 3  # eBay site id: 0=US, 3=UK
+
+
+class ParallelTrading(Trading):
+    def __init__(self, executor=None, **kwargs):
+        self.executor = executor or ThreadPoolExecutor()
+        self.error_check_lock = threading.Lock()
+        super().__init__(**kwargs)
+
+    def _execute_request_thread(self, r):
+        response = requests.request(
+            r.method, r.url, data=r.body, headers=r.headers, verify=True,
+            proxies=self.proxies, timeout=self.timeout, allow_redirects=True)
+
+        if hasattr(response, 'content'):
+            response = self._process_response(response)
+
+            with self.error_check_lock:
+                self.response = response
+                if response.status_code != 200:
+                    self._response_error = response.reason
+
+                self.error_check()
+
+        return response
+
+    def execute_request(self):
+        func = self._execute_request_thread
+        self.future = self.executor.submit(func, self.request)
+
+    def _process_response(self, response, parse_response=True):
+        """Post processing of the response"""
+
+        return Response(response,
+                        verb=self.verb,
+                        list_nodes=self._list_nodes,
+                        datetime_nodes=self.datetime_nodes,
+                        parse_response=parse_response)
 
 
 def handle_ebay_error(e):
@@ -258,46 +300,92 @@ def get_seller_list(item_codes=None, site_id=default_site_id,
     Note that this call does NOT filter by SiteID, but does return it.
     """
 
+    # eBay has a limit of 300 calls in 15 seconds
+    MAX_REQUESTS = {'time': 15, 'n_requests': 300}
+
     # Create eBay acceptable datetime stamps for EndTimeTo and EndTimeFrom
     end_from = datetime.utcnow().isoformat()[:-3] + 'Z'
     end_to = (datetime.utcnow() + timedelta(days=119)).isoformat()[:-3] + 'Z'
 
     listings = []
 
+    # Create executor for futures
+    executor = ThreadPoolExecutor(max_workers=15)
+
     try:
         # Initialize TradingAPI; default timeout is 20.
 
-        api = Trading(config_file=PATH_TO_YAML,
-                      siteid=site_id, warnings=True, timeout=20)
+        api = ParallelTrading(config_file=PATH_TO_YAML, executor=executor,
+                              siteid=site_id, warnings=True, timeout=20)
 
         n_pages = None
         page = 1
-        while True:
-            # TradingAPI results are paginated, so loop until
-            # all pages have been obtained
-            api_dict = {
-                'EndTimeTo': end_to,
-                'EndTimeFrom': end_from,
-                'GranularityLevel': granularity_level,
-                'Pagination': {
-                    'EntriesPerPage': 100,
-                    'PageNumber': page},
-                }
-            if output_selector:
-                api_dict['OutputSelector'] = [
-                    'ItemID', 'ItemArray.Item.Site',
-                    'ItemArray.Item.SellingStatus.ListingStatus',
-                    'PaginationResult', 'ReturnedItemCountActual',
-                    'HasMoreItems'] + output_selector
-                for field in output_selector:
-                    if 'WatchCount' in field:
-                        api_dict['IncludeWatchCount'] = True
-                        break
-            if item_codes is not None:
-                api_dict['SKUArray'] = {'SKU': item_codes}
-            api.execute('GetSellerList', api_dict)
+        futures = []
+        api_dict = {
+            'EndTimeTo': end_to,
+            'EndTimeFrom': end_from,
+            'GranularityLevel': granularity_level,
+            'Pagination': {
+                'EntriesPerPage': 100,
+                'PageNumber': page},
+            }
+        if output_selector:
+            api_dict['OutputSelector'] = [
+                'ItemID', 'ItemArray.Item.Site',
+                'ItemArray.Item.SellingStatus.ListingStatus',
+                'PaginationResult', 'ReturnedItemCountActual',
+                ] + output_selector
+            for field in output_selector:
+                if 'WatchCount' in field:
+                    api_dict['IncludeWatchCount'] = True
+                    break
+        if item_codes is not None:
+            api_dict['SKUArray'] = {'SKU': item_codes}
 
-            listings_api = api.response.dict()
+        # First call to get number of pages
+        api.execute('GetSellerList', api_dict)
+        response = api.future.result()
+
+        listings_api = response.dict()
+
+        n_listings = int(listings_api['ReturnedItemCountActual'])
+        if n_listings == 1:
+            listings.append(listings_api['ItemArray']['Item'])
+        elif int(listings_api['ReturnedItemCountActual']) > 0:
+            listings.extend(listings_api['ItemArray']['Item'])
+
+        n_pages = int(
+            listings_api['PaginationResult']['TotalNumberOfPages'])
+        total_entries = listings_api[
+            'PaginationResult']['TotalNumberOfEntries']
+        print(f'n_pages = {n_pages}')
+        print(f'total number of items: {total_entries}')
+        print(f'n_items per page = {n_listings}')
+
+        # Generate list of futures, rate-limiting in blocks of time
+        start_time = time.monotonic()
+        n_requests = 0
+        print('Creating requests')
+        for page in range(2, n_pages+1):
+            # Rate limiting
+            if n_requests > MAX_REQUESTS['n_requests']:
+                dt = time.monotonic() - start_time
+                if dt < MAX_REQUESTS['time']:
+                    time.sleep(MAX_REQUESTS['time'] - dt)
+                n_requests = 0
+                start_time = time.monotonic()
+
+            api_dict['Pagination']['PageNumber'] = page
+            api.execute('GetSellerList', api_dict)
+            api.future.page_number = page
+            futures.append(api.future)
+            n_requests += 1
+
+        # Loop over the completed futures and process responses
+        print('Processing responses')
+        for future in as_completed(futures):
+            response = future.result()
+            listings_api = response.dict()
             test_for_message(listings_api)
 
             n_listings = int(listings_api['ReturnedItemCountActual'])
@@ -306,26 +394,18 @@ def get_seller_list(item_codes=None, site_id=default_site_id,
             elif int(listings_api['ReturnedItemCountActual']) > 0:
                 listings.extend(listings_api['ItemArray']['Item'])
 
-            if n_pages is None:
-                n_pages = int(
-                    listings_api['PaginationResult']['TotalNumberOfPages'])
-                total_entries = listings_api[
-                    'PaginationResult']['TotalNumberOfEntries']
-                print(f'n_pages = {n_pages}')
-                print(f'total number of items: {total_entries}')
-                print(f'n_items per page = {n_listings}')
-            if n_pages > 1:
-                print(f'page {page} / {n_pages} ({n_listings} items)')
+            print(f'page {future.page_number} / {n_pages} ({n_listings} items)')
 
-            if listings_api['HasMoreItems'] == 'false':
-                break
-            page += 1
             # Ping the database so we don't time out on interactive console
             frappe.db.sql("""SELECT 1""")
             frappe.db.commit()
 
     except ConnectionError as e:
         handle_ebay_error(e)
+
+    finally:
+        executor.shutdown()
+        api.session.close()
 
     listings = [x for x in listings
                 if x['SellingStatus']['ListingStatus'] == 'Active']
