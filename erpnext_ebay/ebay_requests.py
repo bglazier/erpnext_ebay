@@ -77,8 +77,12 @@ def handle_ebay_error(e):
         for error in errors:
             if error['ErrorCode'] == "932":
                 # eBay auth token has expired
-                messages.append('eBay API token has expired:\n"{}"'.format(
-                    error['LongMessage']))
+                messages.append(
+                    f"""eBay API token has expired:\n{error['LongMessage']}""")
+            if error['ErrorCode'] == "18000":
+                # Too many requests (short-duration threshold)
+                messages.append(
+                    f"""Too many requests:\n{error['LongMessage']}""")
             else:
                 # Some other eBay error
                 messages.append('eBay error:\n"{}"'.format(
@@ -310,7 +314,7 @@ def get_seller_list(item_codes=None, site_id=default_site_id,
     listings = []
 
     # Create executor for futures
-    executor = ThreadPoolExecutor(max_workers=15)
+    executor = ThreadPoolExecutor(max_workers=50)
 
     try:
         # Initialize TradingAPI; default timeout is 20.
