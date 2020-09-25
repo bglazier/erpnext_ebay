@@ -373,7 +373,11 @@ def create_website_image(fname, item):
         "file_size": os.path.getsize(web_fpath),
         "is_private": 0
     })
-    f.insert(ignore_permissions=True)
+    try:
+        f.insert(ignore_permissions=True)
+    except frappe.FileAlreadyAttachedException:
+        # If already attached, don't attach again
+        pass
 
     return web_url, thumb_url
 
