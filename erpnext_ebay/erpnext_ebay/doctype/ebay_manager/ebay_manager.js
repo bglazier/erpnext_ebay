@@ -52,5 +52,27 @@ frappe.ui.form.on('eBay Manager', {
                 args: {}
             });
         //}
+    },
+
+    clear_awaiting_garagesale_button(frm) {
+        frappe.confirm(
+            "Are you sure you want to clear &lsquo;Awaiting Garagesale&rsquo;?",
+            () => {
+                // On confirm, call clear_awaiting_garagesale
+                frappe.dom.freeze();
+                frappe.call({
+                    method: "erpnext_ebay.erpnext_ebay.doctype.ebay_manager.ebay_manager.clear_awaiting_garagesale",
+                    args: {},
+                }).then((r) => {
+                    frappe.dom.unfreeze();
+                    if (r.message) {
+                        frappe.msgprint("'Awaiting Garagesale' cleared");
+                    }
+                });
+            },
+            () => {
+                // No action on cancel
+            }
+        );
     }
 });
