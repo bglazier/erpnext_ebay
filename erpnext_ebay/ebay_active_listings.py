@@ -19,22 +19,6 @@ OUTPUT_SELECTOR = [
     'ItemArray.Item.SellingStatus.QuantitySold']
 
 
-#def update_sold_statusDONOTUSE():
-    #sql = """
-    #DONT DO THIS UNLESS ABSOLUTELT SURE ABOUT QTY BETTER TO DO VIA IMPORT???????
-    #update set it.workflow_state = 'Sold'
-
-    #select it.item_code, bin.actual_qty
-    #from `tabItem` it
-    #right join `tabBin` bin
-    #on bin.item_code = it.item_code
-
-    #right join `zeBayListings` el
-    #on el.sku = it.item_code
-    #where el.qty =0 and bin.actual_qty =0
-    #"""
-
-
 @frappe.whitelist()
 def generate_active_ebay_data(drop_table=True, print=print,
                               multiple_error_sites=None):
@@ -122,6 +106,9 @@ def generate_active_ebay_data(drop_table=True, print=print,
             msgs.append(f'The item {sku} has multiple ebay listings on the '
                         + f'eBay site {site}!')
         frappe.msgprint('\n'.join(msgs))
+
+    frappe.cache().set_value('erpnext_ebay.last_update',
+                             datetime.datetime.now())
 
 
 # *********************************************
