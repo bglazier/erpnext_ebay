@@ -20,13 +20,14 @@ OUTPUT_SELECTOR = [
 
 
 @frappe.whitelist()
-def generate_active_ebay_data(drop_table=True, print=print,
-                              multiple_error_sites=None):
+def generate_active_ebay_data(print=print, multiple_error_sites=None):
     """Get all the active eBay listings for the selected eBay site
     and save them to the temporary data table.
 
     If multiple_error_sites is supplied, only multiple entries for those
     eBay sites are considered an error.
+
+    Data in the table will not be over-written in the event of error.
     """
 
     # This is a whitelisted function; check permissions.
@@ -34,10 +35,9 @@ def generate_active_ebay_data(drop_table=True, print=print,
         frappe.throw('You do not have permission to access the eBay Manager',
                      frappe.PermissionError)
 
-    print('Setting up zeBayListings table')
-    # Set up the zeBayListings table
-    if drop_table:
-        frappe.db.sql("""DROP TABLE IF EXISTS `zeBayListings`;""", auto_commit=True)
+    if not frappe.db.sql("""SHOW TABLES LIKE 'zeBayListings';"""):
+        print('Setting up zeBayListings table')
+        # Set up the zeBayListings table if it does not exist
 
         frappe.db.sql("""
         CREATE TABLE IF NOT EXISTS `zeBayListings` (
@@ -49,66 +49,98 @@ def generate_active_ebay_data(drop_table=True, print=print,
             );
         """, auto_commit=True)
 
-    else:
+    print('Getting table lock')
+    # Try and get table lock. If we fail (due to timeout), throw an error
+    # message. Unlock the tables in any circumstance except success.
+    success = False
+    try:
+        frappe.db.sql("""LOCK TABLES `zeBayListings` WRITE WAIT 60;""")
+        success = True
+    except frappe.db.InternalError:
+        frappe.db.sql("""UNLOCK TABLES;""")
+        frappe.throw('Unable to lock eBay update; may already be running.')
+    finally:
+        if not success:
+            frappe.db.sql("""UNLOCK TABLES;""")
+
+    # Now that we have a table lock, make sure we unlock it in the event of
+    # an exception.
+    try:
+
+        # If the data has been pulled down in the last 60 seconds, don't
+        # update it again.
+        last_update = frappe.cache().get_value('erpnext_ebay.last_update')
+        if last_update:
+            seconds_ago = (datetime.datetime.now() - last_update).total_seconds()
+            if seconds_ago < 60:
+                print('Last update was completed less than 60s ago.')
+                # Table will be unlocked by finally clause
+                return
+
+        print('Getting data from eBay via GetSellerList call')
+        # Get data from GetSellerList
+        listings = get_seller_list(site_id=0,  # Use US site
+                                   output_selector=OUTPUT_SELECTOR,
+                                   granularity_level='Fine',
+                                   print=print)
+
+        multiple_check = set()
+        multiple_error = set()
+        multiple_warnings = set()
+
+        print('Updating table and checking data')
+        records = []
+        for item in listings:
+            # Loop over each eBay item on each site
+            ebay_id = item['ItemID']
+            original_qty = int(item['Quantity'])
+            qty_sold = int(item['SellingStatus']['QuantitySold'])
+            sku = item.get('SKU', '')
+            price = float(item['SellingStatus']['CurrentPrice']['value'])
+            site = item['Site']
+
+            if sku:
+                # Check that this item appears only once
+                mult_tuple = (sku, site)
+                if mult_tuple in multiple_check:
+                    if (not multiple_error_sites
+                            or (site in multiple_error_sites)):
+                        multiple_error.add(mult_tuple)
+                    else:
+                        multiple_warnings.add(mult_tuple)
+                    continue
+                multiple_check.add(mult_tuple)
+
+            qty = original_qty - qty_sold
+            records.append((sku, ebay_id, qty, price, site))
+
+        if multiple_error:
+            msgs = []
+            for sku, site in multiple_error:
+                msgs.append(f'The item {sku} has multiple ebay listings on the '
+                            + f'eBay site {site}!')
+            frappe.throw('\n'.join(msgs))
+        if multiple_warnings:
+            msgs = []
+            for sku, site in multiple_warnings:
+                msgs.append(f'The item {sku} has multiple ebay listings on the '
+                            + f'eBay site {site}!')
+            frappe.msgprint('\n'.join(msgs))
+
+        # Truncate table now we have good data
         frappe.db.sql("""TRUNCATE TABLE `zeBayListings`;""", auto_commit=True)
 
-    print('Getting data from eBay via GetSellerList call')
-    # Get data from GetSellerList
-    listings = get_seller_list(site_id=0,  # Use US site
-                               output_selector=OUTPUT_SELECTOR,
-                               granularity_level='Fine',
-                               print=print)
+        for record in records:
+            # Insert eBay listings into the zeBayListings temporary table"""
+            frappe.db.sql("""
+                INSERT INTO `zeBayListings`
+                    VALUES (%s, %s, %s, %s, %s);
+                """, record, auto_commit=True)
 
-    multiple_check = set()
-    multiple_error = set()
-    multiple_warnings = set()
-
-    print('Updating table and checking data')
-    for item in listings:
-        # Loop over each eBay item on each site
-        ebay_id = item['ItemID']
-        original_qty = int(item['Quantity'])
-        qty_sold = int(item['SellingStatus']['QuantitySold'])
-        sku = item.get('SKU', '')
-        price = float(item['SellingStatus']['CurrentPrice']['value'])
-        site = item['Site']
-
-        if sku:
-            # Check that this item appears only once
-            mult_tuple = (sku, site)
-            if mult_tuple in multiple_check:
-                if (not multiple_error_sites
-                        or (site in multiple_error_sites)):
-                    multiple_error.add(mult_tuple)
-                else:
-                    multiple_warnings.add(mult_tuple)
-                continue
-            multiple_check.add(mult_tuple)
-
-        qty = original_qty - qty_sold
-
-        # Insert eBay listings into the zeBayListings temporary table"""
-        frappe.db.sql("""
-            INSERT INTO `zeBayListings`
-                VALUES (%s, %s, %s, %s, %s);
-            """, (sku, ebay_id, qty, price, site),
-            auto_commit=True)
-
-    if multiple_error:
-        msgs = []
-        for sku, site in multiple_error:
-            msgs.append(f'The item {sku} has multiple ebay listings on the '
-                        + f'eBay site {site}!')
-        frappe.throw('\n'.join(msgs))
-    if multiple_warnings:
-        msgs = []
-        for sku, site in multiple_warnings:
-            msgs.append(f'The item {sku} has multiple ebay listings on the '
-                        + f'eBay site {site}!')
-        frappe.msgprint('\n'.join(msgs))
-
-    frappe.cache().set_value('erpnext_ebay.last_update',
-                             datetime.datetime.now())
+        frappe.cache().set_value('erpnext_ebay.last_update',
+                                 datetime.datetime.now())
+    finally:
+        frappe.db.sql("""UNLOCK TABLES;""")
 
 
 # *********************************************
