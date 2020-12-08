@@ -148,11 +148,20 @@ def generate_active_ebay_data(print=print, multiple_error_sites=None):
 # *********************************************
 
 
+@frappe.whitelist()
 def update_ebay_data(multiple_error_sites=None):
     """Get eBay data, set eBay IDs and set eBay first listed dates."""
+
+    # This is a whitelisted function; check permissions.
+    if not frappe.has_permission('eBay Manager'):
+        frappe.throw('You do not have permission to access the eBay Manager',
+                     frappe.PermissionError)
+
     generate_active_ebay_data(multiple_error_sites=multiple_error_sites)
     sync_ebay_ids()
     set_on_sale_from_date()
+    frappe.cache().set_value('erpnext_ebay.last_full_update',
+                             datetime.datetime.now())
     return True
 
 

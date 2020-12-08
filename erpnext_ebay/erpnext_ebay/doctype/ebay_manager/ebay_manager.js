@@ -44,6 +44,15 @@ frappe.ui.form.on('eBay Manager', {
         });
     },
 
+    update_ebay_data(frm) {
+        frappe.call({
+            method: "erpnext_ebay.ebay_active_listings.update_ebay_data",
+            args: {multiple_error_sites: ["UK"]},
+            freeze: true,
+            freeze_message: "Updating eBay data..."
+        });
+    },
+
     create_garagesale_button(frm) {
         //var r == (confirm('Have you relisted ended eBay listings?')) 
         //if (r == true){
