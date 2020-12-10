@@ -34,7 +34,7 @@ def revise_generic_items(item_code):
          description,
          function_grade,
          grade_details,
-         condition,
+         condition_grade,
          tech_details,
          delivery_type,
          accessories_extras,
@@ -49,7 +49,7 @@ def revise_generic_items(item_code):
 
         body = """<![CDATA["""
         body += jtemplate(
-            version, description, function_grade, grade_details, condition,
+            version, description, function_grade, grade_details, condition_grade,
             tech_details, delivery_type, accessories_extras,
             power_cable_included, power_supply_included,
             remote_control_included, case_included, warranty_period)
@@ -59,7 +59,7 @@ def revise_generic_items(item_code):
         body += """]]>"""
 
         condition_description = ''  # grade_details
-        condition_id_text, condition_id = lookup_condition(condition, 0)
+        condition_id_text, condition_id = lookup_condition(condition_grade, 0)
 
         new_gsp = (delivery_type == 'Standard Parcel')
 
@@ -98,7 +98,7 @@ def get_item_revisions(item_code):
         it.description,
         it.function_grade,
         it.grade_details,
-        it.condition,
+        it.condition_grade,
         it.tech_details,
         it.delivery_type,
         it.accessories_extras,

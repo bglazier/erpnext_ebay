@@ -135,7 +135,7 @@ def run_cron_create_xml():
 
             body = "<![CDATA[<br></br>"
             body += jtemplate(version, r.description, r.function_grade, r.grade_details,
-                              r.condition, r.tech_details, r.delivery_type, r.accessories_extras,
+                              r.condition_grade, r.tech_details, r.delivery_type, r.accessories_extras,
                               r.power_cable_included, r.power_supply_included,
                               r.remote_control_included, r.case_included, r.warranty_period)
 
@@ -154,7 +154,7 @@ def run_cron_create_xml():
             ET.SubElement(doc, "category").text = category
             #ET.SubElement(doc, "category2").text =
 
-            condition_desc, condition_id = lookup_condition(r.condition, r.function_grade)
+            condition_desc, condition_id = lookup_condition(r.condition_grade, r.function_grade)
             ET.SubElement(doc, "condition").text = str(condition_desc)
             ET.SubElement(doc, "conditionDescription").text = r.grade_details
 
@@ -280,7 +280,7 @@ def render(tpl_path, context):
     return rendered
 
 
-def jtemplate(version, description, function_grade, grade_details, condition, tech_details,
+def jtemplate(version, description, function_grade, grade_details, condition_grade, tech_details,
               delivery_type, accessories_extras, power_cable_included, power_supply_included,
               remote_control_included, case_included, warranty_period):
     """
@@ -297,7 +297,7 @@ def jtemplate(version, description, function_grade, grade_details, condition, te
         'description': description,
         'function_grade': function_grade,
         'grade_details': grade_details,
-        'condition': condition,
+        'condition_grade': condition_grade,
         'tech_details': tech_details,
         'delivery_type': delivery_type,
         'accessories_extras': ae,
@@ -445,7 +445,7 @@ def get_item_records_by_item_status():
         it.power_supply_included,
         it.remote_control_included,
         it.case_included,
-        it.condition,
+        it.condition_grade,
         it.function_grade,
         it.grade_details,
         it.warranty_period,

@@ -1,4 +1,4 @@
-{% macro get_description_body(version, description, function_grade, grade_details, condition, tech_details, delivery_type, accessories_extras, power_cable_included, power_supply_included, remote_control_included, case_included, warranty_period) -%}
+{% macro get_description_body(version, description, function_grade, grade_details, condition_grade, tech_details, delivery_type, accessories_extras, power_cable_included, power_supply_included, remote_control_included, case_included, warranty_period) -%}
 
     
     <style type="text/css">
@@ -60,7 +60,7 @@
         <br></br>
     {% endif %}
     
-    {{show_table(version, condition, function_grade)}} 
+    {{show_table(version, condition_grade, function_grade)}} 
     <br></br>
 
 
@@ -136,7 +136,7 @@
 
 
 
-{%macro show_table(version, condition, function_grade) -%}
+{%macro show_table(version, condition_grade, function_grade) -%}
     
     <table id="grades">
     
@@ -184,7 +184,7 @@
 
     <tr>
     <td>1</td>
-    {% if condition == '1' %} <td class="td_highlight"> {{c1}} </td>
+    {% if condition_grade == '1' %} <td class="td_highlight"> {{c1}} </td>
     {% else %}<td> {{c1}} </td>
     {% endif %}
     
@@ -199,7 +199,7 @@
 
     <tr>
     <td>2</td>
-    {% if condition == '2' %} <td class="td_highlight"> {{c2}} </td>
+    {% if condition_grade == '2' %} <td class="td_highlight"> {{c2}} </td>
     {% else %} <td> {{c2}} </td>
     {% endif %}
     
@@ -214,7 +214,7 @@
 
     <tr>
     <td>3</td>
-    {% if condition == '3' %} <td  class="td_highlight"> {{c3}} </td>
+    {% if condition_grade == '3' %} <td  class="td_highlight"> {{c3}} </td>
     {% else %} <td> {{c3}} </td>
     {% endif %}
     
@@ -229,7 +229,7 @@
 
     <tr>
     <td>4</td>
-    {% if condition == '4' %} <td class="td_highlight"> {{c4}} </td>
+    {% if condition_grade == '4' %} <td class="td_highlight"> {{c4}} </td>
     {% else %} <td> {{c4}} </td>
     {% endif %}
     
@@ -244,7 +244,7 @@
 
     <tr>
     <td>5</td>
-    {% if condition == '5' %} <td class="td_highlight"> {{c5}} </td>
+    {% if condition_grade == '5' %} <td class="td_highlight"> {{c5}} </td>
     {% else %} <td> {{c5}} </td>
     {% endif %}
     
