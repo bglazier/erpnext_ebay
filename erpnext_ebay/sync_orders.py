@@ -42,7 +42,7 @@ EU_COUNTRIES = ['Austria', 'Belgium', 'Bulgaria', 'Croatia', 'Cyprus',
                 'Germany', 'Greece', 'Hungary', 'Ireland', 'Italy', 'Latvia',
                 'Lithuania', 'Luxembourg', 'Malta', 'Netherlands', 'Poland',
                 'Portugal', 'Romania', 'Slovakia', 'Slovenia', 'Spain',
-                'Sweden', 'United Kingdom']
+                'Sweden']
 
 EBAY_ID_NAMES = {'Customer': 'ebay_user_id',
                  'Address': 'ebay_address_id',
@@ -108,6 +108,7 @@ SHIPPING_ITEM = 'ITEM-00358'
 CAR_ITEM = 'ITEM-11658'
 
 VAT_RATES = {f'Sales - {COMPANY_ACRONYM}': 0.2,
+             f'Sales EU - {COMPANY_ACRONYM}': 0.0,
              f'Sales Non EU - {COMPANY_ACRONYM}': 0.0}
 VAT_PERCENT = {k: 100*v for k, v in VAT_RATES.items()}
 
@@ -949,6 +950,7 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
         "items": item_list}
 
     sinv = frappe.get_doc(sinv_dict)
+    sinv.run_method('erpnext_ebay_before_insert')
 
     sinv.insert()
 
@@ -980,9 +982,12 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
 
 
 def determine_income_account(country):
-    """Determine correct EU or non-EU income account."""
-    if not country or country in EU_COUNTRIES:
+    """Determine correct UK, EU or non-EU income account."""
+    if (not country) or country == 'United Kingdom':
         return f"Sales - {COMPANY_ACRONYM}"
+
+    if country in EU_COUNTRIES:
+        return f"Sales EU - {COMPANY_ACRONYM}"
 
     return f"Sales Non EU - {COMPANY_ACRONYM}"
 
