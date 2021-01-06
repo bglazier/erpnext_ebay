@@ -746,7 +746,9 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
     if country is None:
         raise ErpnextEbaySyncError(
             'No country for this order for user {}!'.format(ebay_user_id))
-    income_account = determine_income_account(country)
+    (
+        income_account, ship_income_account, tax_income_account
+    ) = determine_income_accounts(country)
     vat_rate = VAT_RATES[income_account]
 
     # TODO
@@ -868,7 +870,7 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
             "qty": 1.0,
             "rate": exc_vat,
             "valuation_rate": 0.0,
-            "income_account": income_account,
+            "income_account": ship_income_account,
             "expense_account": f"Shipping - {COMPANY_ACRONYM}"
         })
 
@@ -881,7 +883,7 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
             "qty": 1.0,
             "rate": ebay_car,
             "valuation_rate": 0.0,
-            "income_account": income_account,
+            "income_account": tax_income_account,
             "expense_account": f"Cost of Goods Sold - {COMPANY_ACRONYM}"
         })
         sum_to_pay += ebay_car
@@ -981,15 +983,27 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
     return
 
 
-def determine_income_account(country):
-    """Determine correct UK, EU or non-EU income account."""
+def determine_income_accounts(country):
+    """Determine correct UK, EU or non-EU income accounts."""
     if (not country) or country == 'United Kingdom':
-        return f"Sales - {COMPANY_ACRONYM}"
+        return (
+            f'Sales - {COMPANY_ACRONYM}',
+            f'Shipping (Sales) - {COMPANY_ACRONYM}',
+            None
+        )
 
     if country in EU_COUNTRIES:
-        return f"Sales EU - {COMPANY_ACRONYM}"
+        return (
+            f'Sales EU - {COMPANY_ACRONYM}',
+            f'Shipping EU (Sales) - {COMPANY_ACRONYM}',
+            f'Sales Tax EU - {COMPANY_ACRONYM}'
+        )
 
-    return f"Sales Non EU - {COMPANY_ACRONYM}"
+    return (
+        f'Sales Non EU - {COMPANY_ACRONYM}',
+        f'Shipping Non-EU (Sales) - {COMPANY_ACRONYM}',
+        f'Sales Tax Non-EU - {COMPANY_ACRONYM}'
+    )
 
 
 def sanitize_postcode(in_postcode):
