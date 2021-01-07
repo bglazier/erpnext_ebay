@@ -216,8 +216,8 @@ def sync_ebay_ids(site_id=default_site_id):
         LEFT JOIN `tabItem` AS item
             ON ebay.sku = item.item_code
         WHERE ebay.site = %(site_name)s
-            AND ebay.sku <> ''
-            AND item.ebay_id <> ebay.ebay_id
+            AND IFNULL(ebay.sku, '') <> ''
+            AND IFNULL(item.ebay_id, '') <> IFNULL(ebay.ebay_id, '')
 
         UNION ALL
 
