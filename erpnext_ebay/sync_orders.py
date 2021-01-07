@@ -871,7 +871,7 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
             "rate": exc_vat,
             "valuation_rate": 0.0,
             "income_account": ship_income_account,
-            "expense_account": f"Shipping - {COMPANY_ACRONYM}"
+            "expense_account": f"Cost of Goods Sold - {COMPANY_ACRONYM}"
         })
 
     # Add a single line item for eBay Collect and Remit taxes
