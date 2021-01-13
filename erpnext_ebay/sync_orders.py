@@ -253,6 +253,22 @@ def extract_customer(order):
     postcode = order['ShippingAddress']['PostalCode']
     country = order['ShippingAddress']['CountryName']
 
+    # Strip the silly eBay eVTN from address lines
+    if address_line1:
+        if is_ebay_evtn(address_line1):
+            address_line1 = ''
+        elif ' ' in address_line1:
+            start, sep, last_word = address_line1.rpartition(' ')
+            if is_ebay_evtn(last_word):
+                address_line1 = start
+    if address_line2:
+        if is_ebay_evtn(address_line2):
+            address_line2 = ''
+        elif ' ' in address_line2:
+            start, sep, last_word = address_line2.rpartition(' ')
+            if is_ebay_evtn(last_word):
+                address_line2 = start
+
     # Tidy up ShippingAddress name, if entirely lower/upper case and not
     # a single word
     if ((shipping_name.islower() or shipping_name.isupper()) and
@@ -1004,6 +1020,11 @@ def determine_income_accounts(country):
         f'Shipping Non-EU (Sales) - {COMPANY_ACRONYM}',
         f'Sales Tax Non-EU - {COMPANY_ACRONYM}'
     )
+
+
+def is_ebay_evtn(address_fragment):
+    """Test if the address fragment provided is an eBay VTN."""
+    return address_fragment.startswith('ebay') and len(address_fragment) == 11
 
 
 def sanitize_postcode(in_postcode):
