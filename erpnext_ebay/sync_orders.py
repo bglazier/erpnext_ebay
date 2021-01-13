@@ -319,6 +319,8 @@ def extract_customer(order):
             country = None
         else:
             country = db_country
+            territory = determine_territory(db_country)
+            customer_dict['territory'] = territory
 
         # If we have a pickup order, there is no eBay AddressID (so make one)
         if is_pickup_order:
@@ -374,7 +376,7 @@ def create_customer(customer_dict, address_dict, changes=None):
         ebay_address_id = address_dict['ebay_address_id']
 
     cust_fields = db_get_ebay_doc(
-        "Customer", ebay_user_id, fields=["name", "customer_name"],
+        "Customer", ebay_user_id, fields=["name", "customer_name", "territory"],
         log=changes, none_ok=True)
 
     if cust_fields is None:
@@ -454,6 +456,12 @@ def create_customer(customer_dict, address_dict, changes=None):
                     link_doc.link_name = db_cust_name
                 address_doc.save()
                 updated_db = True
+                # Update the customer territory, if required
+                if cust_fields:
+                    territory = determine_territory(address_doc.country)
+                    if territory != cust_fields['territory']:
+                        frappe.set_value('Customer', db_cust_name,
+                                         'territory', territory)
 
         # Check that customer has a name, not just an eBay user id,
         # and the the Address name is not just the ebay_user_id.
@@ -537,6 +545,11 @@ def create_customer(customer_dict, address_dict, changes=None):
                     continue
             else:
                 raise ValueError('Too many duplicate entries of this address!')
+        # Update the customer territory, if required
+        territory = determine_territory(address_doc.country)
+        if territory != frappe.db.get_value('Customer', db_cust_name,
+                                            'territory'):
+            frappe.set_value('Customer', db_cust_name, 'territory', territory)
         updated_db = True
 
     # Commit changes to database
@@ -997,6 +1010,17 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
         frappe.db.commit()
 
     return
+
+
+def determine_territory(country):
+    """Determine correct UK, EU or non-EU territory for Customer."""
+    if (not country) or country == 'United Kingdom':
+        return 'United Kingdom'
+
+    if country in EU_COUNTRIES:
+        return 'EU'
+
+    return 'Rest Of The World'
 
 
 def determine_income_accounts(country):
