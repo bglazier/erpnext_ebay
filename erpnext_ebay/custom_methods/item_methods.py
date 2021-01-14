@@ -18,8 +18,15 @@ def item_onload_ebay(doc):
     from erpnext_ebay.online_selling import platform_dict
 
     # Check if we have a role that should not run the platform onload event
-    if frappe.session.user != 'Administrator':
-        # Administrator has all roles
+    excluded_roles = frappe.get_hooks('no_online_selling_roles') or []
+
+    if frappe.session.user == 'Administrator':
+        # Administrator has all roles; only exclude if 'Administrator'
+        # explicitly in excluded roles
+        if 'Administrator' in excluded_roles:
+            return
+    else:
+        # Not administrator: check if we have _any_ excluded roles
         roles = frappe.get_roles(frappe.session.user)
         excluded_roles = frappe.get_hooks('no_online_selling_roles') or []
         for excluded_role in excluded_roles:
