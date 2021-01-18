@@ -49,6 +49,19 @@ EBAY_ID_NAMES = {'Customer': 'ebay_user_id',
                  'eBay order': 'ebay_order_id',
                  'Sales Invoice': 'ebay_order_id'}
 
+# Extra codes not found in iso3166
+ISO_EXTRA_CODES = {
+    'AA': 'United States',  # APO/FPO addresses
+    'AN': 'Netherlands',  # Netherlands Antilles
+    'QM': 'Guernsey',  # Backwards-compatibility only
+    'QN': 'Svalbard and Jan Mayen',  # Backwards-compatibility only
+    'QO': 'Jersey',  # Backwards-compatibility only
+    'TP': None,  # No longer in use
+    'YU': None,  # No longer in use (Yugoslavia)
+    'CustomCode': None,
+    'ZZ': None  # Unknown country
+}
+
 # Disagreements between iso3166 and Frappe's country list
 # Key = ISO code, value = Frappe docname
 ISO_COUNTRIES_TO_DB = {'Cabo Verde': 'Cape Verde',
@@ -56,7 +69,7 @@ ISO_COUNTRIES_TO_DB = {'Cabo Verde': 'Cape Verde',
                            'Congo, The Democratic Republic of the',
                        'Czechia': 'Czech Republic',
                        "Côte d'Ivoire": 'Ivory Coast',
-                       'Eswatini': 'Swaziland',  # old country name
+                       #'Eswatini': 'Swaziland',  # old country name
                        'Holy See': 'Holy See (Vatican City State)',
                        'Iran, Islamic Republic of': 'Iran',
                        "Korea, Democratic People's Republic of":
@@ -64,7 +77,7 @@ ISO_COUNTRIES_TO_DB = {'Cabo Verde': 'Cape Verde',
                        "Kosovo": None,  # No entry
                        "Lao People's Democratic Republic":
                            'Lao Peoples Democratic Republic',
-                       'North Macedonia': 'Macedonia',  # old country name
+                       #'North Macedonia': 'Macedonia',  # old country name
                        'Palestine, State of': 'Palestinian Territory, Occupied',
                        'Syrian Arab Republic': 'Syria',
                        'Taiwan, Province of China': 'Taiwan',
@@ -92,6 +105,7 @@ EXTRA_COUNTRIES = {
     'france métropolitaine': 'France',
     'great britain': 'United Kingdom',
     'great britain and northern ireland': 'United Kingdom',
+    'ungheria': 'Hungary',
     'litauen': 'Lithuania',
     'laos': 'Lao Peoples Democratic Republic',
     'micronesia': 'Micronesia, Federated States of',
@@ -99,7 +113,9 @@ EXTRA_COUNTRIES = {
     'rumänien': 'Romania',
     'russia': 'Russian Federation',
     'south korea': 'Korea, Republic of',
-    'venezuela': 'Venezuela, Bolivarian Republic of'
+    'venezuela': 'Venezuela, Bolivarian Republic of',
+    'swaziland': 'Eswatini',
+    'macedonia': 'North Macedonia'
     }
 
 COMPANY_ACRONYM = 'URTL'
@@ -251,7 +267,8 @@ def extract_customer(order):
     city = order['ShippingAddress']['CityName']
     state = order['ShippingAddress']['StateOrProvince']
     postcode = order['ShippingAddress']['PostalCode']
-    country = order['ShippingAddress']['CountryName']
+    country_code = order['ShippingAddress']['Country']
+    country_name = order['ShippingAddress']['CountryName']
 
     # Strip the silly eBay eVTN from address lines
     if address_line1:
@@ -276,7 +293,7 @@ def extract_customer(order):
         shipping_name = shipping_name.title()
 
     has_shipping_address = (shipping_name or address_line1 or address_line2
-                            or city or state or postcode or country)
+                            or city or state or postcode)
 
     if has_shipping_address and assume_shipping_name_is_ebay_name:
         customer_name = shipping_name or ebay_user_id
@@ -308,17 +325,20 @@ def extract_customer(order):
             # bump into the first address line (which must not be empty)
             address_line1, address_line2 = address_line2, ''
 
-        # Find the system name for the country
-        db_country = sanitize_country(country)
+        # Find the system name for the country_name
+        db_country_from_code = sanitize_country_code(country_code)
+        db_country_from_name = sanitize_country_name(country_name)
+
+        # Use named country first, then from code
+        db_country = db_country_from_name or db_country_from_code
 
         if db_country is None:
             if address_line2:
-                address_line2 = address_line2 + '\n' + country
+                address_line2 = address_line2 + '\n' + country_name
             else:
-                address_line2 = country
-            country = None
+                address_line2 = country_name
+            db_country = 'United Kingdom'  # Use default of UK
         else:
-            country = db_country
             territory = determine_territory(db_country)
             customer_dict['territory'] = territory
 
@@ -332,7 +352,7 @@ def extract_customer(order):
             ebay_address_id = order['ShippingAddress']['AddressID']
 
         # Prepare the address dictionary
-        if postcode is not None and country == 'United Kingdom':
+        if postcode is not None and db_country == 'United Kingdom':
             postcode = sanitize_postcode(postcode)
         address_dict = {
             "doctype": "Address",
@@ -344,7 +364,7 @@ def extract_customer(order):
             "city": city or '-',
             "state": state,
             "pincode": postcode,
-            "country": country,
+            "country": db_country,
             "phone": order['ShippingAddress']['Phone'],
             "email_id": email_id}
     else:
@@ -1064,39 +1084,67 @@ def sanitize_postcode(in_postcode):
     return postcode
 
 
-def sanitize_country(country):
+def sanitize_country_code(country_code):
+    """Attempt to match the input country code with a country.
+    Accounts for eBay country code and Frappe country name weirdness.
+    """
+    if country_code is None:
+        return None
+
+    # Special quick case for UK code
+    if country_code == 'GB':
+        return 'United Kingdom'
+
+    # eBay-only non-ISO codes
+    if country_code in ISO_EXTRA_CODES:
+        return ISO_EXTRA_CODES[country_code]
+
+    try:
+        country_name = countries.get(country_code).name
+    except KeyError:
+        # Country code not found
+        return None
+
+    # Translate to Frappe countries
+    if country_name in ISO_COUNTRIES_TO_DB:
+        country_name = ISO_COUNTRIES_TO_DB[country_name]
+    return country_name
+
+
+def sanitize_country_name(country_name):
     """Attempt to match the input string with a country.
 
     Returns a valid Frappe Country document name if one can be matched.
     Returns None if no country can be identified.
     """
-    if country is None:
+    if country_name is None:
         return None
 
     # Special quick case for UK names
-    if country in ['UK', 'GB', 'Great Britain', 'United Kingdom']:
+    if country_name in ['UK', 'GB', 'Great Britain', 'United Kingdom']:
         return 'United Kingdom'
 
     # Simple check for country
     country_query = frappe.db.get_value(
-        'Country', filters={'name': country}, fieldname='name')
+        'Country', filters={'name': country_name}, fieldname='name')
     if country_query:
         return country_query
 
     # Country codes
-    if len(country) < 4:
+    if len(country_name) < 4:
         try:
-            country = countries.get(country).name
-            # Translate to Frappe countries
-            if country in ISO_COUNTRIES_TO_DB:
-                country = ISO_COUNTRIES_TO_DB[country]
+            country_name = countries.get(country_name).name
         except KeyError:
             # Country code not found
             return None
-        return country
+        else:
+            # Translate to Frappe countries
+            if country_name in ISO_COUNTRIES_TO_DB:
+                country_name = ISO_COUNTRIES_TO_DB[country_name]
+        return country_name
 
-    if country is not None:
-        country_lower = country.lower()
+    if country_name is not None:
+        country_lower = country_name.lower()
 
         country_search_list = [country_lower]
         country_shorter = re.sub(r'\bof\b|\bthe\b', '', country_lower)
@@ -1134,7 +1182,7 @@ def sanitize_country(country):
 
             wrapped_list = [outer_test_country]
             if outer_test_country.count(', ') == 1:
-                # Unwrap outer test country
+                # Unwrap outer test country_name
                 end, _comma, start = outer_test_country.partition(', ')
                 outer_test_country = '{} {}'.format(start, end)
                 wrapped_list.append(outer_test_country)
