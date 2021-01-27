@@ -975,11 +975,15 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
         order_fields['customer_name'],
         ', '.join(sku_list))
 
+    territory = frappe.get_value('Customer', db_cust_name, 'territory')
+
     sinv_dict = {
         "doctype": "Sales Invoice",
         "naming_series": "SINV-",
+        "pos_profile": f"eBay {currency}",
         "title": title,
         "customer": db_cust_name,
+        "territory": territory,
         "shipping_address_name": order_dict['address'],
         "ebay_order_id": ebay_order_id,
         "ebay_site_id": site_id_order,
