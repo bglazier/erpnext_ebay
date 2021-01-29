@@ -798,6 +798,7 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
     (
         income_account, ship_income_account, tax_income_account
     ) = determine_income_accounts(country)
+    territory = determine_territory(country)
     vat_rate = VAT_RATES[income_account]
 
     # TODO
@@ -974,8 +975,6 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
     title = 'eBay: {} [{}]'.format(
         order_fields['customer_name'],
         ', '.join(sku_list))
-
-    territory = frappe.get_value('Customer', db_cust_name, 'territory')
 
     sinv_dict = {
         "doctype": "Sales Invoice",
