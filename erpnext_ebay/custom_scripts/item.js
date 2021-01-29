@@ -1,6 +1,32 @@
 // Extend core Item doctype 
 
-// Auto create slideshow
+
+function get_online_selling_items(frm, item_code) {
+    // Get Online Selling Items
+    frappe.call({
+        method: 'erpnext_ebay.custom_methods.item_methods.item_platform_async',
+        args: {
+            'item_code': item_code
+        }
+    }).then(({message: osi_list}) => {
+        // Add Online Selling Items, but don't dirty the form
+        if (!(osi_list && osi_list.length)) {
+            return;
+        }
+        const unsaved = frm.doc.__unsaved;
+        osi_list.forEach(osi_dict => {
+            let child = frm.add_child('online_selling_items');
+            Object.assign(child, osi_dict);
+        });
+        frm.doc.online_selling_items.forEach((child, index) => {
+            child.idx = index + 1;
+        });
+        frm.refresh_fields('online_selling_items');
+        frm.doc.__unsaved = unsaved;
+    });
+}
+
+
 frappe.ui.form.on("Item", {
 
     onload_post_render(frm, doctype, docname) {
@@ -8,6 +34,7 @@ frappe.ui.form.on("Item", {
         field.grid.sortable_status = false;
         field.grid.static_rows = true;
         field.grid.refresh();
+        get_online_selling_items(frm, docname);
     },
 
     auto_create_slideshow(frm, doctype, docname) {

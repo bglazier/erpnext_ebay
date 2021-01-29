@@ -17,12 +17,15 @@ class eBayPlatform(OnlineSellingPlatformClass):
 
     delete_entries_on_item_onload = True
 
+    delete_entries_on_item_save = True
+
     @classmethod
-    def item_onload(cls, doc, subtypes):
+    def item_async_entries(cls, item_code, subtypes):
         """Regenerate all eBay Online Selling items for this item.
         item_onload will have already deleted previous entries.
         """
-        item_code = doc.item_code
+
+        entries = []
 
         site_ids = cls.get_site_ids(subtypes)
 
@@ -45,10 +48,9 @@ class eBayPlatform(OnlineSellingPlatformClass):
                 item_dict, item_code, site_id=item_site_id)
             if new_listing is not None:
                 # Check this was a supported listing type (else None)
-                new_listing.idx = idx
-                new_listing.insert(ignore_permissions=True)
-                doc.online_selling_items.append(new_listing)
-                idx += 1
+                entries.append(new_listing)
+
+        return entries
 
     @staticmethod
     def get_site_ids(subtypes):

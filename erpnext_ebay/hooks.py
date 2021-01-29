@@ -111,7 +111,9 @@ doc_events = {
     },
     "Item": {
         "onload":
-            "erpnext_ebay.custom_methods.item_methods.item_onload"
+            "erpnext_ebay.custom_methods.item_methods.item_onload",
+        "before_save":
+            "erpnext_ebay.custom_methods.item_methods.item_before_save"
     }
 }
 
