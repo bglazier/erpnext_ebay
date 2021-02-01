@@ -10,20 +10,6 @@ app_email = "ben@benjaminglazier.com"
 app_version = "0.0.2"
 app_license = "MIT"
 
-#fixtures = ["Custom Field", "Custom Script", "Property Setter", "Print Format"]
-# This is only needed for core doctypes
-#fixtures = ["Print Format", {
-#    "doctype": "Print Format",
-#    "filters":    {
-#        "name": ["in", ("Receipt of Goods Uni Version", "Data Destruction Certificate")]
-#    }
-#}]
-#fixtures = [
-    #"Property Setter", {
-        #"doctype": "Property Setter",
-        #"filters": {
-            #"name": ["in", ("Receipt of Goods-default_print_format",)]}}
-#]
 fixtures = [
     {
         "doctype": "Online Selling Platform",
@@ -40,6 +26,7 @@ fixtures = [
         }
     }
     ]
+
 # Add custom scripts
 doctype_js = {
     "Item": "custom_scripts/item.js"

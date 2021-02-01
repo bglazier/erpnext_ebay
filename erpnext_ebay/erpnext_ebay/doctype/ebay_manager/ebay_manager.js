@@ -37,13 +37,6 @@ frappe.ui.form.on('eBay Manager', {
         });
     },
 
-    sync_prices_button(frm) {
-        frappe.call({
-            method: "erpnext_ebay.ebay_price_sync.price_sync",
-            args: {},
-        });
-    },
-
     update_ebay_data(frm) {
         frappe.call({
             method: "erpnext_ebay.ebay_active_listings.update_ebay_data",
@@ -53,35 +46,4 @@ frappe.ui.form.on('eBay Manager', {
         });
     },
 
-    create_garagesale_button(frm) {
-        //var r == (confirm('Have you relisted ended eBay listings?')) 
-        //if (r == true){
-        frappe.call({
-                method: "erpnext_ebay.garage_sale.run_cron_create_xml",
-                args: {}
-            });
-        //}
-    },
-
-    clear_awaiting_garagesale_button(frm) {
-        frappe.confirm(
-            "Are you sure you want to clear &lsquo;Awaiting Garagesale&rsquo;?",
-            () => {
-                // On confirm, call clear_awaiting_garagesale
-                frappe.dom.freeze();
-                frappe.call({
-                    method: "erpnext_ebay.erpnext_ebay.doctype.ebay_manager.ebay_manager.clear_awaiting_garagesale",
-                    args: {},
-                }).then((r) => {
-                    frappe.dom.unfreeze();
-                    if (r.message) {
-                        frappe.msgprint("'Awaiting Garagesale' cleared");
-                    }
-                });
-            },
-            () => {
-                // No action on cancel
-            }
-        );
-    }
 });

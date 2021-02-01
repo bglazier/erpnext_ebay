@@ -191,17 +191,17 @@ def sync(site_id=default_site_id, update_ebay_id=False):
     Also updates ebay_id for all items to the UK eBay ID.
     """
 
-    # Cast site_id to integer (in case passed from JS)
-    site_id = int(site_id)
-
-    # Create site-specific dictionary cache for subtype dicts
-    subtype_cache = {}
-
     # This is a whitelisted function; check permissions.
     if not frappe.has_permission('eBay Manager'):
         frappe.throw('You do not have permission to access the eBay Manager',
                      frappe.PermissionError)
     frappe.msgprint('Syncing eBay listings...')
+
+    # Cast site_id to integer (in case passed from JS)
+    site_id = int(site_id)
+
+    # Create site-specific dictionary cache for subtype dicts
+    subtype_cache = {}
 
     # Get valid site IDs
     valid_site_ids = get_subtype_site_ids()

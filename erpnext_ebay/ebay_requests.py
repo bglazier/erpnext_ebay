@@ -117,6 +117,19 @@ def test_for_message(api_dict):
     print('\n'.join(messages))
 
 
+def get_trading_api(site_id=default_site_id):
+    """Get a TradingAPI instance which can be reused."""
+    try:
+        # Initialize TradingAPI; default timeout is 20.
+        trading_api = Trading(config_file=PATH_TO_YAML,
+                              siteid=site_id, warnings=True, timeout=20)
+
+    except ConnectionError as e:
+        handle_ebay_error(e)
+
+    return trading_api
+
+
 def get_orders(order_status='All', include_final_value_fees=True):
     """Returns a list of recent orders from the eBay TradingAPI.
 
@@ -721,19 +734,6 @@ def get_shipping_details(site_id=default_site_id):
     frappe.cache().set_value(cache_key, shipping_details)
 
     return shipping_details
-
-
-def get_trading_api(site_id=default_site_id):
-    """Get a TradingAPI instance which can be reused."""
-    try:
-        # Initialize TradingAPI; default timeout is 20.
-        trading_api = Trading(config_file=PATH_TO_YAML,
-                              siteid=site_id, warnings=True, timeout=20)
-
-    except ConnectionError as e:
-        handle_ebay_error(e)
-
-    return trading_api
 
 
 def revise_inventory_status(items, site_id=default_site_id, trading_api=None):
