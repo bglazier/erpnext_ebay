@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+"""eBay requests which are read-only, and do not affect live eBay data."""
 
 import os
 import sys
@@ -20,6 +21,8 @@ from ebaysdk.exception import ConnectionError
 from ebaysdk.trading import Connection as Trading
 
 from .ebay_constants import EBAY_SITE_NAMES
+from erpnext_ebay.erpnext_ebay.doctype.ebay_manager_settings.ebay_manager_settings\
+    import use_sandbox
 
 PATH_TO_YAML = os.path.join(
     os.sep, frappe.utils.get_bench_path(), 'sites',
@@ -117,17 +120,35 @@ def test_for_message(api_dict):
     print('\n'.join(messages))
 
 
-def get_trading_api(site_id=default_site_id):
-    """Get a TradingAPI instance which can be reused."""
-    try:
-        # Initialize TradingAPI; default timeout is 20.
-        trading_api = Trading(config_file=PATH_TO_YAML,
-                              siteid=site_id, warnings=True, timeout=20)
+def get_trading_api(site_id=default_site_id, warnings=True, timeout=20,
+                    force_live_site=False, force_sandbox=False,
+                    executor=None):
+    """Get a TradingAPI instance which can be reused.
+    If executor is passed, a ParallelTrading instance is returned instead.
+    """
 
-    except ConnectionError as e:
-        handle_ebay_error(e)
+    if force_live_site and force_sandbox:
+        raise ValueError('Cannot force both live and sandbox APIs!')
+    elif force_live_site:
+        sandbox = False
+    elif force_sandbox:
+        sandbox = True
+    else:
+        sandbox = use_sandbox()
 
-    return trading_api
+    domain = 'api.sandbox.ebay.com' if sandbox else 'api.ebay.com'
+
+    kwargs = {
+        'config_file': PATH_TO_YAML,
+        'siteid': site_id,
+        'warnings': warnings,
+        'timeout': timeout
+    }
+
+    if executor:
+        return ParallelTrading(**kwargs, executor=executor)
+    else:
+        return Trading(**kwargs)
 
 
 def get_orders(order_status='All', include_final_value_fees=True):
@@ -155,8 +176,9 @@ def get_orders(order_status='All', include_final_value_fees=True):
         # Always use the US site for GetOrders as it returns fields we need
         # (which the UK site, for example, doesn't) and it doesn't filter by
         # siteID anyway
-        api = Trading(config_file=PATH_TO_YAML,
-                      siteid=0, warnings=True, timeout=20)
+
+        api = get_trading_api(site_id=0, warnings=True, timeout=20,
+                              force_live_site=True)
 
         while True:
             # TradingAPI results are paginated, so loop until
@@ -229,8 +251,8 @@ def get_my_ebay_selling(listings_type='Summary', api_options=None,
     try:
         # Initialize TradingAPI; default timeout is 20.
 
-        api = Trading(config_file=PATH_TO_YAML,
-                      siteid=site_id, warnings=True, timeout=20)
+        api = get_trading_api(site_id=site_id, warnings=True, timeout=20,
+                              force_live_site=True)
         while True:
             # TradingAPI results are often paginated, so loop until
             # all pages have been obtained
@@ -332,8 +354,8 @@ def get_seller_list(item_codes=None, site_id=default_site_id,
     try:
         # Initialize TradingAPI; default timeout is 20.
 
-        api = ParallelTrading(config_file=PATH_TO_YAML, executor=executor,
-                              siteid=site_id, warnings=True, timeout=20)
+        api = get_trading_api(site_id=site_id, warnings=True, timeout=20,
+                              force_live_site=True, executor=executor)
 
         n_pages = None
         page = 1
@@ -447,8 +469,8 @@ def get_item(item_id=None, item_code=None, site_id=default_site_id,
     try:
         # Initialize TradingAPI; default timeout is 20.
 
-        api = Trading(config_file=PATH_TO_YAML,
-                      siteid=site_id, warnings=True, timeout=20)
+        api = get_trading_api(site_id=site_id, warnings=True, timeout=20,
+                              force_live_site=True)
 
         api.execute('GetItem', api_dict)
 
@@ -468,8 +490,8 @@ def get_categories_versions(site_id=default_site_id):
 
     try:
         # Initialize TradingAPI; default timeout is 20.
-        api = Trading(config_file=PATH_TO_YAML,
-                      siteid=site_id, warnings=True, timeout=20)
+        api = get_trading_api(site_id=site_id, warnings=True, timeout=20,
+                              force_live_site=True)
 
         response1 = api.execute('GetCategories', {'LevelLimit': 1,
                                                   'ViewAllNodes': False})
@@ -492,8 +514,8 @@ def get_categories(site_id=default_site_id):
 
     try:
         # Initialize TradingAPI; default timeout is 20.
-        api = Trading(config_file=PATH_TO_YAML,
-                      siteid=site_id, warnings=True, timeout=60)
+        api = get_trading_api(site_id=site_id, warnings=True, timeout=60,
+                              force_live_site=True)
 
         response = api.execute('GetCategories', {'DetailLevel': 'ReturnAll',
                                                  'ViewAllNodes': 'true'})
@@ -546,8 +568,8 @@ def get_features(site_id=default_site_id):
 
     try:
         # Initialize TradingAPI; default timeout is 20.
-        api = Trading(config_file=PATH_TO_YAML,
-                      siteid=site_id, warnings=True, timeout=60)
+        api = get_trading_api(site_id=site_id, warnings=True, timeout=60,
+                              force_live_site=True)
 
     except ConnectionError as e:
         handle_ebay_error(e)
@@ -673,8 +695,8 @@ def get_eBay_details(site_id=default_site_id, detail_name=None):
 
     try:
         # Initialize TradingAPI; default timeout is 20.
-        api = Trading(config_file=PATH_TO_YAML,
-                      siteid=site_id, warnings=True, timeout=20)
+        api = get_trading_api(site_id=site_id, warnings=True, timeout=20,
+                              force_live_site=True)
 
         api_options = {}
         if detail_name is not None:
@@ -734,69 +756,3 @@ def get_shipping_details(site_id=default_site_id):
     frappe.cache().set_value(cache_key, shipping_details)
 
     return shipping_details
-
-
-def revise_inventory_status(items, site_id=default_site_id, trading_api=None):
-    """Perform a ReviseInventoryStatus call."""
-
-    try:
-        # Initialize TradingAPI; default timeout is 20.
-        if not trading_api:
-            trading_api = Trading(config_file=PATH_TO_YAML,
-                                  siteid=site_id, warnings=True, timeout=20)
-
-        response = trading_api.execute('ReviseInventoryStatus',
-                                       {'InventoryStatus': items})
-
-    except ConnectionError as e:
-        handle_ebay_error(e)
-
-    response_dict = response.dict()
-    test_for_message(response_dict)
-
-    return response_dict
-
-
-#def verify_add_item(listing_dict, site_id=default_site_id):
-    #"""Perform a VerifyAddItem call, and return useful information"""
-
-    #try:
-        #api = Trading(domain='api.sandbox.ebay.com', config_file=PATH_TO_YAML,
-                      #siteid=site_id, warnings=True, timeout=20)
-
-        #response = api.execute('VerifyAddItem', listing_dict)
-
-    #except ConnectionError as e:
-        ## traverse the DOM to look for error codes
-        #for node in api.response.dom().findall('ErrorCode'):
-            #msgprint("error code: %s" % node.text)
-
-        ## check for invalid data - error code 37
-        #if 37 in api.response_codes():
-            #if 'Errors' in api.response.dict():
-                #errors_dict = api.response.dict()['Errors']
-                #errors_list = []
-                #for key, value in errors_dict.items():
-                    #errors_list.append('{} : {}'.format(key, value))
-                #msgprint('\n'.join(errors_list))
-                #if 'ErrorParameters' in errors_dict:
-                    #parameter = errors_dict['ErrorParameters']['Value']
-                    #parameter_stack = parameter.split('.')
-                    #parameter_value = listing_dict
-                    #for stack_entry in parameter_stack:
-                        #parameter_value = parameter_value[stack_entry]
-                    #msgprint("'{}': '{}'".format(parameter, parameter_value))
-
-        #else:
-            #msgprint("Unknown error: {}".format(api.response_codes()))
-            #msgprint('{}'.format(e))
-            #msgprint('{}'.format(e.response.dict()))
-        #return {'ok': False}
-
-    ## Success?
-    #ok = True
-    #ret_dict = {'ok': ok}
-
-    #msgprint(response.dict())
-
-    #return ret_dict

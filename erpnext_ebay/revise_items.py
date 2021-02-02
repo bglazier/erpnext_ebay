@@ -7,7 +7,7 @@ import os.path
 
 import frappe
 
-from erpnext_ebay.ebay_requests import get_trading_api, revise_inventory_status
+from erpnext_ebay.ebay_revise_requests import revise_inventory_status
 
 from ebaysdk.exception import ConnectionError
 from ebaysdk.trading import Connection as Trading
@@ -150,8 +150,6 @@ def revise_ebay_prices(price_data, print=print):
       - new_price
       - optional extra values
     """
-
-    trading_api = get_trading_api()
 
     items = []
 
