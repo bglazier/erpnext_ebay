@@ -11,6 +11,7 @@ function get_online_selling_items(frm, item_code) {
     }).then(({message: osi_list}) => {
         // Add Online Selling Items, but don't dirty the form
         if (!(osi_list && osi_list.length)) {
+            frappe.ui.form.trigger("Item", "online_selling_async_complete");
             return;
         }
         const unsaved = frm.doc.__unsaved;
@@ -23,6 +24,7 @@ function get_online_selling_items(frm, item_code) {
         });
         frm.refresh_fields('online_selling_items');
         frm.doc.__unsaved = unsaved;
+        frappe.ui.form.trigger("Item", "online_selling_async_complete");
     });
 }
 
