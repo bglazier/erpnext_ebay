@@ -27,41 +27,40 @@ def revise_inventory_status(items, site_id=default_site_id):
     return response_dict
 
 
-def verify_add_item(listing_dict, site_id=default_site_id):
-    """Perform a VerifyAddItem call, and return useful information"""
+def end_items(items, site_id=default_site_id):
+    """Perform an EndItems call."""
 
     try:
-        api = get_trading_api(site_id=site_id, warnings=True, timeout=20,
-                              force_sandbox=True)
+        # Initialize TradingAPI; default timeout is 20.
+        api = get_trading_api(site_id=site_id, warnings=True, timeout=20)
+        # MessageID is (contrary to documentation) apparently required for
+        # this call (per request container), so add it
+        for item in items:
+            item['MessageID'] = item['ItemID']
 
-        response = api.execute('VerifyAddItem', listing_dict)
+        response = api.execute('EndItems',
+                               {'EndItemRequestContainer': items})
 
     except ConnectionError as e:
         handle_ebay_error(e)
-        ## traverse the DOM to look for error codes
-        #for node in api.response.dom().findall('ErrorCode'):
-            #msgprint("error code: %s" % node.text)
 
-        ## check for invalid data - error code 37
-        #if 37 in api.response_codes():
-            #if 'Errors' in api.response.dict():
-                #errors_dict = api.response.dict()['Errors']
-                #errors_list = []
-                #for key, value in errors_dict.items():
-                    #errors_list.append('{} : {}'.format(key, value))
-                #msgprint('\n'.join(errors_list))
-                #if 'ErrorParameters' in errors_dict:
-                    #parameter = errors_dict['ErrorParameters']['Value']
-                    #parameter_stack = parameter.split('.')
-                    #parameter_value = listing_dict
-                    #for stack_entry in parameter_stack:
-                        #parameter_value = parameter_value[stack_entry]
-                    #msgprint("'{}': '{}'".format(parameter, parameter_value))
+    response_dict = response.dict()
+    test_for_message(response_dict)
 
-        #else:
-            #msgprint("Unknown error: {}".format(api.response_codes()))
-            #msgprint('{}'.format(e))
-            #msgprint('{}'.format(e.response.dict()))
-        #return {'ok': False}
+    return response_dict
+
+
+def trading_api_call(api_call, input_dict, site_id=default_site_id,
+                     force_sandbox=True):
+    """Perform a TradingAPI call with an input dictionary."""
+
+    try:
+        api = get_trading_api(site_id=site_id, warnings=True, timeout=20,
+                              force_sandbox=force_sandbox)
+
+        response = api.execute(api_call, input_dict)
+
+    except ConnectionError as e:
+        handle_ebay_error(e)
 
     return response.dict()

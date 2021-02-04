@@ -7,139 +7,18 @@ import os.path
 
 import frappe
 
-from erpnext_ebay.ebay_revise_requests import revise_inventory_status
+from erpnext_ebay.ebay_revise_requests import (
+    revise_inventory_status, end_items)
 
 from ebaysdk.exception import ConnectionError
 from ebaysdk.trading import Connection as Trading
-#from .garage_sale import jtemplate, lookup_condition
 
 
-#PATH_TO_YAML = os.path.join(os.sep, frappe.utils.get_bench_path(), 'sites',
-                            #frappe.get_site_path(), 'ebay.yaml')
-
-
-#def revise_generic_items(item_code):
-    #"""Generic Revise eBay listings"""
-
-    ##get the ebay id given the item_code
-    #ebay_id = frappe.get_value('Item', item_code, 'ebay_id')
-    #if ebay_id and item_code:
-        #frappe.msgprint('This Item is on eBay. Please wait while the listing is revised...')
-
-        #(item_name,
-         #description,
-         #function_grade,
-         #grade_details,
-         #condition_grade,
-         #tech_details,
-         #delivery_type,
-         #accessories_extras,
-         #power_cable_included,
-         #power_supply_included,
-         #remote_control_included,
-         #case_included,
-         #warranty_period
-         #) = get_item_revisions(item_code)
-
-        #version = 0
-
-        #body = """<![CDATA["""
-        #body += jtemplate(
-            #version, description, function_grade, grade_details, condition_grade,
-            #tech_details, delivery_type, accessories_extras,
-            #power_cable_included, power_supply_included,
-            #remote_control_included, case_included, warranty_period)
-        #body += "<br></br>The price includes VAT and we can provide VAT invoices."
-        #body += "<br></br>Universities and colleges - purchase orders accepted - please contact us."
-        #body += "<br></br>sku: " + item_code
-        #body += """]]>"""
-
-        #condition_description = ''  # grade_details
-        #condition_id_text, condition_id = lookup_condition(condition_grade, 0)
-
-        #new_gsp = (delivery_type == 'Standard Parcel')
-
-        #try:
-            #api_trading = Trading(config_file=PATH_TO_YAML, warnings=True, timeout=20)
-
-            ##EXAMPLE api.execute('ReviseItem',{'Item':{'ItemID':ItemID},'Title':words}
-            #api_trading.execute('ReviseItem', {
-                #'Item': {'ItemID': ebay_id},
-                #'GlobalShipping': new_gsp,
-                #'Title': item_name,
-                #'Description': body,
-                #'ConditionDescription': condition_description,
-                #'ConditionID': condition_id
-                #})
-
-        #except ConnectionError:
-            #frappe.msgprint("Config file ebay.yaml file not found")
-            #raise
-
-        #except Exception:
-            #frappe.msgprint("There was a problem using the eBay Api")
-            #raise
-
-        #else:
-            #frappe.msgprint("Success eBay listing updated!")
-    #else:
-        #frappe.msgprint("There was a problem getting the data")
-
-
-#def get_item_revisions(item_code):
-
-    #sql = """
-    #select
-        #it.item_name,
-        #it.description,
-        #it.function_grade,
-        #it.grade_details,
-        #it.condition_grade,
-        #it.tech_details,
-        #it.delivery_type,
-        #it.accessories_extras,
-        #it.power_cable_included,
-        #it.power_supply_included,
-        #it.remote_control_included,
-        #it.case_included,
-        #it.warranty_period,
-        #it.is_auction
-    #from `tabItem` it
-    #where item_code = '{}'
-    #""".format(item_code)
-
-    #records = frappe.db.sql(sql)
-
-    #return tuple(records[0][0:13])
-
-
-#def revise_ebay_price(item_code, new_price, is_auction=False):
-    #"""Given item_code and (inc vat) price, revise the listing on eBay"""
-
-    ## get the ebay id given the item_code
-    #ebay_id = frappe.get_value('Item', item_code, 'ebay_id')
-    #if not ebay_id and item_code and new_price:
-        #raise ValueError(
-            #'Price Sync Error: There was a problem getting with the '
-            #+ 'item_code, price or eBay ID')
-
-        #new_price_inc = float(new_price)
-        #api_trading = Trading(config_file=PATH_TO_YAML, warnings=True, timeout=20)
-
-        #if is_auction:
-            #api_trading.execute(
-                #'ReviseItem',
-                #{'Item':
-                    #{'ItemID': ebay_id, 'StartPrice': new_price_inc}})
-        #else:
-            ## ReviseInventoryStatus enables change to price and/or quantity
-            ## of an active, fixed-price listing. 
-            ## The fixed-price listing is identified with the ItemID of the
-            ## listing or the SKUvalue of the item
-            #api_trading.execute(
-                #'ReviseInventoryStatus',
-                #{'InventoryStatus':
-                    #{'ItemID': ebay_id, 'StartPrice': new_price_inc}})
+def chunker(seq, size):
+    """Collect data into fixed-length chunks. From answer by nosklo in
+    https://stackoverflow.com/questions/434287/
+    """
+    return (seq[pos:pos + size] for pos in range(0, len(seq), size))
 
 
 def revise_ebay_prices(price_data, print=print):
@@ -151,29 +30,127 @@ def revise_ebay_prices(price_data, print=print):
       - optional extra values
     """
 
-    items = []
-
-    prev_percent = -1000.0
-    n_items = len(price_data)
-
-    if n_items == 0:
+    if len(price_data) == 0:
         print('No prices to update!')
         return
 
-    for i, (ebay_id, new_price, *_) in enumerate(price_data):
-        percent = math.floor(100.0 * i / n_items)
+    item_data = [
+        (ebay_id, new_price, None)
+        for (ebay_id, new_price, *_) in price_data
+    ]
+
+    revise_ebay_inventory(item_data, print=print)
+
+
+def revise_ebay_quantities(qty_data, print=print):
+    """Revises multiple eBay quantities. Attempts to pack quantity updates
+    into as few ReviseInventoryStatus calls as possible.
+    Accepts a list of tuples, each of which contains:
+      - ebay_id
+      - new_qty
+      - optional extra values
+    """
+
+    if len(qty_data) == 0:
+        print('No quantities to update!')
+        return
+
+    revise_listings = []
+    end_listings = []
+    for ebay_id, new_qty, *_ in qty_data:
+        if new_qty == 0:
+            end_listings.append((ebay_id, 'NotAvailable'))
+        else:
+            revise_listings.append((ebay_id, None, new_qty))
+
+    # First revise listing quantities
+    if revise_listings:
+        revise_ebay_inventory(revise_listings, print=print)
+
+    # Then end listings
+    if end_listings:
+        end_ebay_listings(end_listings, print=print)
+
+
+def revise_ebay_inventory(item_data, print=print):
+    """Revises multiple eBay prices and quantities. Attempts to pack
+    price updates into as few ReviseInventoryStatus calls as possible.
+    Accepts a list of tuples of the form (ebay_id, price, qty).
+    If either price or qty is None, the price or qty, respectively,
+    is not changed.
+    """
+
+    CHUNK_SIZE = 4
+
+    items = []
+    for ebay_id, price, qty in item_data:
+        if price is None and qty is None:
+            continue
+        item_dict = {'ItemID': ebay_id}
+        if price is not None:
+            item_dict['StartPrice'] = price
+        if qty is not None:
+            item_dict['Quantity'] = qty
+        items.append(item_dict)
+
+    prev_percent = -1000.0
+    n_items = len(items)
+    n_chunks = ((n_items - 1) // CHUNK_SIZE) + 1  # Number of chunks of 4 items
+    print('n_chunks: ', n_chunks)
+
+    if n_items == 0:
+        print('No items to update!')
+        return
+
+    for i, chunked_items in enumerate(chunker(items, CHUNK_SIZE)):
+        percent = math.floor(100.0 * i / n_chunks)
         if percent - prev_percent > 9.9:
             print(f' - {int(percent)}% complete...')
         prev_percent = percent
 
-        items.append({'ItemID': ebay_id,
-                      'StartPrice': new_price})
-        if len(items) == 4:
-            # We have four items; submit the price updates.
-            revise_inventory_status(items)
-            items = []
+        # Submit the updates for these items.
+        revise_inventory_status(chunked_items)
 
-    if items:
-        # If there are unsubmitted items, submit them now.
-        revise_inventory_status(items)
+    print(' - 100% complete.')
+
+
+def end_ebay_listings(listings, print=print):
+    """Ends a number of eBay listings.
+
+    Arguments:
+      - listings: a sequence of (ItemID, EndingReason) tuples.
+
+    EndingReasons can be:
+      - Incorrect (start price or reserve price is incorrect)
+      - LostOrBroken (item is lost or broken)
+      - NotAvailable (item is no longer available for sale)
+      - OtherListingError (error other than the start or reserve price)
+      - SellToHighBidder (only for Auctions)
+    """
+
+    CHUNK_SIZE = 10
+
+    items = [
+        {'ItemID': ebay_id, 'EndingReason': reason}
+        for ebay_id, reason in listings
+    ]
+
+    prev_percent = -1000.0
+    n_items = len(items)
+    n_chunks = ((n_items - 1) // CHUNK_SIZE) + 1  # Number of chunks of 4 items
+    print('n_chunks: ', n_chunks)
+
+    if n_items == 0:
+        print('No listings to end!')
+        return
+
+    for i, chunked_items in enumerate(chunker(items, CHUNK_SIZE)):
+        percent = math.floor(100.0 * i / n_chunks)
+        if percent - prev_percent > 9.9:
+            print(f' - {int(percent)}% complete...')
+        prev_percent = percent
+
+        # Submit the updates for these items.
+        end_items(chunked_items)
+
     print(' - 100% complete.')

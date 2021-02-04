@@ -139,6 +139,7 @@ def get_trading_api(site_id=default_site_id, warnings=True, timeout=20,
     domain = 'api.sandbox.ebay.com' if sandbox else 'api.ebay.com'
 
     kwargs = {
+        'domain': domain,
         'config_file': PATH_TO_YAML,
         'siteid': site_id,
         'warnings': warnings,
@@ -156,6 +157,7 @@ def get_orders(order_status='All', include_final_value_fees=True):
 
     This list is NOT filtered by a siteid as the API call does not filter
     by siteid.
+    Always uses the live eBay API.
     """
 
     num_days = int(frappe.get_value(
@@ -215,7 +217,9 @@ def get_orders(order_status='All', include_final_value_fees=True):
 
 def get_my_ebay_selling(listings_type='Summary', api_options=None,
                         api_inner_options=None, site_id=default_site_id):
-    """Returns a list of listings from the GetMyeBaySelling eBay TradingAPI."""
+    """Returns a list of listings from the GetMyeBaySelling eBay TradingAPI.
+    Always uses the live eBay API.
+    """
 
     INNER_PAGINATE = ('ActiveList', 'ScheduledList', 'SoldList', 'UnsoldList')
     RESPONSE_FIELDS = {
@@ -337,6 +341,7 @@ def get_seller_list(item_codes=None, site_id=default_site_id,
                     print=print):
     """Runs GetSellerList to obtain a list of (active) items.
     Note that this call does NOT filter by SiteID, but does return it.
+    Always uses the live eBay API.
     """
 
     # eBay has a limit of 300 calls in 15 seconds
@@ -453,8 +458,10 @@ def get_seller_list(item_codes=None, site_id=default_site_id,
 
 
 def get_item(item_id=None, item_code=None, site_id=default_site_id,
-             output_selector=None):
-    """Returns a single listing from the eBay TradingAPI."""
+             output_selector=None, force_sandbox=False):
+    """Returns a single listing from the eBay TradingAPI.
+    Always uses the live eBay API unless forced otherwise.
+    """
 
     if not (item_code or item_id):
         raise ValueError('No item_code or item_id passed to get_item!')
@@ -470,7 +477,7 @@ def get_item(item_id=None, item_code=None, site_id=default_site_id,
         # Initialize TradingAPI; default timeout is 20.
 
         api = get_trading_api(site_id=site_id, warnings=True, timeout=20,
-                              force_live_site=True)
+                              force_live_site=not force_sandbox)
 
         api.execute('GetItem', api_dict)
 
@@ -486,6 +493,7 @@ def get_item(item_id=None, item_code=None, site_id=default_site_id,
 def get_categories_versions(site_id=default_site_id):
     """Load the version number of the current eBay categories
     and category features.
+    Always uses the live eBay API.
     """
 
     try:
@@ -510,7 +518,9 @@ def get_categories_versions(site_id=default_site_id):
 
 
 def get_categories(site_id=default_site_id):
-    """Load the eBay categories for the categories cache."""
+    """Load the eBay categories for the categories cache.
+    Always uses the live eBay API.
+    """
 
     try:
         # Initialize TradingAPI; default timeout is 20.
@@ -564,7 +574,9 @@ def get_categories(site_id=default_site_id):
 
 
 def get_features(site_id=default_site_id):
-    """Load the eBay category features for the features cache."""
+    """Load the eBay category features for the features cache.
+    Always uses the live eBay API.
+    """
 
     try:
         # Initialize TradingAPI; default timeout is 20.
@@ -691,7 +703,9 @@ def get_features(site_id=default_site_id):
 
 
 def get_eBay_details(site_id=default_site_id, detail_name=None):
-    """Perform a GeteBayDetails call."""
+    """Perform a GeteBayDetails call.
+    Always uses the live eBay API.
+    """
 
     try:
         # Initialize TradingAPI; default timeout is 20.
@@ -715,7 +729,7 @@ def get_eBay_details(site_id=default_site_id, detail_name=None):
 
 def get_eBay_details_to_file(site_id=default_site_id):
     """Perform a GeteBayDetails call and save the output in geteBayDetails.txt
-    in the site root directory
+    in the site root directory.
     """
     filename = os.path.join(frappe.utils.get_site_path(),
                             'GeteBayDetails.txt')
