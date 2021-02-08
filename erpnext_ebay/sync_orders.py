@@ -1013,7 +1013,7 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
             'Comment',
             text='sync_orders: Unable to match totals - please check this '
                  + f'order manually ({amount_paid} != {sum_to_pay})')
-    elif submit_on_pay and income_account == f'Sales - {COMPANY_ACRONYM}':
+    elif submit_on_pay:
         # This is an order which adds up and has an approved payment method
         # Submit immediately
         sinv.submit()
