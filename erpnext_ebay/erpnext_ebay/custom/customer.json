@@ -81,8 +81,8 @@
    "parenttype": null,
    "property": "search_fields",
    "property_type": "Data",
-   "value": "customer_name,customer_group,territory, mobile_no,primary_address,ebay_user_id"
-  },
+   "value": "customer_name,customer_group,territory,mobile_no,primary_address,ebay_user_id"
+  }
  ],
  "sync_on_migrate": 1
 }
