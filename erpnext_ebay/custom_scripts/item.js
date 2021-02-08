@@ -22,7 +22,7 @@ function get_online_selling_items(frm, item_code) {
         frm.doc.online_selling_items.forEach((child, index) => {
             child.idx = index + 1;
         });
-        frm.refresh_fields('online_selling_items');
+        frm.refresh_field('online_selling_items');
         frm.doc.__unsaved = unsaved;
         frappe.ui.form.trigger("Item", "online_selling_async_complete");
     });
@@ -36,6 +36,10 @@ frappe.ui.form.on("Item", {
         field.grid.sortable_status = false;
         field.grid.static_rows = true;
         field.grid.refresh();
+        get_online_selling_items(frm, docname);
+    },
+
+    after_save(frm, doctype, docname) {
         get_online_selling_items(frm, docname);
     },
 
