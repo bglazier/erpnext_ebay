@@ -24,7 +24,11 @@ function get_online_selling_items(frm, item_code) {
         });
         frm.refresh_field('online_selling_items');
         frm.doc.__unsaved = unsaved;
-        frappe.ui.form.trigger("Item", "online_selling_async_complete");
+        // Delay the trigger so that updates have occurred first
+        // following a save or similar (e.g. from after_save event)
+        setTimeout(() => {
+            frappe.ui.form.trigger("Item", "online_selling_async_complete");
+        }, 1);
     });
 }
 
