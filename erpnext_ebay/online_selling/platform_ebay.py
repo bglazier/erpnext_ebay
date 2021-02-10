@@ -6,7 +6,7 @@ import frappe
 from erpnext_ebay.ebay_constants import EBAY_TRANSACTION_SITE_NAMES
 from erpnext_ebay.ebay_requests import get_seller_list, get_item
 from erpnext_ebay.sync_listings import (create_ebay_online_selling_item,
-                                        GET_ITEM_OUTPUT_SELECTOR)
+                                        OUTPUT_SELECTOR)
 from erpnext_ebay.online_selling.platform_base import OnlineSellingPlatformClass
 
 
@@ -29,23 +29,20 @@ class eBayPlatform(OnlineSellingPlatformClass):
 
         site_ids = cls.get_site_ids(subtypes)
 
-        # Get list of ItemIDs from GetSellerList
-        # There may be multiple as this is not filtered by site
-        get_seller_listings = get_seller_list([item_code], 0)
+        # Get listings from GetSellerList (US site, so we get SiteID)
+        get_seller_listings = get_seller_list(
+            item_codes=[item_code], site_id=0,
+            output_selector=OUTPUT_SELECTOR, granularity_level='Fine')
 
-        item_ids = [x['ItemID'] for x in get_seller_listings]
+        for listing in get_seller_listings:
+            item_site_id = EBAY_TRANSACTION_SITE_NAMES[listing['Site']]
 
-        idx = 0
-        for item_id in item_ids:
-            # Use the US site as we don't know what site_id we have yet
-            item_dict = get_item(item_id=item_id, site_id=0,
-                                 output_selector=GET_ITEM_OUTPUT_SELECTOR)
-            item_site_id = EBAY_TRANSACTION_SITE_NAMES[item_dict['Site']]
             if item_site_id not in site_ids:
                 # We don't handle this site_id
                 continue
+
             new_listing = create_ebay_online_selling_item(
-                item_dict, item_code, site_id=item_site_id)
+                listing, item_code, site_id=item_site_id)
             if new_listing is not None:
                 # Check this was a supported listing type (else None)
                 entries.append(new_listing)

@@ -17,18 +17,19 @@ from .ebay_constants import (LISTING_DURATION_TOKEN_DICT, EBAY_SITE_IDS,
 from collections.abc import Sequence
 
 OUTPUT_SELECTOR = [
-    'ItemArray.Item.ListingType',
-    'ItemArray.Item.ListingDuration',
+    'ItemArray.Item.HitCount',
     'ItemArray.Item.ListingDetails.StartTime',
     'ItemArray.Item.ListingDetails.ViewItemURL',
-    'ItemArray.Item.SKU',
-    'ItemArray.Item.HitCount',
-    'ItemArray.Item.WatchCount',
-    'ItemArray.Item.QuestionCount',
+    'ItemArray.Item.ListingDuration',
+    'ItemArray.Item.ListingType',
     'ItemArray.Item.Quantity',
-    'ItemArray.Item.Title',
+    'ItemArray.Item.QuestionCount',  # not GetSellerList
     'ItemArray.Item.SellingStatus.CurrentPrice',
-    'ItemArray.Item.SellingStatus.QuantitySold']
+    'ItemArray.Item.SellingStatus.QuantitySold',
+    'ItemArray.Item.SKU',
+    'ItemArray.Item.Title',
+    'ItemArray.Item.WatchCount',  # include IncludeWatchCount for GetSellerList
+]
 OUTPUT_SELECTOR += [
     f'ItemArray.Item.ShippingDetails.ShippingServiceOptions.{x}' for x in [
         'ShippingService', 'ShippingServicePriority', 'ShippingServiceCost',
