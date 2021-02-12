@@ -1,6 +1,7 @@
 # Copyright (c) 2013, Universal Resource Trading Limited and contributors
 # For license information, please see license.txt
 
+import json
 import math
 import sys
 import os.path
@@ -112,6 +113,20 @@ def revise_ebay_inventory(item_data, print=print):
         revise_inventory_status(chunked_items)
 
     print(' - 100% complete.')
+
+
+@frappe.whitelist()
+def client_revise_ebay_item(item_data):
+    """Revise an item's price and/or qty from the JS front-end."""
+
+    # Whitelisted function; check permissions
+    if not frappe.has_permission('eBay Manager', 'write'):
+        frappe.throw('Need write permissions on eBay Manager!',
+                     frappe.PermissionError)
+
+    item_data = json.loads(item_data)
+    item = item_data['ebay_id'], item_data.get('price'), item_data.get('qty')
+    revise_ebay_inventory([item])
 
 
 def end_ebay_listings(listings, print=print):
