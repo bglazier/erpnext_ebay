@@ -9,6 +9,7 @@
   "ebay_sync_days",
   "ebay_image_size",
   "ebay_thumbnail_size",
+  "ebay_price_list",
   "ebay_cbreak",
   "ebay_live_hostname",
   "get_current_hostname",
@@ -58,10 +59,18 @@
    "fieldname": "ebay_use_sandbox",
    "fieldtype": "Check",
    "label": "Use sandbox?"
+  },
+  {
+   "default": "Standard Selling",
+   "fieldname": "ebay_price_list",
+   "fieldtype": "Link",
+   "label": "eBay Price List",
+   "options": "Price List",
+   "reqd": 1
   }
  ],
  "issingle": 1,
- "modified": "2021-02-02 10:11:44.187965",
+ "modified": "2021-02-11 10:13:18.558888",
  "modified_by": "Administrator",
  "module": "Erpnext Ebay",
  "name": "eBay Manager Settings",
