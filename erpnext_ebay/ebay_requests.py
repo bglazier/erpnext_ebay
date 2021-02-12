@@ -122,7 +122,7 @@ def test_for_message(api_dict):
 
 def get_trading_api(site_id=default_site_id, warnings=True, timeout=20,
                     force_live_site=False, force_sandbox=False,
-                    executor=None):
+                    api_call=None, executor=None):
     """Get a TradingAPI instance which can be reused.
     If executor is passed, a ParallelTrading instance is returned instead.
     """
@@ -134,7 +134,7 @@ def get_trading_api(site_id=default_site_id, warnings=True, timeout=20,
     elif force_sandbox:
         sandbox = True
     else:
-        sandbox = use_sandbox()
+        sandbox = use_sandbox(api_call)
 
     domain = 'api.sandbox.ebay.com' if sandbox else 'api.ebay.com'
 
@@ -157,7 +157,6 @@ def get_orders(order_status='All', include_final_value_fees=True):
 
     This list is NOT filtered by a siteid as the API call does not filter
     by siteid.
-    Always uses the live eBay API.
     """
 
     num_days = int(frappe.get_value(
@@ -180,7 +179,7 @@ def get_orders(order_status='All', include_final_value_fees=True):
         # siteID anyway
 
         api = get_trading_api(site_id=0, warnings=True, timeout=20,
-                              force_live_site=True)
+                              api_call='GetOrders')
 
         while True:
             # TradingAPI results are paginated, so loop until
@@ -218,7 +217,6 @@ def get_orders(order_status='All', include_final_value_fees=True):
 def get_my_ebay_selling(listings_type='Summary', api_options=None,
                         api_inner_options=None, site_id=default_site_id):
     """Returns a list of listings from the GetMyeBaySelling eBay TradingAPI.
-    Always uses the live eBay API.
     """
 
     INNER_PAGINATE = ('ActiveList', 'ScheduledList', 'SoldList', 'UnsoldList')
@@ -256,7 +254,7 @@ def get_my_ebay_selling(listings_type='Summary', api_options=None,
         # Initialize TradingAPI; default timeout is 20.
 
         api = get_trading_api(site_id=site_id, warnings=True, timeout=20,
-                              force_live_site=True)
+                              api_call='GetMyeBaySelling')
         while True:
             # TradingAPI results are often paginated, so loop until
             # all pages have been obtained
@@ -341,7 +339,6 @@ def get_seller_list(item_codes=None, site_id=default_site_id,
                     print=print):
     """Runs GetSellerList to obtain a list of (active) items.
     Note that this call does NOT filter by SiteID, but does return it.
-    Always uses the live eBay API.
     """
 
     # eBay has a limit of 300 calls in 15 seconds
@@ -360,7 +357,7 @@ def get_seller_list(item_codes=None, site_id=default_site_id,
         # Initialize TradingAPI; default timeout is 20.
 
         api = get_trading_api(site_id=site_id, warnings=True, timeout=20,
-                              force_live_site=True, executor=executor)
+                              api_call='GetSellerList', executor=executor)
 
         n_pages = None
         page = 1
@@ -458,9 +455,8 @@ def get_seller_list(item_codes=None, site_id=default_site_id,
 
 
 def get_item(item_id=None, item_code=None, site_id=default_site_id,
-             output_selector=None, force_sandbox=False):
+             output_selector=None):
     """Returns a single listing from the eBay TradingAPI.
-    Always uses the live eBay API unless forced otherwise.
     """
 
     if not (item_code or item_id):
@@ -477,7 +473,7 @@ def get_item(item_id=None, item_code=None, site_id=default_site_id,
         # Initialize TradingAPI; default timeout is 20.
 
         api = get_trading_api(site_id=site_id, warnings=True, timeout=20,
-                              force_live_site=not force_sandbox)
+                              api_call='GetItem')
 
         api.execute('GetItem', api_dict)
 
@@ -493,13 +489,12 @@ def get_item(item_id=None, item_code=None, site_id=default_site_id,
 def get_categories_versions(site_id=default_site_id):
     """Load the version number of the current eBay categories
     and category features.
-    Always uses the live eBay API.
     """
 
     try:
         # Initialize TradingAPI; default timeout is 20.
         api = get_trading_api(site_id=site_id, warnings=True, timeout=20,
-                              force_live_site=True)
+                              api_call='GetCategories')
 
         response1 = api.execute('GetCategories', {'LevelLimit': 1,
                                                   'ViewAllNodes': False})
@@ -519,13 +514,12 @@ def get_categories_versions(site_id=default_site_id):
 
 def get_categories(site_id=default_site_id):
     """Load the eBay categories for the categories cache.
-    Always uses the live eBay API.
     """
 
     try:
         # Initialize TradingAPI; default timeout is 20.
         api = get_trading_api(site_id=site_id, warnings=True, timeout=60,
-                              force_live_site=True)
+                              api_call='GetCategories')
 
         response = api.execute('GetCategories', {'DetailLevel': 'ReturnAll',
                                                  'ViewAllNodes': 'true'})
@@ -581,7 +575,7 @@ def get_features(site_id=default_site_id):
     try:
         # Initialize TradingAPI; default timeout is 20.
         api = get_trading_api(site_id=site_id, warnings=True, timeout=60,
-                              force_live_site=True)
+                              api_call='GetCategoryFeatures')
 
     except ConnectionError as e:
         handle_ebay_error(e)
@@ -704,13 +698,12 @@ def get_features(site_id=default_site_id):
 
 def get_eBay_details(site_id=default_site_id, detail_name=None):
     """Perform a GeteBayDetails call.
-    Always uses the live eBay API.
     """
 
     try:
         # Initialize TradingAPI; default timeout is 20.
         api = get_trading_api(site_id=site_id, warnings=True, timeout=20,
-                              force_live_site=True)
+                              api_call='GeteBayDetails')
 
         api_options = {}
         if detail_name is not None:

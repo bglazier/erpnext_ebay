@@ -51,7 +51,7 @@ def end_items(items, site_id=default_site_id):
 
 
 def trading_api_call(api_call, input_dict, site_id=default_site_id,
-                     force_sandbox=True):
+                     force_sandbox=None):
     """Perform a TradingAPI call with an input dictionary."""
 
     try:
