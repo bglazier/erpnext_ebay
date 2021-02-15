@@ -187,7 +187,7 @@ descriptions = ['{}-day listing'.format(
     low_num[n-1] if n < len(low_num) else str(n))
     for n in days]
 LISTING_DURATION_TOKENS = (tuple(zip(tokens, days, descriptions))
-                           + (('GTC', None, "Good 'Til Cancelled"),))
+                           + (('GTC', None, 'GTC'),))
 LISTING_DURATION_TOKEN_DICT = {
     x[0]: (x[1], x[2]) for x in LISTING_DURATION_TOKENS}
 del low_num, days, tokens, descriptions

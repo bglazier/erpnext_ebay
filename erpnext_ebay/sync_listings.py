@@ -3,7 +3,6 @@
 import operator
 from datetime import datetime, timedelta
 
-import pytz
 import bleach
 
 import frappe
@@ -19,6 +18,7 @@ from collections.abc import Sequence
 OUTPUT_SELECTOR = [
     'ItemArray.Item.HitCount',
     'ItemArray.Item.ListingDetails.StartTime',
+    'ItemArray.Item.ListingDetails.EndTime',
     'ItemArray.Item.ListingDetails.ViewItemURL',
     'ItemArray.Item.ListingDuration',
     'ItemArray.Item.ListingType',
@@ -328,24 +328,16 @@ def create_ebay_online_selling_item(listing, item_code,
     # Calculate dates and times
     days, duration_description = LISTING_DURATION_TOKEN_DICT[
         listing['ListingDuration']]
-    gmt_start_datetime = datetime.strptime(
+    utc_start_datetime = datetime.strptime(
         listing['ListingDetails']['StartTime'],
         '%Y-%m-%dT%H:%M:%S.%fZ')
-    # Convert eBay GMT time to local time zone:
-    # - convert naive datetime to GMT-aware datetime
-    # - change timezone to local
-    # - convert local-aware datetime to naive datetime again
+    utc_end_datetime = datetime.strptime(
+        listing['ListingDetails']['EndTime'],
+        '%Y-%m-%dT%H:%M:%S.%fZ')
+    # Convert eBay UTC time to local time zone:
     start_datetime = (
-        pytz.timezone('GMT')
-        .localize(gmt_start_datetime)
-        .astimezone(
-            pytz.timezone(frappe.utils.get_time_zone()))
-        .replace(tzinfo=None)
-        )
-    if days is not None:
-        end_datetime = start_datetime + timedelta(days=days)
-    else:
-        end_datetime = None
+        frappe.utils.convert_utc_to_user_timezone(utc_start_datetime))
+    end_datetime = frappe.utils.convert_utc_to_user_timezone(utc_end_datetime)
 
     # Sanitize URL
     selling_url = '<a href="{link}">{link}</a>'.format(
@@ -372,6 +364,7 @@ def create_ebay_online_selling_item(listing, item_code,
         'parent': item_code,
         'parentfield': 'online_selling_items',
         'parenttype': 'Item',
+        'status': listing['SellingStatus']['ListingStatus'],
         'selling_platform': 'eBay',
         'selling_subtype': subtype,
         'selling_id': listing['ItemID'],

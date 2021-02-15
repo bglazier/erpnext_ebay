@@ -117,7 +117,9 @@ def revise_ebay_inventory(item_data, print=print):
 
 @frappe.whitelist()
 def client_revise_ebay_item(item_data):
-    """Revise an item's price and/or qty from the JS front-end."""
+    """Revise an item's price and/or qty from the JS front-end.
+    Will end a listing if the qty is set to zero.
+    """
 
     # Whitelisted function; check permissions
     if not frappe.has_permission('eBay Manager', 'write'):
@@ -125,8 +127,13 @@ def client_revise_ebay_item(item_data):
                      frappe.PermissionError)
 
     item_data = json.loads(item_data)
-    item = item_data['ebay_id'], item_data.get('price'), item_data.get('qty')
-    revise_ebay_inventory([item])
+    qty = item_data.get('qty')
+    if qty == 0:
+        item = (item_data['ebay_id'], 'NotAvailable')
+        end_ebay_listings([item])
+    else:
+        item = item_data['ebay_id'], item_data.get('price'), qty
+        revise_ebay_inventory([item])
 
 
 def end_ebay_listings(listings, print=print):

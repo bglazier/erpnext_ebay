@@ -32,7 +32,8 @@ class eBayPlatform(OnlineSellingPlatformClass):
         # Get listings from GetSellerList (US site, so we get SiteID)
         get_seller_listings = get_seller_list(
             item_codes=[item_code], site_id=0,
-            output_selector=OUTPUT_SELECTOR, granularity_level='Fine')
+            output_selector=OUTPUT_SELECTOR, granularity_level='Fine',
+            days_before=60, days_after=59, active_only=False)
 
         for listing in get_seller_listings:
             item_site_id = EBAY_TRANSACTION_SITE_NAMES[listing['Site']]

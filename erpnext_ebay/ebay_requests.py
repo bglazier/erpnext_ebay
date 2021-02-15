@@ -336,17 +336,29 @@ def get_active_listings():
 
 def get_seller_list(item_codes=None, site_id=default_site_id,
                     output_selector=None, granularity_level='Coarse',
+                    days_before=0, days_after=119, active_only=True,
                     print=print):
-    """Runs GetSellerList to obtain a list of (active) items.
+    """Runs GetSellerList to obtain a list of items.
     Note that this call does NOT filter by SiteID, but does return it.
+    Items are returned ending between days_before now and days_after now, with
+    defaults of 0 days before and 119 days after, respectively.
+    If active_only is True (the default), only 'Active' items are returns.
     """
 
     # eBay has a limit of 300 calls in 15 seconds
     MAX_REQUESTS = {'time': 15, 'n_requests': 300}
 
     # Create eBay acceptable datetime stamps for EndTimeTo and EndTimeFrom
-    end_from = datetime.utcnow().isoformat()[:-3] + 'Z'
-    end_to = (datetime.utcnow() + timedelta(days=119)).isoformat()[:-3] + 'Z'
+    if (days_before < 0) or (days_after < 0):
+        frappe.throw('days_before or days_after less than zero!')
+    if (days_before + days_after) >= 120:
+        frappe.throw('Can only search a total date range of less than 120 days')
+    end_from = (
+        datetime.utcnow() - timedelta(days=days_before)
+    ).isoformat(timespec='milliseconds') + 'Z'
+    end_to = (
+        datetime.utcnow() + timedelta(days=days_after)
+    ).isoformat(timespec='milliseconds')[:-3] + 'Z'
 
     listings = []
 
@@ -448,8 +460,10 @@ def get_seller_list(item_codes=None, site_id=default_site_id,
         executor.shutdown()
         api.session.close()
 
-    listings = [x for x in listings
-                if x['SellingStatus']['ListingStatus'] == 'Active']
+    # Filter to get only active listings.
+    if active_only:
+        listings = [x for x in listings
+                    if x['SellingStatus']['ListingStatus'] == 'Active']
 
     return listings
 
