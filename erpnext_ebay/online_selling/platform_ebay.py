@@ -35,11 +35,24 @@ class eBayPlatform(OnlineSellingPlatformClass):
             output_selector=OUTPUT_SELECTOR, granularity_level='Fine',
             days_before=60, days_after=59, active_only=False)
 
+        # Find eBay IDs of active listings
+        active_ebay_ids = set()
+        for listing in get_seller_listings:
+            print(listing)
+            if listing['SellingStatus']['ListingStatus'] == 'Active':
+                active_ebay_ids.add(listing['ItemID'])
+
         for listing in get_seller_listings:
             item_site_id = EBAY_TRANSACTION_SITE_NAMES[listing['Site']]
 
             if item_site_id not in site_ids:
                 # We don't handle this site_id
+                continue
+
+            if (listing['SellingStatus']['ListingStatus'] != 'Active'
+                    and listing['ItemID'] in active_ebay_ids):
+                # This completed or ended listing has already been
+                # relisted as an active listing
                 continue
 
             new_listing = create_ebay_online_selling_item(
