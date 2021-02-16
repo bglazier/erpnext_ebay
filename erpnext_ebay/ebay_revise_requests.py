@@ -27,6 +27,25 @@ def revise_inventory_status(items, site_id=default_site_id):
     return response_dict
 
 
+def relist_item(ebay_id, site_id=default_site_id):
+    """Perform a RelistItem call."""
+
+    try:
+        # Initialize TradingAPI; default timeout is 20.
+        api = get_trading_api(site_id=site_id, warnings=True, timeout=20)
+
+        response = api.execute('RelistItem',
+                               {'Item': {'ItemID': ebay_id}})
+
+    except ConnectionError as e:
+        handle_ebay_error(e)
+
+    response_dict = response.dict()
+    test_for_message(response_dict)
+
+    return response_dict
+
+
 def end_items(items, site_id=default_site_id):
     """Perform an EndItems call."""
 

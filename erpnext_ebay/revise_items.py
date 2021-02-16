@@ -9,7 +9,7 @@ import os.path
 import frappe
 
 from erpnext_ebay.ebay_revise_requests import (
-    revise_inventory_status, end_items)
+    revise_inventory_status, relist_item, end_items)
 
 from ebaysdk.exception import ConnectionError
 from ebaysdk.trading import Connection as Trading
@@ -134,6 +134,24 @@ def client_revise_ebay_item(item_data):
     else:
         item = item_data['ebay_id'], item_data.get('price'), qty
         revise_ebay_inventory([item])
+
+
+def relist_ebay_item(ebay_id):
+    """Relist an eBay listing."""
+
+    relist_item(ebay_id)
+
+
+@frappe.whitelist()
+def client_relist_ebay_item(ebay_id):
+    """Relist a fixed-price eBay list from the JS front-end."""
+
+    # Whitelisted function; check permissions
+    if not frappe.has_permission('eBay Manager', 'write'):
+        frappe.throw('Need write permissions on eBay Manager!',
+                     frappe.PermissionError)
+
+    relist_item(ebay_id)
 
 
 def end_ebay_listings(listings, print=print):
