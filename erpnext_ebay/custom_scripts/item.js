@@ -42,10 +42,14 @@ frappe.ui.form.on("Item", {
         field.grid.sortable_status = false;
         field.grid.static_rows = true;
         field.grid.refresh();
-        get_online_selling_items(frm, docname);
+        frappe.ui.form.trigger('Item', 'get_online_selling');
     },
 
     after_save(frm, doctype, docname) {
+        get_online_selling_items(frm, docname);
+    },
+
+    get_online_selling(frm, doctype, docname) {
         get_online_selling_items(frm, docname);
     },
 
