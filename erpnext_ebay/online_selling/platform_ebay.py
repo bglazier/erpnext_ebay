@@ -35,7 +35,7 @@ class eBayPlatform(OnlineSellingPlatformClass):
             output_selector=OUTPUT_SELECTOR, granularity_level='Fine',
             days_before=60, days_after=59, active_only=False)
 
-        # Find eBay sites of active listings
+        # Find eBay sites of Active listings
         active_ebay_sites = set()
         for listing in get_seller_listings:
             if listing['SellingStatus']['ListingStatus'] == 'Active':
@@ -48,10 +48,10 @@ class eBayPlatform(OnlineSellingPlatformClass):
                 # We don't handle this site_id
                 continue
 
-            if (listing['SellingStatus']['ListingStatus'] != 'Active'
+            if (listing['SellingStatus']['ListingStatus'] == 'Completed'
                     and listing['Site'] in active_ebay_sites):
                 # If there is an active listing on this site,
-                # suppress completed and ended listings on that site
+                # suppress Completed (but not Ended) listings on that site
                 continue
 
             new_listing = create_ebay_online_selling_item(
