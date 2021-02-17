@@ -15,7 +15,8 @@ function get_online_selling_items(frm, item_code) {
             frappe.ui.form.trigger("Item", "online_selling_async_complete");
             return;
         }
-        const unsaved = frm.doc.__unsaved;
+        frm._dirty = frm.dirty;
+        frm.dirty = () => {};
         osi_list.forEach(osi_dict => {
             let child = frm.add_child('online_selling_items');
             Object.assign(child, osi_dict);
@@ -25,7 +26,7 @@ function get_online_selling_items(frm, item_code) {
         });
         frm.refresh_field('online_selling_items');
         frm.get_field('online_selling_section').collapse(false);
-        frm.doc.__unsaved = unsaved;
+        frm.dirty = frm._dirty;
         // Delay the trigger so that updates have occurred first
         // following a save or similar (e.g. from after_save event)
         setTimeout(() => {
