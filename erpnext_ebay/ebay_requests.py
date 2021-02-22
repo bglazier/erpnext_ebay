@@ -127,6 +127,9 @@ def get_trading_api(site_id=default_site_id, warnings=True, timeout=20,
     If executor is passed, a ParallelTrading instance is returned instead.
     """
 
+    if frappe.flags.in_test:
+        frappe.throw('No eBay API while in test mode!')
+
     if force_live_site and force_sandbox:
         raise ValueError('Cannot force both live and sandbox APIs!')
     elif force_live_site:
