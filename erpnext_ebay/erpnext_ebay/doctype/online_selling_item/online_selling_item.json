@@ -120,10 +120,8 @@
    "read_only": 1
   },
   {
-   "columns": 1,
    "fieldname": "ebay_listing_duration",
    "fieldtype": "Data",
-   "in_list_view": 1,
    "label": "Listing Duration",
    "read_only": 1
   },
@@ -152,8 +150,10 @@
    "read_only": 1
   },
   {
+   "columns": 1,
    "fieldname": "selling_url",
    "fieldtype": "HTML Editor",
+   "in_list_view": 1,
    "label": "Online URL",
    "read_only": 1
   },
@@ -176,7 +176,7 @@
  ],
  "in_create": 1,
  "istable": 1,
- "modified": "2021-02-15 15:23:32.767177",
+ "modified": "2021-02-23 15:18:42.041624",
  "modified_by": "Administrator",
  "module": "Erpnext Ebay",
  "name": "Online Selling Item",
