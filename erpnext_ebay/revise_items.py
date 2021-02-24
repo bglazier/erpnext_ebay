@@ -136,14 +136,14 @@ def client_revise_ebay_item(item_data):
         revise_ebay_inventory([item])
 
 
-def relist_ebay_item(ebay_id):
+def relist_ebay_item(ebay_id, item_dict=None):
     """Relist an eBay listing."""
 
-    relist_item(ebay_id)
+    relist_item(ebay_id, item_dict=item_dict)
 
 
 @frappe.whitelist()
-def client_relist_ebay_item(ebay_id):
+def client_relist_ebay_item(ebay_id, item_dict=None):
     """Relist a fixed-price eBay list from the JS front-end."""
 
     # Whitelisted function; check permissions
@@ -151,7 +151,13 @@ def client_relist_ebay_item(ebay_id):
         frappe.throw('Need write permissions on eBay Manager!',
                      frappe.PermissionError)
 
-    relist_item(ebay_id)
+    if isinstance(item_dict, str):
+        item_dict = json.loads(item_dict)
+
+    if not isinstance(item_dict, dict):
+        frappe.throw('Invalid format for item_dict!')
+
+    relist_item(ebay_id, item_dict=item_dict)
 
 
 def end_ebay_listings(listings, print=print):
@@ -194,3 +200,17 @@ def end_ebay_listings(listings, print=print):
         end_items(chunked_items)
 
     print(' - 100% complete.')
+
+
+@frappe.whitelist()
+def client_end_ebay_listings(ebay_ids):
+    """End listings from the JS front-end."""
+
+    if isinstance(ebay_ids, str):
+        ebay_ids = json.loads(ebay_ids)
+    if not isinstance(ebay_ids, list):
+        frappe.throw('Invalid ebay_ids format!')
+
+    listings = [(x, 'NotAvailable') for x in ebay_ids]
+
+    end_ebay_listings(listings)

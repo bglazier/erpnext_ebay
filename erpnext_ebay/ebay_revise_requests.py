@@ -27,15 +27,17 @@ def revise_inventory_status(items, site_id=default_site_id):
     return response_dict
 
 
-def relist_item(ebay_id, site_id=default_site_id):
+def relist_item(ebay_id, site_id=default_site_id, item_dict=None):
     """Perform a RelistItem call."""
+
+    relist_dict = {'Item': item_dict or {}}
+    relist_dict['Item']['ItemID'] = ebay_id
 
     try:
         # Initialize TradingAPI; default timeout is 20.
         api = get_trading_api(site_id=site_id, warnings=True, timeout=20)
 
-        response = api.execute('RelistItem',
-                               {'Item': {'ItemID': ebay_id}})
+        response = api.execute('RelistItem', relist_dict)
 
     except ConnectionError as e:
         handle_ebay_error(e)
