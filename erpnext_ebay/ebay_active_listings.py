@@ -82,14 +82,17 @@ def generate_active_ebay_data(print=print, multiple_error_sites=None,
     try:
 
         # If the data has been pulled down in the last 60 seconds, don't
-        # update it again.
-        last_update = frappe.cache().get_value('erpnext_ebay.last_update')
-        if last_update:
-            seconds_ago = (datetime.datetime.now() - last_update).total_seconds()
-            if seconds_ago < 60:
-                print('Last update was completed less than 60s ago.')
-                # Table will be unlocked by finally clause
-                return
+        # update it again, unless we have been passed extra_output_selector
+        if not extra_output_selector:
+            last_update = frappe.cache().get_value('erpnext_ebay.last_update')
+            if last_update:
+                seconds_ago = (
+                    (datetime.datetime.now() - last_update).total_seconds()
+                )
+                if seconds_ago < 60:
+                    print('Last update was completed less than 60s ago.')
+                    # Table will be unlocked by finally clause
+                    return
 
         print('Getting data from eBay via GetSellerList call')
         # Get data from GetSellerList
