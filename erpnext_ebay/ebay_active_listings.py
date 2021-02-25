@@ -23,7 +23,8 @@ OUTPUT_SELECTOR = [
 
 
 @frappe.whitelist()
-def generate_active_ebay_data(print=print, multiple_error_sites=None):
+def generate_active_ebay_data(print=print, multiple_error_sites=None,
+                              extra_output_selector=None):
     """Get all the active eBay listings for the selected eBay site
     and save them to the temporary data table.
 
@@ -37,6 +38,11 @@ def generate_active_ebay_data(print=print, multiple_error_sites=None):
     if not frappe.has_permission('eBay Manager'):
         frappe.throw('You do not have permission to access the eBay Manager',
                      frappe.PermissionError)
+
+    if extra_output_selector:
+        output_selector = OUTPUT_SELECTOR + extra_output_selector
+    else:
+        output_selector = OUTPUT_SELECTOR
 
     if not frappe.db.sql("""SHOW TABLES LIKE 'zeBayListings';"""):
         print('Setting up zeBayListings table')
@@ -88,7 +94,7 @@ def generate_active_ebay_data(print=print, multiple_error_sites=None):
         print('Getting data from eBay via GetSellerList call')
         # Get data from GetSellerList
         listings = get_seller_list(site_id=0,  # Use US site
-                                   output_selector=OUTPUT_SELECTOR,
+                                   output_selector=output_selector,
                                    granularity_level='Fine',
                                    force_sandbox_value=force_sandbox_value,
                                    print=print)
@@ -150,6 +156,8 @@ def generate_active_ebay_data(print=print, multiple_error_sites=None):
                                  datetime.datetime.now())
     finally:
         frappe.db.sql("""UNLOCK TABLES;""")
+
+    return listings
 
 
 # *********************************************
