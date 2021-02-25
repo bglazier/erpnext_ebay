@@ -12,6 +12,9 @@ from ebaysdk.trading import Connection as Trading
 from .ebay_constants import EBAY_TRANSACTION_SITE_IDS
 from .ebay_requests import get_seller_list, default_site_id, PATH_TO_YAML
 
+from erpnext_ebay.erpnext_ebay.doctype.ebay_manager_settings.ebay_manager_settings import (
+    use_sandbox)
+
 OUTPUT_SELECTOR = [
     'ItemArray.Item.SKU',
     'ItemArray.Item.Quantity',
@@ -49,6 +52,11 @@ def generate_active_ebay_data(print=print, multiple_error_sites=None):
             );
         """, auto_commit=True)
 
+    # Before we get the table lock, get the sandbox value (we can't access
+    # any other table once we have a table lock, unless we lock that table
+    # as well)
+    force_sandbox_value = use_sandbox('GetSellerList')
+
     print('Getting table lock')
     # Try and get table lock. If we fail (due to timeout), throw an error
     # message. Unlock the tables in any circumstance except success.
@@ -82,6 +90,7 @@ def generate_active_ebay_data(print=print, multiple_error_sites=None):
         listings = get_seller_list(site_id=0,  # Use US site
                                    output_selector=OUTPUT_SELECTOR,
                                    granularity_level='Fine',
+                                   force_sandbox_value=force_sandbox_value,
                                    print=print)
 
         multiple_check = set()
