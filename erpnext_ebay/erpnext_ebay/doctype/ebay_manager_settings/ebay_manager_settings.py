@@ -50,8 +50,8 @@ def use_sandbox(api_call=None):
         if api_call not in SAFE_API_CALLS:
             # Do not allow call to live API (except for 'safe' API calls)
             frappe.throw(f'Current hostname {hostname} does not match '
-                        + f'eBay live hostname {ebay_hostname}!',
-                        exc=eBayHostnameError)
+                         + f'eBay live hostname {ebay_hostname}!',
+                         exc=eBayHostnameError)
     # OK to use live API (not sandbox)
     return False
 

@@ -72,12 +72,12 @@ def end_items(items, site_id=default_site_id):
 
 
 def trading_api_call(api_call, input_dict, site_id=default_site_id,
-                     force_sandbox=None):
+                     force_sandbox_value=None):
     """Perform a TradingAPI call with an input dictionary."""
 
     try:
         api = get_trading_api(site_id=site_id, warnings=True, timeout=20,
-                              force_sandbox=force_sandbox)
+                              force_sandbox_value=force_sandbox_value)
 
         response = api.execute(api_call, input_dict)
 

@@ -121,8 +121,7 @@ def test_for_message(api_dict):
 
 
 def get_trading_api(site_id=default_site_id, warnings=True, timeout=20,
-                    force_live_site=False, force_sandbox=False,
-                    api_call=None, executor=None):
+                    force_sandbox_value=None, api_call=None, executor=None):
     """Get a TradingAPI instance which can be reused.
     If executor is passed, a ParallelTrading instance is returned instead.
     """
@@ -130,14 +129,10 @@ def get_trading_api(site_id=default_site_id, warnings=True, timeout=20,
     if frappe.flags.in_test:
         frappe.throw('No eBay API while in test mode!')
 
-    if force_live_site and force_sandbox:
-        raise ValueError('Cannot force both live and sandbox APIs!')
-    elif force_live_site:
-        sandbox = False
-    elif force_sandbox:
-        sandbox = True
-    else:
+    if force_sandbox_value is None:
         sandbox = use_sandbox(api_call)
+    else:
+        sandbox = bool(force_sandbox_value)
 
     domain = 'api.sandbox.ebay.com' if sandbox else 'api.ebay.com'
 
@@ -340,7 +335,7 @@ def get_active_listings():
 def get_seller_list(item_codes=None, site_id=default_site_id,
                     output_selector=None, granularity_level='Coarse',
                     days_before=0, days_after=119, active_only=True,
-                    print=print):
+                    force_sandbox_value=None, print=print):
     """Runs GetSellerList to obtain a list of items.
     Note that this call does NOT filter by SiteID, but does return it.
     Items are returned ending between days_before now and days_after now, with
@@ -368,10 +363,12 @@ def get_seller_list(item_codes=None, site_id=default_site_id,
     # Create executor for futures
     executor = ThreadPoolExecutor(max_workers=50)
 
+    api = None
     try:
         # Initialize TradingAPI; default timeout is 20.
 
         api = get_trading_api(site_id=site_id, warnings=True, timeout=20,
+                              force_sandbox_value=force_sandbox_value,
                               api_call='GetSellerList', executor=executor)
 
         n_pages = None
@@ -461,7 +458,8 @@ def get_seller_list(item_codes=None, site_id=default_site_id,
 
     finally:
         executor.shutdown()
-        api.session.close()
+        if api:
+            api.session.close()
 
     # Filter to get only active listings.
     if active_only:
