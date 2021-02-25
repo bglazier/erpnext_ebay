@@ -8,6 +8,8 @@ EBAY_ATTR_LEN_STR = str(EBAY_ATTR_LEN)
 EBAY_VALUE_LEN = 1000
 EBAY_VALUE_LEN_STR = str(EBAY_VALUE_LEN)
 
+HOME_SITE_ID = 3
+
 # eBay Site IDs
 EBAY_SITE_IDS = {0: 'US',
                  2: 'Canada (English)',
@@ -33,6 +35,7 @@ EBAY_SITE_IDS = {0: 'US',
                  216: 'Singapore'}
 
 EBAY_SITE_NAMES = {name: siteid for siteid, name in EBAY_SITE_IDS.items()}
+HOME_SITE_NAME = EBAY_SITE_IDS[HOME_SITE_ID]
 
 EBAY_TRANSACTION_SITE_IDS = {0: 'US',
                              2: 'Canada',
@@ -60,6 +63,7 @@ EBAY_TRANSACTION_SITE_IDS = {0: 'US',
 
 EBAY_TRANSACTION_SITE_NAMES = {
     name: siteid for siteid, name in EBAY_TRANSACTION_SITE_IDS.items()}
+HOME_TRANSACTION_NAME = EBAY_TRANSACTION_SITE_IDS[HOME_SITE_ID]
 
 # eBay Site IDs
 EBAY_SITE_DOMAINS = {0: 'com',

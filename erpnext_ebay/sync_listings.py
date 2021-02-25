@@ -7,11 +7,10 @@ import bleach
 
 import frappe
 
-from .ebay_requests import (get_seller_list, get_item,
-                            default_site_id, get_shipping_details)
+from .ebay_requests import get_seller_list, get_item, get_shipping_details
 from .ebay_constants import (LISTING_DURATION_TOKEN_DICT, EBAY_SITE_IDS,
                              EBAY_TRANSACTION_SITE_NAMES,
-                             EBAY_SITE_DOMAINS)
+                             EBAY_SITE_DOMAINS, HOME_SITE_ID)
 
 from collections.abc import Sequence
 
@@ -186,7 +185,7 @@ def format_shipping_services(site_id, shipping):
 
 
 @frappe.whitelist()
-def sync(site_id=default_site_id, update_ebay_id=False):
+def sync(site_id=HOME_SITE_ID, update_ebay_id=False):
     """
     Updates Online Selling Items for eBay across the site.
     Also updates ebay_id for all items to the UK eBay ID.

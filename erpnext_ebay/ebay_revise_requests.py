@@ -3,12 +3,12 @@
 
 from ebaysdk.exception import ConnectionError
 
+from erpnext_ebay.ebay_constants import HOME_SITE_ID
 from erpnext_ebay.ebay_requests import (
-    get_trading_api, handle_ebay_error, test_for_message,
-    default_site_id)
+    get_trading_api, handle_ebay_error, test_for_message)
 
 
-def revise_inventory_status(items, site_id=default_site_id):
+def revise_inventory_status(items, site_id=HOME_SITE_ID):
     """Perform a ReviseInventoryStatus call."""
 
     try:
@@ -27,7 +27,7 @@ def revise_inventory_status(items, site_id=default_site_id):
     return response_dict
 
 
-def relist_item(ebay_id, site_id=default_site_id, item_dict=None):
+def relist_item(ebay_id, site_id=HOME_SITE_ID, item_dict=None):
     """Perform a RelistItem call."""
 
     relist_dict = {'Item': item_dict or {}}
@@ -48,7 +48,7 @@ def relist_item(ebay_id, site_id=default_site_id, item_dict=None):
     return response_dict
 
 
-def end_items(items, site_id=default_site_id):
+def end_items(items, site_id=HOME_SITE_ID):
     """Perform an EndItems call."""
 
     try:
@@ -71,7 +71,7 @@ def end_items(items, site_id=default_site_id):
     return response_dict
 
 
-def trading_api_call(api_call, input_dict, site_id=default_site_id,
+def trading_api_call(api_call, input_dict, site_id=HOME_SITE_ID,
                      force_sandbox_value=None):
     """Perform a TradingAPI call with an input dictionary."""
 

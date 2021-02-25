@@ -9,8 +9,8 @@ import frappe
 from ebaysdk.exception import ConnectionError
 from ebaysdk.trading import Connection as Trading
 
-from .ebay_constants import EBAY_TRANSACTION_SITE_IDS
-from .ebay_requests import get_seller_list, default_site_id, PATH_TO_YAML
+from .ebay_constants import EBAY_TRANSACTION_SITE_IDS, HOME_SITE_ID
+from .ebay_requests import get_seller_list, PATH_TO_YAML
 
 from erpnext_ebay.erpnext_ebay.doctype.ebay_manager_settings.ebay_manager_settings import (
     use_sandbox)
@@ -216,7 +216,7 @@ def set_on_sale_from_date():
         auto_commit=True)
 
 
-def sync_ebay_ids(site_id=default_site_id):
+def sync_ebay_ids(site_id=HOME_SITE_ID):
     """Synchronize system eBay IDs from the temporary table"""
 
     site_name = EBAY_TRANSACTION_SITE_IDS[site_id]

@@ -20,15 +20,13 @@ from ebaysdk.response import Response
 from ebaysdk.exception import ConnectionError
 from ebaysdk.trading import Connection as Trading
 
-from .ebay_constants import EBAY_SITE_NAMES
+from .ebay_constants import EBAY_SITE_NAMES, HOME_SITE_ID
 from erpnext_ebay.erpnext_ebay.doctype.ebay_manager_settings.ebay_manager_settings\
     import use_sandbox
 
 PATH_TO_YAML = os.path.join(
     os.sep, frappe.utils.get_bench_path(), 'sites',
     frappe.get_site_path(), 'ebay.yaml')
-
-default_site_id = 3  # eBay site id: 0=US, 3=UK
 
 
 class ParallelTrading(Trading):
@@ -120,7 +118,7 @@ def test_for_message(api_dict):
     print('\n'.join(messages))
 
 
-def get_trading_api(site_id=default_site_id, warnings=True, timeout=20,
+def get_trading_api(site_id=HOME_SITE_ID, warnings=True, timeout=20,
                     force_sandbox_value=None, api_call=None, executor=None):
     """Get a TradingAPI instance which can be reused.
     If executor is passed, a ParallelTrading instance is returned instead.
@@ -213,7 +211,7 @@ def get_orders(order_status='All', include_final_value_fees=True):
 
 
 def get_my_ebay_selling(listings_type='Summary', api_options=None,
-                        api_inner_options=None, site_id=default_site_id):
+                        api_inner_options=None, site_id=HOME_SITE_ID):
     """Returns a list of listings from the GetMyeBaySelling eBay TradingAPI.
     """
 
@@ -332,7 +330,7 @@ def get_active_listings():
     return listings
 
 
-def get_seller_list(item_codes=None, site_id=default_site_id,
+def get_seller_list(item_codes=None, site_id=HOME_SITE_ID,
                     output_selector=None, granularity_level='Coarse',
                     days_before=0, days_after=119, active_only=True,
                     force_sandbox_value=None, print=print):
@@ -469,7 +467,7 @@ def get_seller_list(item_codes=None, site_id=default_site_id,
     return listings
 
 
-def get_item(item_id=None, item_code=None, site_id=default_site_id,
+def get_item(item_id=None, item_code=None, site_id=HOME_SITE_ID,
              output_selector=None):
     """Returns a single listing from the eBay TradingAPI.
     """
@@ -501,7 +499,7 @@ def get_item(item_id=None, item_code=None, site_id=default_site_id,
     return listing['Item']
 
 
-def get_categories_versions(site_id=default_site_id):
+def get_categories_versions(site_id=HOME_SITE_ID):
     """Load the version number of the current eBay categories
     and category features.
     """
@@ -527,7 +525,7 @@ def get_categories_versions(site_id=default_site_id):
     return (categories_version, features_version)
 
 
-def get_categories(site_id=default_site_id):
+def get_categories(site_id=HOME_SITE_ID):
     """Load the eBay categories for the categories cache.
     """
 
@@ -582,7 +580,7 @@ def get_categories(site_id=default_site_id):
     return categories_data, max_level
 
 
-def get_features(site_id=default_site_id):
+def get_features(site_id=HOME_SITE_ID):
     """Load the eBay category features for the features cache.
     Always uses the live eBay API.
     """
@@ -711,7 +709,7 @@ def get_features(site_id=default_site_id):
     return features_version, features_data
 
 
-def get_eBay_details(site_id=default_site_id, detail_name=None):
+def get_eBay_details(site_id=HOME_SITE_ID, detail_name=None):
     """Perform a GeteBayDetails call.
     """
 
@@ -735,7 +733,7 @@ def get_eBay_details(site_id=default_site_id, detail_name=None):
     return response_dict
 
 
-def get_eBay_details_to_file(site_id=default_site_id):
+def get_eBay_details_to_file(site_id=HOME_SITE_ID):
     """Perform a GeteBayDetails call and save the output in geteBayDetails.txt
     in the site root directory.
     """
@@ -750,7 +748,7 @@ def get_eBay_details_to_file(site_id=default_site_id):
     return None
 
 
-def get_shipping_details(site_id=default_site_id):
+def get_shipping_details(site_id=HOME_SITE_ID):
     """Cache the eBay Shipping Details entries."""
     cache_key = 'eBayShippingDetails_{}'.format(site_id)
     shipping_details = frappe.cache().get_value(cache_key)
