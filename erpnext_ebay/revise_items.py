@@ -5,6 +5,7 @@ import json
 import math
 import sys
 import os.path
+from collections.abc import Sequence
 
 import frappe
 
@@ -13,6 +14,10 @@ from erpnext_ebay.ebay_revise_requests import (
 
 from ebaysdk.exception import ConnectionError
 from ebaysdk.trading import Connection as Trading
+
+
+class eBayPartialFailure(frappe.ValidationError):
+    pass
 
 
 def chunker(seq, size):
@@ -183,7 +188,7 @@ def end_ebay_listings(listings, print=print):
 
     prev_percent = -1000.0
     n_items = len(items)
-    n_chunks = ((n_items - 1) // CHUNK_SIZE) + 1  # Number of chunks of 4 items
+    n_chunks = ((n_items - 1) // CHUNK_SIZE) + 1  # Number of chunks of items
     print('n_chunks: ', n_chunks)
 
     if n_items == 0:
@@ -197,7 +202,31 @@ def end_ebay_listings(listings, print=print):
         prev_percent = percent
 
         # Submit the updates for these items.
-        end_items(chunked_items)
+        response = end_items(chunked_items)
+        print(response)
+
+        print('response[Ack] = ', response['Ack'])
+        if response['Ack'] != 'Success':
+            print('response not success')
+            messages = []
+            response_items = response['EndItemResponseContainer']
+            if not isinstance(response_items, Sequence):
+                response_items = [response_items]
+            for item in response_items:
+                if 'Errors' not in item:
+                    continue
+                elif isinstance(item['Errors'], Sequence):
+                    errors = item['Errors']
+                else:
+                    errors = [item['Errors']]
+                messages = []
+                for e in errors:
+                    messages.append(
+                        f'{e["SeverityCode"]} code {e["ErrorCode"]} (Item ID '
+                        + f'{item["CorrelationID"]}): {e["LongMessage"]}'
+                    )
+            frappe.throw('\n'.join(messages),
+                         exc=eBayPartialFailure)
 
     print(' - 100% complete.')
 

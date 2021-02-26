@@ -111,9 +111,9 @@ def test_for_message(api_dict):
     else:
         errors = [api_dict['Errors']]
     messages = []
-    for error in errors:
-        messages.append('{} code {}: {}'.format(
-            error['SeverityCode'], error['ErrorCode'], error['LongMessage']))
+    for e in errors:
+        messages.append(
+            f'{e["SeverityCode"]} code {e["ErrorCode"]}: {e["LongMessage"]}')
     msgprint('\n'.join(messages))
     print('\n'.join(messages))
 
