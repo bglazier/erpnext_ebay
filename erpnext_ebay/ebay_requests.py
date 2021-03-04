@@ -29,6 +29,11 @@ PATH_TO_YAML = os.path.join(
     frappe.get_site_path(), 'ebay.yaml')
 
 
+def ebay_logger():
+    """Return the frappe Logger instance for the eBay logger."""
+    return frappe.logger('erpnext_ebay.ebay')
+
+
 class ParallelTrading(Trading):
     def __init__(self, executor=None, **kwargs):
         self.executor = executor or ThreadPoolExecutor()
@@ -68,6 +73,7 @@ class ParallelTrading(Trading):
 
 def handle_ebay_error(e):
     """Throw an appropriate Frappe error message on error."""
+    ebay_logger().error(f'handle_ebay_error {e}')
     try:
         api_dict = e.response.dict()
         if isinstance(api_dict['Errors'], Sequence):
@@ -86,8 +92,9 @@ def handle_ebay_error(e):
                     f"""Too many requests:\n{error['LongMessage']}""")
             else:
                 # Some other eBay error
-                messages.append('eBay error:\n"{}"'.format(
-                    error['LongMessage']))
+                messages.append(f"""eBay error:\n"{error['LongMessage']}""")
+        ebay_logger().error(messages)
+        ebay_logger().error(str(api_dict))
         frappe.throw('\n'.join(messages))
     except Exception:
         # We have not handled this correctly; just raise the original error.
@@ -102,7 +109,7 @@ def test_for_message(api_dict):
         message = ('WARNING - eBay auth token will expire within 7 days!\n'
                    + 'Expiry date/time: ' + api_dict['HardExpirationWarning'])
         msgprint(message)
-        print(message)
+        ebay_logger().info(message)
     # Now check for errors/warnings.
     if 'Errors' not in api_dict:
         return
@@ -115,7 +122,7 @@ def test_for_message(api_dict):
         messages.append(
             f'{e["SeverityCode"]} code {e["ErrorCode"]}: {e["LongMessage"]}')
     msgprint('\n'.join(messages))
-    print('\n'.join(messages))
+    ebay_logger().warning(message)
 
 
 def get_trading_api(site_id=HOME_SITE_ID, warnings=True, timeout=20,
@@ -123,6 +130,7 @@ def get_trading_api(site_id=HOME_SITE_ID, warnings=True, timeout=20,
     """Get a TradingAPI instance which can be reused.
     If executor is passed, a ParallelTrading instance is returned instead.
     """
+    ebay_logger().debug(f'get_trading_api{" " + api_call if api_call else ""}')
 
     if frappe.flags.in_test:
         frappe.throw('No eBay API while in test mode!')
@@ -278,7 +286,7 @@ def get_my_ebay_selling(listings_type='Summary', api_options=None,
                                 ['PaginationResult']['TotalNumberOfPages']))
                     else:
                         n_pages = 1
-                print('n_pages = ', n_pages)
+                ebay_logger().info(f'n_pages = {n_pages}')
                 if ('ItemArray' in listings_api[listings_type]
                         and listings_api[listings_type]['ItemArray']
                         and 'Item' in listings_api[listings_type]['ItemArray']):
@@ -286,9 +294,9 @@ def get_my_ebay_selling(listings_type='Summary', api_options=None,
                         listings_api[listings_type]['ItemArray']['Item'])
                 else:
                     n_items = 0
-                print(f'n_items per page = {n_items}')
+                ebay_logger().info(f'n_items per page = {n_items}')
             if n_pages > 1:
-                print('page {} / {}'.format(page, n_pages))
+                ebay_logger().info(f'page {page} / {n_pages}')
 
             # Locate the appropriate results
             field, array = RESPONSE_FIELDS[listings_type]
@@ -333,7 +341,7 @@ def get_active_listings():
 def get_seller_list(item_codes=None, site_id=HOME_SITE_ID,
                     output_selector=None, granularity_level='Coarse',
                     days_before=0, days_after=119, active_only=True,
-                    force_sandbox_value=None, print=print):
+                    force_sandbox_value=None, print=ebay_logger().info):
     """Runs GetSellerList to obtain a list of items.
     Note that this call does NOT filter by SiteID, but does return it.
     Items are returned ending between days_before now and days_after now, with
@@ -628,8 +636,7 @@ def get_features(site_id=HOME_SITE_ID):
         category_id = category['CategoryID']
         category_level = int(category['CategoryLevel'])
         sub_string = 'sub' * (category_level-1)
-        print('Loading for {}category {}...'.format(sub_string,
-                                                    category_id))
+        print(f'Loading for {substring}category {category_id}...')
         options = {'CategoryID': category_id,
                    'DetailLevel': 'ReturnAll',
                    'ViewAllNodes': 'true'}
