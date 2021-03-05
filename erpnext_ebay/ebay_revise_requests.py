@@ -15,7 +15,7 @@ def revise_inventory_status(items, site_id=HOME_SITE_ID):
         # Initialize TradingAPI; default timeout is 20.
         api = get_trading_api(site_id=site_id, api_call='ReviseInventoryStatus',
                               warnings=True, timeout=20)
-        ebay_logger.info(f'Relisting inventory: {items}')
+        ebay_logger().info(f'Relisting inventory: {items}')
 
         response = api.execute('ReviseInventoryStatus',
                                {'InventoryStatus': items})
@@ -39,7 +39,7 @@ def relist_item(ebay_id, site_id=HOME_SITE_ID, item_dict=None):
         # Initialize TradingAPI; default timeout is 20.
         api = get_trading_api(site_id=site_id, api_call='RelistItem',
                               warnings=True, timeout=20)
-        ebay_logger.info(f'Relisting item: {relist_dict}')
+        ebay_logger().info(f'Relisting item: {relist_dict}')
 
         response = api.execute('RelistItem', relist_dict)
 
@@ -62,7 +62,7 @@ def end_items(items, site_id=HOME_SITE_ID):
         # this call (per request container), so add it
         for item in items:
             item['MessageID'] = item['ItemID']
-        ebay_logger.info(f'Ending items {[x["ItemID"] for x in items]}')
+        ebay_logger().info(f'Ending items {[x["ItemID"] for x in items]}')
 
         response = api.execute('EndItems',
                                {'EndItemRequestContainer': items})
