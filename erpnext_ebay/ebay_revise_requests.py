@@ -11,17 +11,17 @@ from erpnext_ebay.ebay_requests import (
 def revise_inventory_status(items, site_id=HOME_SITE_ID):
     """Perform a ReviseInventoryStatus call."""
 
+    api_dict = {'InventoryStatus': items}
     try:
         # Initialize TradingAPI; default timeout is 20.
         api = get_trading_api(site_id=site_id, api_call='ReviseInventoryStatus',
                               warnings=True, timeout=20)
         ebay_logger().info(f'Relisting inventory: {items}')
 
-        response = api.execute('ReviseInventoryStatus',
-                               {'InventoryStatus': items})
+        response = api.execute('ReviseInventoryStatus', api_dict)
 
     except ConnectionError as e:
-        handle_ebay_error(e)
+        handle_ebay_error(e, api_dict)
 
     response_dict = response.dict()
     test_for_message(response_dict)
@@ -44,7 +44,7 @@ def relist_item(ebay_id, site_id=HOME_SITE_ID, item_dict=None):
         response = api.execute('RelistItem', relist_dict)
 
     except ConnectionError as e:
-        handle_ebay_error(e)
+        handle_ebay_error(e, relist_dict)
 
     response_dict = response.dict()
     test_for_message(response_dict)
@@ -55,20 +55,21 @@ def relist_item(ebay_id, site_id=HOME_SITE_ID, item_dict=None):
 def end_items(items, site_id=HOME_SITE_ID):
     """Perform an EndItems call."""
 
+    # MessageID is (contrary to documentation) apparently required for
+    # this call (per request container), so add it
+    for item in items:
+        item['MessageID'] = item['ItemID']
+    api_dict = {'EndItemRequestContainer': items}
+
     try:
         # Initialize TradingAPI; default timeout is 20.
         api = get_trading_api(site_id=site_id, warnings=True, timeout=20)
-        # MessageID is (contrary to documentation) apparently required for
-        # this call (per request container), so add it
-        for item in items:
-            item['MessageID'] = item['ItemID']
         ebay_logger().info(f'Ending items {[x["ItemID"] for x in items]}')
 
-        response = api.execute('EndItems',
-                               {'EndItemRequestContainer': items})
+        response = api.execute('EndItems', api_dict)
 
     except ConnectionError as e:
-        handle_ebay_error(e)
+        handle_ebay_error(e, api_dict)
 
     response_dict = response.dict()
     test_for_message(response_dict)
@@ -88,6 +89,6 @@ def trading_api_call(api_call, input_dict, site_id=HOME_SITE_ID,
         response = api.execute(api_call, input_dict)
 
     except ConnectionError as e:
-        handle_ebay_error(e)
+        handle_ebay_error(e, input_dict)
 
     return response.dict()

@@ -71,7 +71,7 @@ class ParallelTrading(Trading):
                         parse_response=parse_response)
 
 
-def handle_ebay_error(e):
+def handle_ebay_error(e, input_dict=None):
     """Throw an appropriate Frappe error message on error."""
     ebay_logger().error(f'handle_ebay_error {e}')
     try:
@@ -80,7 +80,10 @@ def handle_ebay_error(e):
             errors = api_dict['Errors']
         else:
             errors = [api_dict['Errors']]
-        messages = []
+        if input_dict:
+            messages = [str(input_dict)]
+        else:
+            messages = []
         for error in errors:
             if error['ErrorCode'] == "932":
                 # eBay auth token has expired
@@ -177,6 +180,7 @@ def get_orders(order_status='All', include_final_value_fees=True):
     orders = []
     page = 1
 
+    api_options = {}
     try:
         # Initialize TradingAPI; default timeout is 20.
 
@@ -215,7 +219,7 @@ def get_orders(order_status='All', include_final_value_fees=True):
             page += 1
 
     except ConnectionError as e:
-        handle_ebay_error(e)
+        handle_ebay_error(e, api_options)
 
     return orders, num_days
 
@@ -321,7 +325,7 @@ def get_my_ebay_selling(listings_type='Summary', api_options=None,
             page += 1
 
     except ConnectionError as e:
-        handle_ebay_error(e)
+        handle_ebay_error(e, api_options)
 
     return listings, summary
 
@@ -372,6 +376,7 @@ def get_seller_list(item_codes=None, site_id=HOME_SITE_ID,
     executor = ThreadPoolExecutor(max_workers=50)
 
     api = None
+    api_dict = {}
     try:
         # Initialize TradingAPI; default timeout is 20.
 
@@ -462,7 +467,7 @@ def get_seller_list(item_codes=None, site_id=HOME_SITE_ID,
             frappe.db.commit()
 
     except ConnectionError as e:
-        handle_ebay_error(e)
+        handle_ebay_error(e, api_dict)
 
     finally:
         executor.shutdown()
@@ -504,7 +509,7 @@ def get_item(item_id=None, item_code=None, site_id=HOME_SITE_ID,
         test_for_message(listing)
 
     except ConnectionError as e:
-        handle_ebay_error(e)
+        handle_ebay_error(e, api_dict)
 
     return listing['Item']
 
