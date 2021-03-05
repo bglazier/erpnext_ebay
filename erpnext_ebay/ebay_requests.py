@@ -93,9 +93,10 @@ def handle_ebay_error(e):
             else:
                 # Some other eBay error
                 messages.append(f"""eBay error:\n"{error['LongMessage']}""")
-        ebay_logger().error(messages)
+        messages_str = '\n'.join(messages)
+        ebay_logger().error(messages_str)
         ebay_logger().error(str(api_dict))
-        frappe.throw('\n'.join(messages))
+        frappe.throw(messages_str)
     except Exception:
         # We have not handled this correctly; just raise the original error.
         raise e
@@ -121,8 +122,9 @@ def test_for_message(api_dict):
     for e in errors:
         messages.append(
             f'{e["SeverityCode"]} code {e["ErrorCode"]}: {e["LongMessage"]}')
-    msgprint('\n'.join(messages))
-    ebay_logger().warning(message)
+    messages_str = '\n'.join(messages)
+    msgprint(messages_str)
+    ebay_logger().warning(messages_str)
 
 
 def get_trading_api(site_id=HOME_SITE_ID, warnings=True, timeout=20,
