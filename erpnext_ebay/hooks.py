@@ -29,7 +29,8 @@ fixtures = [
 
 # Add custom scripts
 doctype_js = {
-    "Item": "custom_scripts/item.js"
+    "Item": "custom_scripts/item.js",
+    "Website Slideshow": "custom_scripts/website_slideshow.js"
 }
 
 # Includes in <head>
@@ -101,6 +102,10 @@ doc_events = {
             "erpnext_ebay.custom_methods.item_methods.item_onload",
         "before_save":
             "erpnext_ebay.custom_methods.item_methods.item_before_save"
+    },
+    "Website Slideshow": {
+        "validate":
+            "erpnext_ebay.custom_methods.website_slideshow_methods.website_slideshow_validate"
     }
 }
 
