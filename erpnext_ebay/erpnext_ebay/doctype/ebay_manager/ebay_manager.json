@@ -40,7 +40,8 @@
    "bold": 1,
    "fieldname": "sync_categories_button",
    "fieldtype": "Button",
-   "label": "Load eBay UK Categories"
+   "label": "Load eBay UK Categories",
+   "permlevel": 1
   },
   {
    "fieldname": "column_break_1",
@@ -55,7 +56,7 @@
   }
  ],
  "issingle": 1,
- "modified": "2021-02-01 15:07:07.166560",
+ "modified": "2021-03-15 09:40:43.863831",
  "modified_by": "Administrator",
  "module": "Erpnext Ebay",
  "name": "eBay Manager",
@@ -77,6 +78,18 @@
    "write": 1
   },
   {
+   "permlevel": 1,
+   "read": 1,
+   "role": "System Manager",
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "eBay Administrator",
+   "write": 1
+  },
+  {
+   "permlevel": 1,
    "read": 1,
    "role": "eBay Administrator",
    "write": 1
