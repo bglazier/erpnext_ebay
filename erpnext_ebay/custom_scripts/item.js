@@ -162,7 +162,7 @@ frappe.ui.form.on("Item", {
                 // Call server-side view_slideshow
                 // Get the list of images and format into a 2 column
                 // Bootstrap layout with clickable links and filenames
-                method: 'erpnext_ebay.auto_slideshow.view_slideshow_py',
+                method: 'erpnext_ebay.custom_methods.website_slideshow_methods.view_slideshow_py',
                 args: {
                     slideshow: frm.doc.slideshow
                 },
@@ -209,6 +209,15 @@ frappe.ui.form.on("Item", {
             frappe.msgprint("There is no Website Slideshow for this Item.");
         }
 
+    },
+
+    // Slideshow editing window
+    slideshow_button(frm, doctype, docname) {
+        console.log('slideshow_button');
+        if (!frm.doc.slideshow) {
+            frappe.msgprint("There is no Website Slideshow for this Item.");
+        }
+        open_slideshow_window(frm, frm.doc.slideshow);
     }
 });
 

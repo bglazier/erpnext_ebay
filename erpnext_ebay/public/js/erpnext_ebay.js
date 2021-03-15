@@ -12,6 +12,89 @@ erpnext_ebay_realtime_event = function(rte_id, tag, event, args) {
     }
 }
 
+
+// *****************************************************************************
+// Slideshow window
+
+class UGSSlideshow extends frappe.ui.Dialog {
+    // The main slideshow window
+    constructor(slideshow) {
+        console.log('constructor');
+        this.slideshow = slideshow;
+        this.ss_doc = frappe.get_doc('Website Slideshow', slideshow);
+        if (!ss_doc) {
+            frappe.dom.freeze('Loading Website Slideshow...');
+            frappe.db.get_doc('Website Slideshow', slideshow)
+            .then((ss_doc) => {
+                this.ss_doc = ss_doc;
+                frappe.dom.unfreeze();
+            });
+        }
+        super();
+    }
+    open() {
+        console.log('OPEN');
+        // Create the dialog
+        this.dialog = new frappe.ui.Dialog({
+            'fields': [
+                {'fieldname': 'ht', 'fieldtype': 'HTML'}
+            ],
+        });
+        this.dialog.$modal = d.$wrapper.find('.modal-dialog').parent();
+        this.dialog.$modal.on('hidden.bs.modal', function (e) {
+            // Ensure the modal is deleted on exit
+            this.dialog.$modal.empty();
+            this.dialog.$modal.remove();
+        })
+
+        // Increase the width from 600px to 1000px
+        this.dialog.$wrapper.find('.modal-dialog').css('width', '1000px');
+
+        this.dialog.set_title(`Website Slideshow ${slideshow}`);
+        this.dialog.show();
+    }
+    close() {
+        console.log('CLOSE');
+    }
+    refresh() {
+        console.log('REFRESH');
+    }
+    save() {
+        console.log('SAVE');
+        frappe.call({
+            method: 'frappe.client.save',
+            args: {doc: ss_doc},
+            error_handlers: {
+                'TimestampMismatchError': (r) => {
+                    // If the Website Slideshow doc is out of date
+                    const messages = JSON.parse(r._server_messages)
+                    const msg_obj = JSON.parse(messages[0])
+                    msg_obj.message = message.message.replace('Document', 'Website Slideshow');
+                    frappe.msgprint(msg_obj);
+                }
+            }
+        }).then(({message}) => {
+            // On success
+            console.log(message)}
+        );
+    }
+}
+
+function open_slideshow_window(frm, slideshow) {
+    // Opens a modal window for editing the Website Slideshow 'slideshow'
+
+    if (cur_slideshow) {
+        cur_slideshow.close();
+    }
+
+    cur_slideshow = new UGSSlideshow(slideshow);
+    cur_slideshow.open()
+}
+
+
+// *****************************************************************************
+// Auto slideshow
+
 // Update slideshow window
 // This is called as auto_slideshow proceeds to update the modal dialog box
 function update_slideshow(tag, JSON_args) {

@@ -116,27 +116,6 @@ def ugs_save_file_on_filesystem_hook(*args, **kwargs):
 
 
 @frappe.whitelist()
-def view_slideshow_py(slideshow):
-
-    # Whitelisted function; check permissions
-    if not frappe.has_permission('Item', 'read'):
-        frappe.throw('Need read permissions on Item!',
-                     frappe.PermissionError)
-
-    images_path = os.path.abspath(frappe.get_site_path('public'))
-
-    image_list = frappe.db.sql("""
-        SELECT image
-        FROM `tabWebsite Slideshow Item`
-        WHERE parent=%s
-        ORDER BY idx;
-        """, (slideshow,), as_dict=False)
-    image_list = [x[0] for x in image_list]
-
-    return image_list
-
-
-@frappe.whitelist()
 def process_new_images(item_code, rte_id, tag):
     """Read images from 'uploads' folder, sort and rename them, resize and
     auto-orient them, copy them to the site public images folder and finally
