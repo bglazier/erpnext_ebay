@@ -29,7 +29,7 @@ def realtime_eval(rte_id, tag, event, msg):
     """
 
     rte_msg = json.dumps(msg)
-    js = "erpnext_ebay_realtime_event('{}', '{}', '{}', '{}');"
+    js = "erpnext_ebay.realtime_event('{}', '{}', '{}', '{}');"
     js = js.format(rte_id, tag, event, rte_msg)
     frappe.publish_realtime(event='eval_js', message=js,
                             user=frappe.session.user)

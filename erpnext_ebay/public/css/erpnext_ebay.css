@@ -1,0 +1,104 @@
+/* Erpnext eBay custom CSS */
+
+.ugs-slideshow-dialog {
+    width: 80vw;
+}
+
+.ugs-slideshow-extra-message {
+    flex: 1;
+    font-size: 16px;
+    margin-bottom: 20px;
+}
+
+.ugs-slideshow-zoom-slider {
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.ugs-slideshow-zoom-slider:hover {
+    opacity: 1.0;
+}
+
+.ugs-slideshow-entries {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-evenly;
+    margin: -40px 0 40px -40px;
+}
+
+.ugs-slideshow-entry {
+    position: relative;
+    margin: 40px 0 0 40px;
+}
+
+.ugs-slideshow-entry > img {
+    object-fit: contain;
+}
+
+.ugs-slideshow-entry-icon-box {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background-color: rgba(221, 221, 221, 0.7);
+    padding: 4px;
+    border-radius: 4px;
+}
+
+.ugs-slideshow-entry-icon-box > i {
+    font-size: 24px;
+    display: block;
+    margin-bottom: 4px;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.ugs-slideshow-entry-icon-box > i:hover {
+    opacity: 1.0
+}
+
+.ugs-slideshow-entry-icon-box > i:last-child {
+    margin-bottom: 0;
+}
+
+.ugs-slideshow-entry-top {
+    box-shadow: 0 0 10px 10px #86b817;
+    /*#e53238;*/
+}
+
+.ugs-n-ebay-images {
+    margin-left: 10px;
+}
+
+.ugs-n-ebay-images-span {
+    float: left;
+    width: 30px;
+    height: 30px;
+    margin-left: -1px;
+    font-size: 12px;
+    line-height: 29px;
+    text-align: center;
+    border: 1px solid #ddd;
+    transition: 0.2s;
+    cursor: pointer;
+}
+
+.ugs-n-ebay-images-span:hover {
+    color: #161b1f;
+    background-color: #eee;
+    border-color: #ddd;
+}
+
+.ugs-n-ebay-images-span.disabled {
+    color: #777;
+    cursor: not-allowed;
+    background-color: #fff;
+    border-color: #ddd;
+}
+
+.ugs-n-ebay-images-span.active {
+    z-index: 2;
+    color: #fff;
+    cursor: default;
+    background-color: #5e64ff;
+    border-color: #5e64ff;
+}
