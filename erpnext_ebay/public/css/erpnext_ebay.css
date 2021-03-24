@@ -1,7 +1,52 @@
 /* Erpnext eBay custom CSS */
 
+.ugs-slideshow-modal {
+    padding-right: 0 !important;
+    -ms-overflow-style: none;
+    overflow: -moz-scrollbars-none;
+    scrollbar-width: none;
+}
+
+.ugs-slideshow-modal::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+    background: transparent;
+}
+
+.ugs-slideshow-modal > .modal-backdrop {
+    height: 101vh !important;
+    position: absolute;
+}
+
 .ugs-slideshow-dialog {
-    width: 80vw;
+    width: 90vw;
+}
+
+.ugs-slideshow-dialog {
+    height: calc(100vh - 20px);
+}
+
+@media (min-width: 768px) {
+    .ugs-slideshow-dialog {
+        height: calc(100vh - 60px);
+    }
+}
+
+.ugs-slideshow-dialog > .modal-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.ugs-slideshow-dialog > .modal-content > .modal-header {
+    flex: 0 0 auto;
+}
+
+.ugs-slideshow-dialog > .modal-content > .modal-body {
+    flex: 0 1 auto;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
 }
 
 .ugs-slideshow-extra-message {
@@ -35,6 +80,18 @@
     object-fit: contain;
 }
 
+.ugs-slideshow-entry-arrow-box {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    left: 0px;
+    width: 100%;
+    text-align: center;
+    font-size: 80px;
+    opacity: 0.5;
+    color: white;
+}
+
 .ugs-slideshow-entry-icon-box {
     position: absolute;
     top: 8px;
@@ -45,11 +102,16 @@
 }
 
 .ugs-slideshow-entry-icon-box > i {
+    color: #36414c;
     font-size: 24px;
     display: block;
     margin-bottom: 4px;
     opacity: 0.7;
     transition: opacity 0.2s;
+}
+
+.ugs-slideshow-entry-icon-box > .fs-trash {
+    color: #cc0000;
 }
 
 .ugs-slideshow-entry-icon-box > i:hover {
@@ -58,6 +120,15 @@
 
 .ugs-slideshow-entry-icon-box > i:last-child {
     margin-bottom: 0;
+}
+
+.ugs-slideshow-entry.direction-1 > div > i.fa-rotate-left,
+.ugs-slideshow-entry.direction-1 > div > i.fa-rotate-right,
+.ugs-slideshow-entry.direction-2 > div > i.fa-rotate-left,
+.ugs-slideshow-entry.direction-2 > div > i.fa-rotate-right,
+.ugs-slideshow-entry.direction-3 > div > i.fa-rotate-left,
+.ugs-slideshow-entry.direction-3 > div > i.fa-rotate-right {
+    color: #000bbb;
 }
 
 .ugs-slideshow-entry-top {

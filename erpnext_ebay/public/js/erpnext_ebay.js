@@ -21,7 +21,9 @@ var erpnext_ebay = {
     // This is called as auto_slideshow proceeds to update the modal dialog box
     update_slideshow(tag, JSON_args) {
         // Check we have the right tag
-        if (tag != cur_frm.slideshow_dialog.tag) return;
+        if (tag != cur_frm.slideshow_dialog.tag) {
+            return;
+        }
 
         const base_url = frappe.urllib.get_base_url();
         const args = JSON.parse(JSON_args);
@@ -111,6 +113,15 @@ class UGSSlideshow {
     // The main slideshow window
     static image_widths = [200, 300, 400, 500, 800, 1200];
     static aspect_ratio = 0.75;
+    static old_direction_arrows = {
+        0: '',
+        1: 'fa-long-arrow-left',
+        2: 'fa-long-arrow-down',
+        3: 'fa-long-arrow-right'
+    }
+    static all_direction_arrows = (
+        'fa-long-arrow-left fa-long-arrow-down fa-long-arrow-right'
+    );
     constructor(slideshow, extra_message) {
         // Construct and show slideshow dialog
         console.log('constructor');
@@ -129,7 +140,7 @@ class UGSSlideshow {
     make() {
         // Make basics of slideshow dialog
         this.$wrapper = $(
-        `<div class="modal fade" style="overflow: auto;" tabindex="-1">
+        `<div class="modal fade ugs-slideshow-modal" tabindex="-1">
             <div class="modal-dialog ugs-slideshow-dialog">
                 <div class="modal-content">
                     <div class="modal-header">
@@ -173,7 +184,7 @@ class UGSSlideshow {
                             <div class="panel panel-default">
                                 <div class="flex align-center panel-body">
                                     <i class="octicon octicon-search" style="color: #d1d8dd; padding-right: 5px"></i>
-                                    <input type="range" min="0" max="5" value="2" class="ugs-slideshow-zoom-slider">
+                                    <input type="range" min="0" max="5" value="1" class="ugs-slideshow-zoom-slider">
                                 </div>
                             </div>
                         </div>
@@ -238,6 +249,9 @@ class UGSSlideshow {
             .removeClass().addClass('indicator ' + indicator);
     }
     dirty() {
+        if (this.ss_doc.__unsaved) {
+            return;
+        }
         this.ss_doc.__unsaved = true;
         this.$save_button.prop('disabled', false);
         this.set_indicator('orange');
@@ -277,6 +291,7 @@ class UGSSlideshow {
             ssi.__direction = ssi.__direction - 4;
         }
         this.refresh_entry_transform($entry, ssi.__direction);
+        this.dirty();
     }
     load() {
         // Load data to this.ss_doc and locals
@@ -357,8 +372,9 @@ class UGSSlideshow {
                 <div class="ugs-slideshow-entry">
                     <img src="${ssi.image}"
                         style="width: ${width}px; height: ${height}px">
+                    <div class="fa ugs-slideshow-entry-arrow-box"></div>
                     <div class="ugs-slideshow-entry-icon-box">
-                        <i class="fa fa-trash" style="color: #cc0000;"></i>
+                        <i class="fa fa-trash"></i>
                         <i class="fa fa-rotate-left"></i>
                         <i class="fa fa-rotate-right"></i>
                     </div>
@@ -414,18 +430,19 @@ class UGSSlideshow {
                 transform = transform + ` scale(${UGSSlideshow.aspect_ratio})`;
             }
         }
-        $entry.children('img').css('transform', transform);
-        // TODO add indicator for rotated images
+        $img.css('transform', transform);
+        $entry
+            .removeClass('direction-0 direction-1 direction-2 direction-3')
+            .addClass(`direction-${direction}`);
+        $entry.children('.ugs-slideshow-entry-arrow-box')
+            .removeClass(UGSSlideshow.all_direction_arrows)
+            .addClass(UGSSlideshow.old_direction_arrows[direction]);
     }
     save() {
         // Save document to server, and update to new document
         console.log('SAVE');
-        
-        // TODO TODO Save image rotations
-        
-        // Save main document
         frappe.call({
-            method: 'frappe.client.save',
+            method: 'erpnext_ebay.custom_methods.website_slideshow_methods.save_with_rotations',
             args: {doc: this.ss_doc},
             freeze: true,
             freeze_message: 'Saving...',

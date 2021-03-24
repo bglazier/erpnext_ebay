@@ -1,4 +1,5 @@
 iso3166
 ebaysdk
+jpegtran-cffi
 frappe
 erpnext
