@@ -351,8 +351,32 @@ class UGSSlideshow {
         this.refresh();
     }
     delete_entry(el) {
-        // Delete this entry
-        console.log('delete ', el);
+        // Prompt to delete this entry
+        const me = this;
+        frappe.confirm(
+            'Delete this image?',
+            () => {
+                me._delete_entry(el);
+            }
+        );
+    }
+    _delete_entry(el) {
+        // Actually delete this entry
+        const $entry = $(el).parent().parent();
+        if ($entry.hasClass('ugs-slideshow-entry-top')) {
+            // Reduce number of eBay images by one (to minimum one)
+            this.ss_doc.number_of_ebay_images = Math.max(
+                this.ss_doc.number_of_ebay_images - 1, 1
+            );
+        }
+        // Remove ss_item and reindex
+        this.ss_doc.slideshow_items.splice($entry.index(), 1)
+        this.ss_doc.slideshow_items.forEach((ssi, i) => {
+            ssi.idx = i + 1;
+        });
+        // Refresh
+        this.dirty();
+        this.refresh();
     }
     rotate_entry(el, clockwise) {
         // Rotate this entry by 90 degrees
