@@ -21,7 +21,7 @@
 }
 
 .ugs-slideshow-dialog {
-    width: 90vw;
+    width: 95vw;
 }
 
 .ugs-slideshow-dialog {
@@ -75,6 +75,7 @@
 .ugs-slideshow-entry {
     position: relative;
     margin: 40px 0 0 40px;
+    border: 1px solid #36414c;
 }
 
 .ugs-slideshow-entry > img {
@@ -111,7 +112,7 @@
     transition: opacity 0.2s;
 }
 
-.ugs-slideshow-entry-icon-box > .fs-trash {
+.ugs-slideshow-entry-icon-box > .fa-trash {
     color: #cc0000;
 }
 
@@ -123,6 +124,11 @@
     margin-bottom: 0;
 }
 
+.ugs-slideshow-top-pick > div > .ugs-slideshow-entry-icon-box,
+.ugs-slideshow-top-pick > div > .ugs-slideshow-entry-arrow-box {
+    display: none;
+}
+
 .ugs-slideshow-entry.direction-1 > div > i.fa-rotate-left,
 .ugs-slideshow-entry.direction-1 > div > i.fa-rotate-right,
 .ugs-slideshow-entry.direction-2 > div > i.fa-rotate-left,
@@ -132,9 +138,16 @@
     color: #000bbb;
 }
 
-.ugs-slideshow-entry-top {
+.ugs-slideshow-normal > .ugs-slideshow-entry-top > img {
     box-shadow: 0 0 10px 10px #86b817;
-    /*#e53238;*/
+}
+
+.ugs-slideshow-top-pick > .ugs-slideshow-entry-top > img {
+    box-shadow: 0 0 4px 4px #ffa00a;
+}
+
+.ugs-slideshow-top-pick > .selected-pick {
+    box-shadow: 0 0 10px 10px #8bd346;
 }
 
 .ugs-n-ebay-images {
@@ -160,6 +173,14 @@
     border-color: #ddd;
 }
 
+.ugs-n-ebay-images-span.active {
+    z-index: 2;
+    color: #fff;
+    cursor: default;
+    background-color: #5e64ff;
+    border-color: #5e64ff;
+}
+
 .ugs-n-ebay-images-span.disabled {
     color: #777;
     cursor: not-allowed;
@@ -167,10 +188,12 @@
     border-color: #ddd;
 }
 
-.ugs-n-ebay-images-span.active {
-    z-index: 2;
-    color: #fff;
-    cursor: default;
-    background-color: #5e64ff;
-    border-color: #5e64ff;
+.ugs-n-ebay-images-span.active.disabled {
+    background-color: #f0f4f7;
+}
+
+.ugs-n-ebay-images-span.disabled.selected-pick {
+    /* selected-pick will always exist with disabled */
+    background-color: #98d85b;
+    border-color: #8bd346;
 }

@@ -124,7 +124,6 @@ class UGSSlideshow {
     );
     constructor(slideshow, extra_message) {
         // Construct and show slideshow dialog
-        console.log('constructor');
         this.slideshow = slideshow;
         this.extra_message = extra_message;
         this.image_width = 300;
@@ -163,7 +162,7 @@ class UGSSlideshow {
                                     <span class="ugs-n-ebay-images-span" data-i="11">11</span>
                                     <span class="ugs-n-ebay-images-span" data-i="12">12</span>
                                     <div class="input-group-btn">
-                                        <button class="btn btn-default btn-primary" type="button">Pick to Top</button>
+                                        <button class="btn btn-default btn-primary btn-modal-top-pick" type="button">Pick to Top</button>
                                     </div>
                                 </div>
                             </div>
@@ -188,18 +187,16 @@ class UGSSlideshow {
                                 </div>
                             </div>
                         </div>
-                        <div class="ugs-slideshow-entries"></div>
+                        <div class="ugs-slideshow-entries ugs-slideshow-normal"></div>
                     </div>
                 </div>
             </div>
         </div>`);
 
         if (this.extra_message) {
-            console.log('this.extra_message: ', this.extra_message);
             this.$wrapper.find('.ugs-slideshow-extra-message')
                 .removeClass('hide')
                 .text(this.extra_message);
-            console.log(this.$wrapper.find('.ugs-slideshow-extra-message'));
         }
 
         this.$wrapper.modal({
@@ -212,11 +209,15 @@ class UGSSlideshow {
         this.$header = this.$wrapper.find(".modal-header");
         this.$buttons = this.$header.find('.buttons');
         this.$entries = this.$body.find('.ugs-slideshow-entries');
+
         this.$n_ebay_spans = this.$header.find('.ugs-n-ebay-images-span');
+        this.$top_pick_button = this.$header.find('.btn-modal-top-pick');
 
         this.$reload_button = this.$buttons.find('.btn-modal-reload');
         this.$save_button = this.$buttons.find('.btn-modal-save');
         this.$close_button = this.$buttons.find('.btn-modal-close');
+
+        this.$zoom_slider = this.$body.find('.ugs-slideshow-zoom-slider');
 
         const me = this;
         this.$reload_button.click(function() {
@@ -231,9 +232,20 @@ class UGSSlideshow {
         this.$n_ebay_spans.click(function () {
             me.set_number_of_ebay_images(this);
         });
-        this.$body.find('.ugs-slideshow-zoom-slider').change(function () {
+        this.$top_pick_button.click(function() {
+            me.top_pick();
+        });
+        this.$zoom_slider.change(function () {
             me.slider_zoom(this);
         });
+        this.$body.find('.ugs-slideshow-entries')
+            .on('click', 'img', function() {
+                const $entry = $(this).parent().parent();
+                if ($entry.hasClass('ugs-slideshow-top-pick')) {
+                    me.top_pick_img_click(this);
+                }
+            }
+        );
         this.$body.find('.ugs-slideshow-entries').on('click', '.fa-trash', function() {
             me.delete_entry(this);
         });
@@ -248,23 +260,86 @@ class UGSSlideshow {
         this.$header.find('.indicator')
             .removeClass().addClass('indicator ' + indicator);
     }
-    dirty() {
-        if (this.ss_doc.__unsaved) {
-            return;
-        }
-        this.ss_doc.__unsaved = true;
-        this.$save_button.prop('disabled', false);
-        this.set_indicator('orange');
-    }
     set_number_of_ebay_images(el) {
         // New number of eBay images selected
         const $span = $(el);
-        if ($span.hasClass('active')) {
+        if ($span.hasClass('active') || $span.hasClass('disabled')) {
             return;
         }
         this.ss_doc.number_of_ebay_images = $span.data('i');
         this.dirty();
         this.refresh_n_ebay_images();
+    }
+    top_pick() {
+        const $button = this.$top_pick_button;
+        if ($button.text() === 'Pick to Top') {
+            // Switch to 'Pick to Top' mode
+            $button.text('Done Picking')
+                .removeClass('btn-primary').addClass('btn-success');
+            this.$save_button.prop('disabled', true);
+            this.$reload_button.prop('disabled', true);
+            this.$zoom_slider.prop('disabled', true);
+            this.$entries.removeClass('ugs-slideshow-normal')
+                .addClass('ugs-slideshow-top-pick');
+            this.$n_ebay_spans.addClass('disabled');
+        } else {
+            // Switch back to normal mode
+            $button.text('Pick to Top')
+                .removeClass('btn-success').addClass('btn-primary');
+            this.$save_button.prop('disabled', false);
+            this.$reload_button.prop('disabled', false);
+            this.$zoom_slider.prop('disabled', false);
+            this.$entries.removeClass('ugs-slideshow-top-pick')
+                .addClass('ugs-slideshow-normal');
+            this.$n_ebay_spans.removeClass('disabled selected-pick')
+            // Get selected top picks
+            const $all_entries = this.$entries.children();
+            const $top_picks = this.$entries.children('.selected-pick');
+            const n_picks = $top_picks.length;
+            // Only make changes if any images selected
+            if (n_picks > 0) {
+                // Get picked and unpicked slideshow item documents
+                const picked = [];
+                const unpicked = [];
+                this.ss_doc.slideshow_items.map((ssi, i) => {
+                    if ($all_entries.eq(i).hasClass('selected-pick')) {
+                        picked.push(ssi);
+                    } else {
+                        unpicked.push(ssi);
+                    }
+                });
+                // Update document
+                this.dirty();
+                this.ss_doc.number_of_ebay_images = n_picks;
+                this.ss_doc.slideshow_items = picked.concat(unpicked);
+                this.ss_doc.slideshow_items.forEach((ssi, i) => {
+                    ssi.idx = i + 1;
+                });
+            }
+            // Remove selected top pick class
+            $top_picks.removeClass('selected-pick');
+            // Refresh
+            this.refresh();
+        }
+    }
+    top_pick_img_click(el) {
+        const $entry = $(el).parent();
+        let n_selected = this.$entries.children('.selected-pick').length
+        if ($entry.hasClass('selected-pick')) {
+            // Remove selected pick
+            $entry.removeClass('selected-pick');
+            n_selected -= 1;
+        } else if (n_selected >= 12) {
+            // Would add, except there are already 12 selected
+            return;
+        } else {
+            // Add new selected pick
+            $entry.addClass('selected_pick').addClass('selected-pick');
+            n_selected += 1;
+        }
+        this.$n_ebay_spans.removeClass('selected-pick');
+        this.$n_ebay_spans.filter(`[data-i=${n_selected}]`)
+            .addClass('selected-pick');
     }
     slider_zoom(el) {
         // Slider zoom has changed
@@ -281,7 +356,6 @@ class UGSSlideshow {
     }
     rotate_entry(el, clockwise) {
         // Rotate this entry by 90 degrees
-        console.log('rotate: ', el, clockwise);
         const $entry = $(el).parent().parent();
         const ssi = this.ss_doc.slideshow_items[$entry.index()];
         ssi.__direction = (ssi.__direction || 0) + (clockwise ? -1 : 1)
@@ -293,6 +367,19 @@ class UGSSlideshow {
         this.refresh_entry_transform($entry, ssi.__direction);
         this.dirty();
     }
+    clean() {
+        this.ss_doc.__unsaved - false;
+        this.$save_button.prop('disabled', false);
+        this.set_indicator('blue');
+    }
+    dirty() {
+        if (this.ss_doc.__unsaved) {
+            return;
+        }
+        this.ss_doc.__unsaved = true;
+        this.$save_button.prop('disabled', false);
+        this.set_indicator('orange');
+    }
     load() {
         // Load data to this.ss_doc and locals
         console.log('LOAD');
@@ -300,6 +387,7 @@ class UGSSlideshow {
         frappe.db.get_doc('Website Slideshow', this.slideshow)
         .then((ss_doc) => {
             this.ss_doc = ss_doc;
+            this.clean();
             this.refresh();
             frappe.dom.unfreeze();
         });
@@ -325,7 +413,7 @@ class UGSSlideshow {
     }
     reload() {
         // Reload button - reload document, discarding changes
-        console.log('REFRESH');
+        console.log('RELOAD');
         if (this.ss_doc.__unsaved) {
             // There are changes
             frappe.confirm(
@@ -342,8 +430,6 @@ class UGSSlideshow {
     refresh() {
         // Draw the slideshow
         console.log('REFRESH');
-        console.log(this.ss_doc);
-        this.set_indicator('blue');
         // Create slideshow images
         this.refresh_entries();
         // Set up number_of_ebay_images
@@ -367,7 +453,6 @@ class UGSSlideshow {
         const width = this.image_width;
         const height = UGSSlideshow.aspect_ratio * width;
         this.ss_doc.slideshow_items.forEach((ssi) => {
-            console.log('ssi: ', ssi);
             const $entry = $(`
                 <div class="ugs-slideshow-entry">
                     <img src="${ssi.image}"
@@ -386,7 +471,6 @@ class UGSSlideshow {
     refresh_n_ebay_images() {
         // Refresh number-of-eBay-images indicator on images
         const n_ebay = this.ss_doc.number_of_ebay_images;
-        console.log('refresh ebay_images n_ebay: ', n_ebay);
         this.$n_ebay_spans.removeClass('active');
         this.$n_ebay_spans.filter(`[data-i="${n_ebay}"]`)
             .addClass('active');
@@ -461,6 +545,7 @@ class UGSSlideshow {
             this.ss_doc = message;
             frappe.model.sync(message);
             this.$save_button.prop('disabled', true);
+            this.clean();
             this.refresh();
         });
     }
