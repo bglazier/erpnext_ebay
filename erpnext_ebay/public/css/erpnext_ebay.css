@@ -1,5 +1,6 @@
 /* Erpnext eBay custom CSS */
 
+/* Slideshow dialog styling */
 .ugs-slideshow-modal {
     padding-right: 0 !important;
     -ms-overflow-style: none;
@@ -9,6 +10,7 @@
 }
 
 .ugs-slideshow-modal::-webkit-scrollbar {
+    /* Hide scrollbar of the modal on Chrome */
     display: none;
     width: 0;
     height: 0;
@@ -16,35 +18,38 @@
 }
 
 .ugs-slideshow-modal > .modal-backdrop {
+    /* Force a scrolling region so we can contain the overscroll */
     height: 101vh !important;
     position: absolute;
 }
 
 .ugs-slideshow-dialog {
+    /* Modal takes up most of the screen */
     width: 95vw;
-}
-
-.ugs-slideshow-dialog {
     height: calc(100vh - 20px);
 }
 
 @media (min-width: 768px) {
     .ugs-slideshow-dialog {
+        /* Margins are larger on larger screens */
         height: calc(100vh - 60px);
     }
 }
 
 .ugs-slideshow-dialog > .modal-content {
+    /* Flex container for modal */
     display: flex;
     flex-direction: column;
     height: 100%;
 }
 
 .ugs-slideshow-dialog > .modal-content > .modal-header {
+    /* Header bar */
     flex: 0 0 auto;
 }
 
 .ugs-slideshow-dialog > .modal-content > .modal-body {
+    /* Body of modal; itself a scrolling flex container */
     flex: 0 1 auto;
     overflow-y: auto;
     overscroll-behavior-y: contain;
@@ -56,6 +61,7 @@
     margin-bottom: 20px;
 }
 
+/* Zoom slider */
 .ugs-slideshow-zoom-slider {
     opacity: 0.7;
     transition: opacity 0.2s;
@@ -65,7 +71,9 @@
     opacity: 1.0;
 }
 
+/* Slideshow entries */
 .ugs-slideshow-entries {
+    /* Container for slideshow image entries */
     display: flex;
     flex-wrap: wrap;
     justify-content: space-evenly;
@@ -73,13 +81,40 @@
 }
 
 .ugs-slideshow-entry {
+    /* Slideshow entry element */
     position: relative;
-    margin: 40px 0 0 40px;
-    border: 1px solid #36414c;
+    margin-top: 40px;
+    padding-left: 40px;
 }
 
 .ugs-slideshow-entry > img {
+    /* Make image fit in box, and add move cursor. Use content-box sizing. */
+    box-sizing: content-box;
     object-fit: contain;
+    cursor: move;
+    border: 1px solid #36414c;
+}
+
+.ugs-slideshow-entry.entry-drag > img {
+    /* Reduce opacity of image, and dash border, when entry is being dragged */
+    opacity: 0.3;
+    border: 1px dashed #36414c;
+}
+
+.ugs-slideshow-entry-drag-target {
+    /* Drag target */
+    display: none;
+    position: absolute;
+    top: 0;
+    left: -5px;
+    height: 100%;
+    width: 5px;
+    background-color: #36414c;
+}
+
+.drag-over > .ugs-slideshow-entry-drag-target {
+    /* Show the drag target when the entry has been dragged over */
+    display: block;
 }
 
 .ugs-slideshow-entry-arrow-box {
@@ -101,6 +136,16 @@
     background-color: rgba(221, 221, 221, 0.7);
     padding: 4px;
     border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.ugs-slideshow-entry:hover > .ugs-slideshow-entry-icon-box {
+    opacity: 1;
+}
+
+.ugs-slideshow-entry.entry-drag > .ugs-slideshow-entry-icon-box {
+    display: none;
 }
 
 .ugs-slideshow-entry-icon-box > i {
@@ -125,7 +170,9 @@
 }
 
 .ugs-slideshow-top-pick > div > .ugs-slideshow-entry-icon-box,
-.ugs-slideshow-top-pick > div > .ugs-slideshow-entry-arrow-box {
+.ugs-slideshow-top-pick > div > .ugs-slideshow-entry-arrow-box,
+.drag-active > div > .ugs-slideshow-entry-icon-box,
+.drag-active > div > .ugs-slideshow-entry-arrow-box {
     display: none;
 }
 
@@ -150,6 +197,7 @@
     box-shadow: 0 0 10px 10px #8bd346;
 }
 
+/* Styling for 'number of ebay images' bar and selector */
 .ugs-n-ebay-images {
     margin-left: 10px;
 }

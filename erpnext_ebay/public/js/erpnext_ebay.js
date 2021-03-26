@@ -246,14 +246,61 @@ class UGSSlideshow {
                 }
             }
         );
-        this.$body.find('.ugs-slideshow-entries').on('click', '.fa-trash', function() {
+        this.$entries.on('click', '.fa-trash', function() {
             me.delete_entry(this);
         });
-        this.$body.find('.ugs-slideshow-entries').on('click', '.fa-rotate-left', function() {
+        this.$entries.on('click', '.fa-rotate-left', function() {
             me.rotate_entry(this, false);
         });
-        this.$body.find('.ugs-slideshow-entries').on('click', '.fa-rotate-right', function() {
+        this.$entries.on('click', '.fa-rotate-right', function() {
             me.rotate_entry(this, true);
+        });
+
+        let drag_target = null;
+        let drag_counter = 0;
+        this.$entries.on('dragstart', '.ugs-slideshow-entry', function(e) {
+            console.log('dragstart: ', e, this);
+            me.$entries.addClass('drag-active');
+            $(this).addClass('entry-drag');
+        });
+        this.$entries.on('dragover', '.ugs-slideshow-entry', function(e) {
+            e.preventDefault();
+            return false;
+        });
+        this.$entries.on('dragenter', '.ugs-slideshow-entry', function(e) {
+            console.log('dragenter: ', this, e, e.timeStamp, e.target, drag_target, drag_counter);
+            if (drag_target == this) {
+                drag_counter += 1;
+            } else {
+                $(drag_target).removeClass('drag-over');
+                drag_target = this;
+                drag_counter = 1;
+            }
+            if (drag_counter == 1) {
+                $(this).addClass('drag-over');
+            }
+            return false;
+        });
+        this.$entries.on('dragleave', '.ugs-slideshow-entry', function(e) {
+            console.log('dragleave: ', this, e, e.timeStamp, e.target, drag_target, drag_counter);
+            if (drag_target == this) {
+                drag_counter -= 1;
+            } else {
+                drag_target = null;
+                drag_counter = 0;
+            }
+            if (drag_counter <= 0) {
+                $(this).removeClass('drag-over');
+            }
+            return false;
+        });
+        this.$entries.on('dragend', '.ugs-slideshow-entry', function(e) {
+            console.log('dragend: ', e, this);
+            drag_target = null;
+            drag_counter = 0;
+            me.$entries.removeClass('drag-active');
+            me.$entries.find('.drag-over').removeClass('drag-over');
+            $(this).removeClass('entry-drag');
         });
     }
     set_indicator(indicator) {
@@ -478,9 +525,10 @@ class UGSSlideshow {
         const height = UGSSlideshow.aspect_ratio * width;
         this.ss_doc.slideshow_items.forEach((ssi) => {
             const $entry = $(`
-                <div class="ugs-slideshow-entry">
-                    <img src="${ssi.image}"
+                <div class="ugs-slideshow-entry" draggable="true">
+                    <img src="${ssi.image}" draggable="false"
                         style="width: ${width}px; height: ${height}px">
+                    <div class="ugs-slideshow-entry-drag-target"></div>
                     <div class="fa ugs-slideshow-entry-arrow-box"></div>
                     <div class="ugs-slideshow-entry-icon-box">
                         <i class="fa fa-trash"></i>
