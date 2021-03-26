@@ -370,7 +370,7 @@ class UGSSlideshow {
             // Switch back to normal mode
             $button.text('Pick to Top')
                 .removeClass('btn-success').addClass('btn-primary');
-            this.$save_button.prop('disabled', false);
+            this.$save_button.prop('disabled', !this.ss_doc.__unsaved);
             this.$reload_button.prop('disabled', false);
             this.$zoom_slider.prop('disabled', false);
             this.$entries.removeClass('ugs-slideshow-top-pick')
@@ -482,8 +482,8 @@ class UGSSlideshow {
         this.dirty();
     }
     clean() {
-        this.ss_doc.__unsaved - false;
-        this.$save_button.prop('disabled', false);
+        this.ss_doc.__unsaved = false;
+        this.$save_button.prop('disabled', true);
         this.set_indicator('blue');
     }
     dirty() {
@@ -671,6 +671,10 @@ class UGSSlideshow {
             this.$save_button.prop('disabled', true);
             this.clean();
             this.refresh();
+            frappe.show_alert({
+                message: 'Website Slideshow saved',
+                indicator: 'green'
+            }, 5);
         });
     }
 }
