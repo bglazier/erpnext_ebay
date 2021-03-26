@@ -499,9 +499,17 @@ class UGSSlideshow {
         frappe.dom.freeze('Loading Website Slideshow...');
         frappe.db.get_doc('Website Slideshow', this.slideshow)
         .then((ss_doc) => {
+            // Successfully loaded
             this.ss_doc = ss_doc;
             this.clean();
             this.refresh();
+            frappe.dom.unfreeze();
+        }, () => {
+            // Failed to load
+            if (!this.ss_doc) {
+                // If we don't have a document, just exit
+                this._close();
+            }
             frappe.dom.unfreeze();
         });
     }
