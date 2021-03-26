@@ -215,6 +215,7 @@ frappe.ui.form.on("Item", {
     slideshow_button(frm, doctype, docname) {
         if (!frm.doc.slideshow) {
             frappe.msgprint("There is no Website Slideshow for this Item.");
+            return;
         }
         const ebay_message = `eBay Item Group: ${frm.doc.item_group_ebay}`;
         erpnext_ebay.open_slideshow_window(frm, frm.doc.slideshow, ebay_message);
