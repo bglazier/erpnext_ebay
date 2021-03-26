@@ -205,6 +205,7 @@ class UGSSlideshow {
             show: true
         });
 
+        // References
         this.$body = this.$wrapper.find(".modal-body");
         this.$header = this.$wrapper.find(".modal-header");
         this.$buttons = this.$header.find('.buttons');
@@ -219,6 +220,7 @@ class UGSSlideshow {
 
         this.$zoom_slider = this.$body.find('.ugs-slideshow-zoom-slider');
 
+        // Events
         const me = this;
         this.$reload_button.click(function() {
             me.reload();
@@ -256,19 +258,28 @@ class UGSSlideshow {
             me.rotate_entry(this, true);
         });
 
-        let drag_target = null;
-        let drag_counter = 0;
+        // Drag events
+        let drag_target, drag_counter;
+
         this.$entries.on('dragstart', '.ugs-slideshow-entry', function(e) {
-            console.log('dragstart: ', e, this);
+            // Drag begun
+            drag_target = null;
+            drag_counter = 0;
             me.$entries.addClass('drag-active');
-            $(this).addClass('entry-drag');
+            const dragged = $(this);
+            dragged.addClass('entry-drag');
+            e.originalEvent.dataTransfer.dropEffect = "move";
+            e.originalEvent.dataTransfer.setData(
+                'text/plain', dragged.index().toString()
+            );
         });
         this.$entries.on('dragover', '.ugs-slideshow-entry', function(e) {
+            // Allow entries to become drag targets
             e.preventDefault();
             return false;
         });
         this.$entries.on('dragenter', '.ugs-slideshow-entry', function(e) {
-            console.log('dragenter: ', this, e, e.timeStamp, e.target, drag_target, drag_counter);
+            // Entering entry or child of entry
             if (drag_target == this) {
                 drag_counter += 1;
             } else {
@@ -282,7 +293,7 @@ class UGSSlideshow {
             return false;
         });
         this.$entries.on('dragleave', '.ugs-slideshow-entry', function(e) {
-            console.log('dragleave: ', this, e, e.timeStamp, e.target, drag_target, drag_counter);
+            // Leaving entry or child of entry
             if (drag_target == this) {
                 drag_counter -= 1;
             } else {
@@ -295,12 +306,31 @@ class UGSSlideshow {
             return false;
         });
         this.$entries.on('dragend', '.ugs-slideshow-entry', function(e) {
-            console.log('dragend: ', e, this);
+            // Drag ended
             drag_target = null;
             drag_counter = 0;
             me.$entries.removeClass('drag-active');
             me.$entries.find('.drag-over').removeClass('drag-over');
             $(this).removeClass('entry-drag');
+            return false;
+        });
+        this.$entries.on('drop', '.ugs-slideshow-entry', function(e) {
+            // Entry dropped on another entry
+            drag_target = null;
+            drag_counter = 0;
+            me.$entries.removeClass('drag-active');
+            const to_id = $(this).index();
+            const from_id = parseInt(
+                e.originalEvent.dataTransfer.getData('text/plain'), 10
+            );
+            if (from_id == to_id) {
+                // Drop on self; nothing to do.
+                return false;
+            }
+            setTimeout(() => {
+                me.move_entry(from_id, to_id);
+            });
+            return false;
         });
     }
     set_indicator(indicator) {
@@ -328,6 +358,7 @@ class UGSSlideshow {
             this.$zoom_slider.prop('disabled', true);
             this.$entries.removeClass('ugs-slideshow-normal')
                 .addClass('ugs-slideshow-top-pick');
+            this.$entries.children().attr('draggable', false);
             this.$n_ebay_spans.addClass('disabled');
         } else {
             // Switch back to normal mode
@@ -338,6 +369,7 @@ class UGSSlideshow {
             this.$zoom_slider.prop('disabled', false);
             this.$entries.removeClass('ugs-slideshow-top-pick')
                 .addClass('ugs-slideshow-normal');
+            this.$entries.children().attr('draggable', true);
             this.$n_ebay_spans.removeClass('disabled selected-pick')
             // Get selected top picks
             const $all_entries = this.$entries.children();
@@ -359,9 +391,7 @@ class UGSSlideshow {
                 this.dirty();
                 this.ss_doc.number_of_ebay_images = n_picks;
                 this.ss_doc.slideshow_items = picked.concat(unpicked);
-                this.ss_doc.slideshow_items.forEach((ssi, i) => {
-                    ssi.idx = i + 1;
-                });
+                this.reorder_items();
             }
             // Remove selected top pick class
             $top_picks.removeClass('selected-pick');
@@ -397,6 +427,15 @@ class UGSSlideshow {
         this.image_width = width;
         this.refresh();
     }
+    move_entry(from_id, to_id) {
+        // Move an entry from position from_id to position to_id
+        const ss_items = this.ss_doc.slideshow_items;
+        ss_items.splice(to_id, 0, ss_items.splice(from_id, 1)[0])
+        this.reorder_items();
+        // Refresh
+        this.dirty();
+        this.refresh();
+    }
     delete_entry(el) {
         // Prompt to delete this entry
         const me = this;
@@ -418,9 +457,7 @@ class UGSSlideshow {
         }
         // Remove ss_item and reindex
         this.ss_doc.slideshow_items.splice($entry.index(), 1)
-        this.ss_doc.slideshow_items.forEach((ssi, i) => {
-            ssi.idx = i + 1;
-        });
+        this.reorder_items()
         // Refresh
         this.dirty();
         this.refresh();
@@ -453,7 +490,6 @@ class UGSSlideshow {
     }
     load() {
         // Load data to this.ss_doc and locals
-        console.log('LOAD');
         frappe.dom.freeze('Loading Website Slideshow...');
         frappe.db.get_doc('Website Slideshow', this.slideshow)
         .then((ss_doc) => {
@@ -465,7 +501,6 @@ class UGSSlideshow {
     }
     close() {
         // Close and empty dialog
-        console.log('CLOSE');
         if (this.ss_doc.__unsaved) {
             // There are changes
             frappe.confirm(
@@ -484,7 +519,6 @@ class UGSSlideshow {
     }
     reload() {
         // Reload button - reload document, discarding changes
-        console.log('RELOAD');
         if (this.ss_doc.__unsaved) {
             // There are changes
             frappe.confirm(
@@ -500,7 +534,6 @@ class UGSSlideshow {
     }
     refresh() {
         // Draw the slideshow
-        console.log('REFRESH');
         // Create slideshow images
         this.refresh_entries();
         // Set up number_of_ebay_images
@@ -526,6 +559,7 @@ class UGSSlideshow {
         this.ss_doc.slideshow_items.forEach((ssi) => {
             const $entry = $(`
                 <div class="ugs-slideshow-entry" draggable="true">
+                    <div class="ugs-slideshow-entry-top-pick-shadow-box"></div>
                     <img src="${ssi.image}" draggable="false"
                         style="width: ${width}px; height: ${height}px">
                     <div class="ugs-slideshow-entry-drag-target"></div>
@@ -594,9 +628,14 @@ class UGSSlideshow {
             .removeClass(UGSSlideshow.all_direction_arrows)
             .addClass(UGSSlideshow.old_direction_arrows[direction]);
     }
+    reorder_items() {
+        // Update idx of slideshow items
+        this.ss_doc.slideshow_items.forEach((ssi, i) => {
+            ssi.idx = i + 1;
+        });
+    }
     save() {
         // Save document to server, and update to new document
-        console.log('SAVE');
         frappe.call({
             method: 'erpnext_ebay.custom_methods.website_slideshow_methods.save_with_rotations',
             args: {doc: this.ss_doc},
@@ -613,7 +652,6 @@ class UGSSlideshow {
             }
         }).then(({message}) => {
             // On success
-            console.log(message);
             this.ss_doc = message;
             frappe.model.sync(message);
             this.$save_button.prop('disabled', true);

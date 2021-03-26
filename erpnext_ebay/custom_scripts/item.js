@@ -213,7 +213,6 @@ frappe.ui.form.on("Item", {
 
     // Slideshow editing window
     slideshow_button(frm, doctype, docname) {
-        console.log('slideshow_button');
         if (!frm.doc.slideshow) {
             frappe.msgprint("There is no Website Slideshow for this Item.");
         }

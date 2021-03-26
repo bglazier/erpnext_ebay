@@ -121,8 +121,8 @@
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    left: 0px;
-    width: 100%;
+    left: 40px;
+    width: calc(100% - 40px);
     text-align: center;
     font-size: 80px;
     opacity: 0.5;
@@ -173,6 +173,7 @@
 .ugs-slideshow-top-pick > div > .ugs-slideshow-entry-arrow-box,
 .drag-active > div > .ugs-slideshow-entry-icon-box,
 .drag-active > div > .ugs-slideshow-entry-arrow-box {
+    /* Hide icon and arrow boxes in 'select top pick' and 'drag-active' mode */
     display: none;
 }
 
@@ -182,9 +183,11 @@
 .ugs-slideshow-entry.direction-2 > div > i.fa-rotate-right,
 .ugs-slideshow-entry.direction-3 > div > i.fa-rotate-left,
 .ugs-slideshow-entry.direction-3 > div > i.fa-rotate-right {
+    /* Rotation handles blue when a rotation has occurred */
     color: #000bbb;
 }
 
+/* Box shadow to indicate current 'top picks' in normal and 'top pick' modes */
 .ugs-slideshow-normal > .ugs-slideshow-entry-top > img {
     box-shadow: 0 0 10px 10px #86b817;
 }
@@ -193,8 +196,29 @@
     box-shadow: 0 0 4px 4px #ffa00a;
 }
 
-.ugs-slideshow-top-pick > .selected-pick {
+/* Box shadow for selecting 'top picks' */
+.ugs-slideshow-entry-top-pick-shadow-box {
+    /* Box for selecting 'top pick' shadow boxes */
+    pointer-events: none;
+    position: absolute;
+    left: 40px;
+    top: 0px;
+    width: calc(100% - 40px);
+    height: 100%;
+    display: none;
     box-shadow: 0 0 10px 10px #8bd346;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.ugs-slideshow-top-pick > div > .ugs-slideshow-entry-top-pick-shadow-box {
+    /* Only displayed when in 'top pick' mode */
+    display: block;
+}
+
+.ugs-slideshow-top-pick > .selected-pick > .ugs-slideshow-entry-top-pick-shadow-box {
+    /* Display box shadow */
+    opacity: 0.5;
 }
 
 /* Styling for 'number of ebay images' bar and selector */
