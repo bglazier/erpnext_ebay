@@ -1,5 +1,7 @@
 // Initialize slideshow and main erpnext_ebay object.
 
+/*global cur_frm, frappe*/
+
 var erpnext_ebay = {
     cur_slideshow: null,
 
@@ -35,7 +37,7 @@ var erpnext_ebay = {
                 const n_images = parseInt(args.n_images, 10);
                 $("#ssimg_n").html(args.n_images);
                 const n_rows = Math.ceil((n_images / 3.0)-0.1);
-                $table = $("#slideshow_table");
+                const $table = $("#slideshow_table");
                 let img_id = 1;
                 for (let i = 0; i < n_rows; i++) {
                     // Loop over the rows
@@ -48,6 +50,7 @@ var erpnext_ebay = {
                         );
                         // Add spinning icons for unprocessed images
                         // Different icon for currently processed image
+                        let loader_gif;
                         if (img_id === 1) {
                             loader_gif = base_url + 
                                 "/assets/erpnext_ebay/img/ajax-loader2.gif";
@@ -59,8 +62,10 @@ var erpnext_ebay = {
                         img.attr({'id': 'ss_img_' + img_id});
                         new_col.append(img);
                         new_col.appendTo(new_row);
-                        img_id++;
-                        if (img_id > n_images) break;
+                        img_id += 1;
+                        if (img_id > n_images) {
+                            break;
+                        }
                     }
                 }
                 break;
@@ -71,7 +76,7 @@ var erpnext_ebay = {
                 const img_id = parseInt(args.img_id, 10);
                 const n_images = parseInt(args.n_images, 10);
                 $("#ssimg_id").html(args.img_id);
-                const file_url = base_url + '/' + args.file_url
+                const file_url = base_url + '/' + args.file_url;
                 $("#ss_img_" + img_id).attr('src', file_url);
                 const loader_gif = base_url +
                     "/assets/erpnext_ebay/img/ajax-loader2.gif";
@@ -84,7 +89,7 @@ var erpnext_ebay = {
                 // The slideshow has been created and the dialog box can
                 // be unlocked
                 $("#ss_maintext").html('Slideshow created');
-                const d = cur_frm.slideshow_dialog
+                const d = cur_frm.slideshow_dialog;
                 d.get_close_btn().toggle(true);
                 d.$modal.data('bs.modal').options.backdrop = 'true';
                 d.$modal.data('bs.modal').options.keyboard = 'true';
@@ -109,6 +114,7 @@ var erpnext_ebay = {
 // *****************************************************************************
 // Slideshow window
 
+
 class UGSSlideshow {
     // The main slideshow window
     static image_widths = [200, 300, 400, 500, 800, 1200];
@@ -118,7 +124,7 @@ class UGSSlideshow {
         1: 'fa-long-arrow-left',
         2: 'fa-long-arrow-down',
         3: 'fa-long-arrow-right'
-    }
+    };
     static all_direction_arrows = (
         'fa-long-arrow-left fa-long-arrow-down fa-long-arrow-right'
     );
@@ -280,7 +286,7 @@ class UGSSlideshow {
         });
         this.$entries.on('dragenter', '.ugs-slideshow-entry', function(e) {
             // Entering entry or child of entry
-            if (drag_target == this) {
+            if (drag_target === this) {
                 drag_counter += 1;
             } else {
                 $(drag_target).removeClass('drag-over');
@@ -294,7 +300,7 @@ class UGSSlideshow {
         });
         this.$entries.on('dragleave', '.ugs-slideshow-entry', function(e) {
             // Leaving entry or child of entry
-            if (drag_target == this) {
+            if (drag_target === this) {
                 drag_counter -= 1;
             } else {
                 drag_target = null;
@@ -323,7 +329,7 @@ class UGSSlideshow {
             const from_id = parseInt(
                 e.originalEvent.dataTransfer.getData('text/plain'), 10
             );
-            if (from_id == to_id) {
+            if (from_id === to_id) {
                 // Drop on self; nothing to do.
                 return false;
             }
@@ -370,7 +376,7 @@ class UGSSlideshow {
             this.$entries.removeClass('ugs-slideshow-top-pick')
                 .addClass('ugs-slideshow-normal');
             this.$entries.children().attr('draggable', true);
-            this.$n_ebay_spans.removeClass('disabled selected-pick')
+            this.$n_ebay_spans.removeClass('disabled selected-pick');
             // Get selected top picks
             const $all_entries = this.$entries.children();
             const $top_picks = this.$entries.children('.selected-pick');
@@ -401,7 +407,7 @@ class UGSSlideshow {
     }
     top_pick_img_click(el) {
         const $entry = $(el).parent();
-        let n_selected = this.$entries.children('.selected-pick').length
+        let n_selected = this.$entries.children('.selected-pick').length;
         if ($entry.hasClass('selected-pick')) {
             // Remove selected pick
             $entry.removeClass('selected-pick');
@@ -420,7 +426,7 @@ class UGSSlideshow {
     }
     slider_zoom(el) {
         // Slider zoom has changed
-        const width = UGSSlideshow.image_widths[$(el).val()]
+        const width = UGSSlideshow.image_widths[$(el).val()];
         if (width === this.image_width) {
             return;
         }
@@ -430,7 +436,7 @@ class UGSSlideshow {
     move_entry(from_id, to_id) {
         // Move an entry from position from_id to position to_id
         const ss_items = this.ss_doc.slideshow_items;
-        ss_items.splice(to_id, 0, ss_items.splice(from_id, 1)[0])
+        ss_items.splice(to_id, 0, ss_items.splice(from_id, 1)[0]);
         this.reorder_items();
         // Refresh
         this.dirty();
@@ -456,8 +462,8 @@ class UGSSlideshow {
             );
         }
         // Remove ss_item and reindex
-        this.ss_doc.slideshow_items.splice($entry.index(), 1)
-        this.reorder_items()
+        this.ss_doc.slideshow_items.splice($entry.index(), 1);
+        this.reorder_items();
         // Refresh
         this.dirty();
         this.refresh();
@@ -466,7 +472,7 @@ class UGSSlideshow {
         // Rotate this entry by 90 degrees
         const $entry = $(el).parent().parent();
         const ssi = this.ss_doc.slideshow_items[$entry.index()];
-        ssi.__direction = (ssi.__direction || 0) + (clockwise ? -1 : 1)
+        ssi.__direction = (ssi.__direction || 0) + (clockwise ? -1 : 1);
         if (ssi.__direction < 0) {
             ssi.__direction = ssi.__direction + 4;
         } else if (ssi.__direction > 3) {
@@ -596,13 +602,13 @@ class UGSSlideshow {
             1: 'rotate(270deg)',  // 90 degrees clockwise
             2: 'rotate(180deg)',  // 180 degrees clockwies
             3: 'rotate(90deg)'  // 270 degrees clockwise
-        }
+        };
         const $img = $entry.children('img');
         let transform = direction_transform[direction];
-        if (direction == 1 || direction == 3) {
+        if (direction === 1 || direction === 3) {
             // Find the right scaling
             const nat_aspect = ($img.get(0).naturalHeight || 100) / ($img.get(0).naturalWidth || 100);
-            if (nat_aspect == 1) {
+            if (nat_aspect === 1) {
                 // Square box
                 // No scaling needed
             } else if (nat_aspect >= 1) {
@@ -610,7 +616,7 @@ class UGSSlideshow {
                 const scale_factor = Math.min(
                     1.0 / UGSSlideshow.aspect_ratio,
                     nat_aspect
-                )
+                );
                 transform = transform + ` scale(${scale_factor})`;
             } else if (nat_aspect > UGSSlideshow.aspect_ratio) {
                 // Fat column - shrink on rotate
@@ -644,9 +650,9 @@ class UGSSlideshow {
             error_handlers: {
                 'TimestampMismatchError': (r) => {
                     // If the Website Slideshow doc is out of date
-                    const messages = JSON.parse(r._server_messages)
-                    const msg_obj = JSON.parse(messages[0])
-                    msg_obj.message = message.message.replace('Document', 'Website Slideshow');
+                    const messages = JSON.parse(r._server_messages);
+                    const msg_obj = JSON.parse(messages[0]);
+                    msg_obj.message = msg_obj.message.replace('Document', 'Website Slideshow');
                     frappe.msgprint(msg_obj);
                 }
             }
