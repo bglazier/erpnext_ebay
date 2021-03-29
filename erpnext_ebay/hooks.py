@@ -112,7 +112,7 @@ doc_events = {
 # Override the 'write_file' event so that we can modify images as
 # they are uploaded
 
-write_file = "erpnext_ebay.auto_slideshow.ugs_save_file_on_filesystem_hook"
+write_file = "erpnext_ebay.utils.slideshow_utils.erpnext_ebay_save_file_on_filesystem_hook"
 
 # Scheduled Tasks
 # ---------------

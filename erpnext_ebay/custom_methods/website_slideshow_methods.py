@@ -1,14 +1,12 @@
 # -*- coding: utf-8 -*-
 """Custom methods for Item doctype"""
 
-import imghdr
 import json
+from pathlib import Path
 
 import frappe
 
-from pathlib import Path
-from PIL import Image
-from jpegtran import JPEGImage
+from erpnext_ebay.utils.slideshow_utils import rotate_image
 
 MAX_EBAY_IMAGES = 12
 
@@ -175,45 +173,3 @@ def save_with_rotations(doc):
         frappe.msgprint(f"Could not remove files: {', '.join(err_messages)}")
 
     return doc.as_dict()
-
-
-def rotate_image(old_path, new_path, angle):
-    """Rotate an image (where possible losslessly).
-    Only supports angles 90, 180, and 270 degrees.
-
-    Returns an error message on failure; otherwise, None.
-    """
-    SUPPORTED_FORMATS = ('gif', 'pbm', 'pgm', 'ppm', 'tiff', 'xbm',
-                         'jpeg', 'bmp', 'png', 'webp')
-
-    PILLOW_TRANSPOSE = {
-        90: Image.ROTATE_90,
-        180: Image.ROTATE_180,
-        270: Image.ROTATE_270
-    }
-    JPEGTRAN_ANGLES = {  # JPEGtran rotates are clockwise, not anticlockwise
-        90: 270,
-        180: 180,
-        270: 90
-    }
-
-    if angle not in (90, 180, 270):
-        frappe.throw('Invalid angle supplied to rotate_image!')
-
-    image_type = imghdr.what(old_path)
-    if not image_type:
-        return 'Could not identify image type'
-    if image_type not in SUPPORTED_FORMATS:
-        return f'Unsupported image type {image_type}'
-    if image_type == 'jpeg':
-        # Lossless JPEG rotation
-        image = JPEGImage(str(old_path))
-        if image.exif_orientation != 1:
-            image = image.exif_autotransform()
-        image.rotate(JPEGTRAN_ANGLES[angle]).save(str(new_path))
-    else:
-        # Use Pillow
-        image = Image.open(old_path)
-        image_format = image.format
-        image = image.transpose(PILLOW_TRANSPOSE[angle])
-        image.save(new_path, format=image.format)
