@@ -2,6 +2,9 @@
 
 import frappe
 
+# Maximum number of eBay images per listing
+MAX_EBAY_IMAGES = 12
+
 # Assumed maximum length of eBay attributes and values
 EBAY_ATTR_LEN = 100
 EBAY_ATTR_LEN_STR = str(EBAY_ATTR_LEN)

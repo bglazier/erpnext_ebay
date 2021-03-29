@@ -6,9 +6,8 @@ from pathlib import Path
 
 import frappe
 
+from erpnext_ebay.ebay_constants import MAX_EBAY_IMAGES
 from erpnext_ebay.utils.slideshow_utils import rotate_image
-
-MAX_EBAY_IMAGES = 12
 
 
 def website_slideshow_validate(doc, _method):
