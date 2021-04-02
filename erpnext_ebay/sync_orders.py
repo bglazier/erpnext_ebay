@@ -897,8 +897,7 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
                 "base_ebay_final_value_fee": base_final_value_fee,
                 "valuation_rate": 0.0,
                 "income_account": income_account,
-                "expense_account": f"Cost of Goods Sold - {COMPANY_ACRONYM}",
-                "cost_center": f"Main - {COMPANY_ACRONYM}"
+                "expense_account": f"Cost of Goods Sold - {COMPANY_ACRONYM}"
          })
 
     # Add a single line item for shipping services
