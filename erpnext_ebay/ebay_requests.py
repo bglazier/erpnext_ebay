@@ -375,6 +375,12 @@ def get_seller_list(item_codes=None, site_id=HOME_SITE_ID,
     # Create executor for futures
     executor = ThreadPoolExecutor(max_workers=50)
 
+    # If item codes is passed, trim to 50 characters maximum
+    if item_codes:
+        if any(len(x) > 50 for x in item_codes):
+            frappe.msgprint('Warning - some item codes too long for eBay SKUs')
+        item_codes = [x[0:50] for x in item_codes]
+
     api = None
     api_dict = {}
     try:
