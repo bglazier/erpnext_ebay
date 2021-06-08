@@ -831,7 +831,9 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
             raise ErpnextEbaySyncError('Inconsistent currencies in order!')
 
         # Final Value Fee currently limited to being in *default* currency or
-        # sale currency, and does not include any VAT (for EU sellers).
+        # sale currency, and does not include any VAT (for UK/EU sellers).
+        # With the introduction of Managed Payments, should always be
+        # in home currency, and is only an estimate.
         if final_value_fee_dict['_currencyID'] == default_currency:
             # final value fee typically in seller currency
             base_final_value_fee = float(final_value_fee_dict['value'])
@@ -952,6 +954,17 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
         # Cash on delivery - may not yet be paid (set to zero)
         payments.append({"mode_of_payment": "Cash",
                          "amount": 0.0})
+    elif checkout['PaymentMethod'] in ('CCAccepted', 'CreditCard'):
+        # eBay Managed Payments (with/without eBay gift card)
+        # Add amount as it has been paid
+        ebay_payment_account = f'eBay Managed {currency}'
+        if not frappe.db.exists('Mode of Payment', ebay_payment_account):
+            raise ErpnextEbaySyncError(
+                f'Mode of Payment "{ebay_payment_account}" does not exist!')
+        if amount_paid > 0.0:
+            payments.append({"mode_of_payment": ebay_payment_account,
+                             "amount": amount_paid})
+            #submit_on_pay = True
     elif checkout['PaymentMethod'] == 'PayPal':
         # PayPal - add amount as it has been paid
         paypal_acct = f'PayPal {currency}'
