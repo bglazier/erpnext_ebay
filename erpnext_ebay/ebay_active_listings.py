@@ -24,12 +24,14 @@ OUTPUT_SELECTOR = [
 
 @frappe.whitelist()
 def generate_active_ebay_data(print=print, multiple_error_sites=None,
-                              extra_output_selector=None):
+                              extra_output_selector=None,
+                              multiple_skip_only=False):
     """Get all the active eBay listings for the selected eBay site
     and save them to the temporary data table.
 
     If multiple_error_sites is supplied, only multiple entries for those
-    eBay sites are considered an error.
+    eBay sites are considered an error. If multiple_skip_only is True,
+    the item is skipped but no error is returned (only a warning).
 
     Data in the table will not be over-written in the event of error.
     """
@@ -132,17 +134,18 @@ def generate_active_ebay_data(print=print, multiple_error_sites=None,
             qty = original_qty - qty_sold
             records.append((sku, ebay_id, qty, price, site))
 
+        msgs = []
         if multiple_error:
-            msgs = []
             for sku, site in multiple_error:
                 msgs.append(f'The item {sku} has multiple ebay listings on the '
                             + f'eBay site {site}!')
-            frappe.throw('\n'.join(msgs))
+            if not multiple_skip_only:
+                frappe.throw('\n'.join(msgs))
         if multiple_warnings:
-            msgs = []
             for sku, site in multiple_warnings:
                 msgs.append(f'The item {sku} has multiple ebay listings on the '
                             + f'eBay site {site}!')
+        if msgs:
             frappe.msgprint('\n'.join(msgs))
 
         # Truncate table now we have good data
@@ -169,7 +172,7 @@ def generate_active_ebay_data(print=print, multiple_error_sites=None,
 
 
 @frappe.whitelist()
-def update_ebay_data(multiple_error_sites=None):
+def update_ebay_data(multiple_error_sites=None, multiple_skip_only=False):
     """Get eBay data, set eBay IDs and set eBay first listed dates."""
 
     # This is a whitelisted function; check permissions.
@@ -177,7 +180,8 @@ def update_ebay_data(multiple_error_sites=None):
         frappe.throw('You do not have permission to access the eBay Manager',
                      frappe.PermissionError)
 
-    generate_active_ebay_data(multiple_error_sites=multiple_error_sites)
+    generate_active_ebay_data(multiple_error_sites=multiple_error_sites,
+                              multiple_skip_only=multiple_skip_only)
     sync_ebay_ids()
     set_on_sale_from_date()
     frappe.cache().set_value('erpnext_ebay.last_full_update',
