@@ -819,7 +819,9 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
 
         shipping_cost_dict = transaction['ActualShippingCost']
         handling_cost_dict = transaction['ActualHandlingCost']
-        final_value_fee_dict = transaction.get('FinalValueFee', 0.0)
+        final_value_fee_dict = transaction.get(
+            'FinalValueFee', {'_currencyID': default_currency, 'value': 0.0}
+        )
 
         if shipping_cost_dict['_currencyID'] == currency:
             shipping_cost += float(shipping_cost_dict['value'])
@@ -957,13 +959,15 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
     elif checkout['PaymentMethod'] in ('CCAccepted', 'CreditCard'):
         # eBay Managed Payments (with/without eBay gift card)
         # Add amount as it has been paid
-        ebay_payment_account = f'eBay Managed {currency}'
+        # Always use default currency
+        ebay_payment_account = f'eBay Managed {default_currency}'
         if not frappe.db.exists('Mode of Payment', ebay_payment_account):
             raise ErpnextEbaySyncError(
                 f'Mode of Payment "{ebay_payment_account}" does not exist!')
         if amount_paid > 0.0:
             payments.append({"mode_of_payment": ebay_payment_account,
                              "amount": amount_paid})
+            submit_on_pay = (currency == default_currency)
             #submit_on_pay = True
     elif checkout['PaymentMethod'] == 'PayPal':
         # PayPal - add amount as it has been paid
