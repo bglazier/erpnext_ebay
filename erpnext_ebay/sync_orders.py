@@ -819,7 +819,7 @@ def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
 
         shipping_cost_dict = transaction['ActualShippingCost']
         handling_cost_dict = transaction['ActualHandlingCost']
-        final_value_fee_dict = transaction['FinalValueFee']
+        final_value_fee_dict = transaction.get('FinalValueFee', 0.0)
 
         if shipping_cost_dict['_currencyID'] == currency:
             shipping_cost += float(shipping_cost_dict['value'])
