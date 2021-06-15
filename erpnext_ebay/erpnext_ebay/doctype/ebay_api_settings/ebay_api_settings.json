@@ -1,0 +1,146 @@
+{
+ "creation": "2021-06-15 17:32:44.528828",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "sandbox",
+  "sandbox_app_id",
+  "sandbox_cert_id",
+  "sandbox_ru_name",
+  "sandbox_scopes",
+  "authorize_sandbox_button",
+  "sandbox_refresh_token",
+  "sandbox_refresh_expiry",
+  "production_cbreak",
+  "production",
+  "production_app_id",
+  "production_cert_id",
+  "production_ru_name",
+  "production_scopes",
+  "authorize_production_button",
+  "production_refresh_token",
+  "production_refresh_expiry"
+ ],
+ "fields": [
+  {
+   "fieldname": "sandbox",
+   "fieldtype": "Heading",
+   "label": "Sandbox"
+  },
+  {
+   "fieldname": "sandbox_app_id",
+   "fieldtype": "Data",
+   "label": "App ID (Client ID)",
+   "length": 250
+  },
+  {
+   "fieldname": "sandbox_cert_id",
+   "fieldtype": "Password",
+   "label": "Cert ID (Client Secret)",
+   "length": 250
+  },
+  {
+   "fieldname": "sandbox_ru_name",
+   "fieldtype": "Data",
+   "label": "RuName (eBay Redirect URL name)",
+   "length": 250
+  },
+  {
+   "fieldname": "sandbox_scopes",
+   "fieldtype": "Data",
+   "label": "Scopes",
+   "length": 2000
+  },
+  {
+   "fieldname": "production_cbreak",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "production",
+   "fieldtype": "Heading",
+   "label": "Production"
+  },
+  {
+   "fieldname": "production_app_id",
+   "fieldtype": "Data",
+   "label": "App ID (Client ID)",
+   "length": 250
+  },
+  {
+   "fieldname": "production_cert_id",
+   "fieldtype": "Password",
+   "label": "Cert ID (Client Secret)",
+   "length": 250
+  },
+  {
+   "fieldname": "production_ru_name",
+   "fieldtype": "Data",
+   "label": "RuName (eBay Redirect URL name)",
+   "length": 250
+  },
+  {
+   "fieldname": "production_scopes",
+   "fieldtype": "Data",
+   "label": "Scopes",
+   "length": 2000
+  },
+  {
+   "fieldname": "authorize_sandbox_button",
+   "fieldtype": "Button",
+   "label": "Authorize eBay Sandbox"
+  },
+  {
+   "fieldname": "sandbox_refresh_token",
+   "fieldtype": "Password",
+   "label": "Refresh Token",
+   "length": 500,
+   "read_only": 1
+  },
+  {
+   "fieldname": "sandbox_refresh_expiry",
+   "fieldtype": "Datetime",
+   "label": "Refresh token expiry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "authorize_production_button",
+   "fieldtype": "Button",
+   "label": "Authorize eBay Production"
+  },
+  {
+   "fieldname": "production_refresh_token",
+   "fieldtype": "Password",
+   "label": "Refresh Token",
+   "length": 500,
+   "read_only": 1
+  },
+  {
+   "fieldname": "production_refresh_expiry",
+   "fieldtype": "Datetime",
+   "label": "Refresh token expiry",
+   "read_only": 1
+  }
+ ],
+ "issingle": 1,
+ "modified": "2021-06-15 18:15:51.333646",
+ "modified_by": "Administrator",
+ "module": "Erpnext Ebay",
+ "name": "eBay API Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "quick_entry": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}
