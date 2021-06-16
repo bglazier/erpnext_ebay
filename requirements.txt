@@ -1,6 +1,6 @@
 iso3166
 ebaysdk
-git+https://github.com/matecsaj/ebay_rest.git
+git+https://github.com/matecsaj/ebay_rest.git@main#egg=ebay_rest
 #ebay_rest
 jpegtran-cffi
 frappe
