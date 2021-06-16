@@ -1,5 +1,7 @@
 iso3166
 ebaysdk
+git+https://github.com/matecsaj/ebay_rest.git
+#ebay_rest
 jpegtran-cffi
 frappe
 erpnext

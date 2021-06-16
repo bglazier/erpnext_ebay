@@ -100,7 +100,7 @@
   {
    "fieldname": "sandbox_refresh_expiry",
    "fieldtype": "Datetime",
-   "label": "Refresh token expiry",
+   "label": "Refresh token expiry (UTC)",
    "read_only": 1
   },
   {
@@ -118,12 +118,12 @@
   {
    "fieldname": "production_refresh_expiry",
    "fieldtype": "Datetime",
-   "label": "Refresh token expiry",
+   "label": "Refresh token expiry (UTC)",
    "read_only": 1
   }
  ],
  "issingle": 1,
- "modified": "2021-06-15 18:15:51.333646",
+ "modified": "2021-06-16 18:06:24.977625",
  "modified_by": "Administrator",
  "module": "Erpnext Ebay",
  "name": "eBay API Settings",

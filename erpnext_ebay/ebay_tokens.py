@@ -17,6 +17,13 @@ import urllib.parse
 
 import requests
 
+from ebay_rest import API
+from ebay_rest.error import Error
+from ebay_rest.token import Token
+from ebay_rest.oath.credentialutil import CredentialUtil
+from ebay_rest.oath.model.model import Credentials, Environment
+from ebay_rest.oath.oauth2api import OAuth2Api, OAuthToken
+
 
 def oauth_basic_authentication(app_id, cert_id):
     """Get the basic authentication header string for OAuth2
@@ -159,7 +166,7 @@ def accept_consent_token():
         frappe.throw('Invalid parameters!')
     refresh_token = user_access['refresh_token']
     refresh_expiry = (
-        frappe.utils.now_datetime()
+        datetime.datetime.now(datetime.timezone.utc)
         + datetime.timedelta(seconds=user_access['refresh_token_expires_in'])
     )
 
@@ -176,3 +183,68 @@ def accept_consent_token():
             <p>It's now safe to close the browser window/tab.</p>""",
         success=True
     )
+
+
+def _refresh_user(sandbox: bool):
+    # Use an existing refresh token
+    env = Environment.SANDBOX if sandbox else Environment.PRODUCTION
+    scopes = Token._user_scopes[sandbox]
+    refresh_token = Token._token_user.get(('refresh', sandbox))
+    if not (scopes and refresh_token):
+        frappe.throw('No refresh token!')
+    now = datetime.datetime.now(datetime.timezone.utc)
+    if refresh_token.refresh_token_expiry <= now:
+        frappe.throw(f'Re-authorize eBay {prefix}; token expired')
+    token_user = OAuth2Api.get_access_token(
+        env, refresh_token.refresh_token, scopes
+    )
+    if token_user.access_token is None:
+        raise Error(number=1,
+                    reason='user_token.access_token is None.')
+    if len(token_user.access_token) == 0:
+        raise Error(number=1,
+                    reason='user_token.access_token is of length zero.')
+    Token._token_user[sandbox] = token_user
+
+
+def get_api(sandbox=False, *args, **kwargs):
+    """Get an ebay_rest API that we have preloaded with credentials."""
+    prefix = 'sandbox' if sandbox else 'production'
+    dt = 'eBay API Settings'
+    app_id = frappe.get_value(dt, dt, f'{prefix}_app_id')
+    cert_id = frappe.utils.password.get_decrypted_password(
+        dt, dt, f'{prefix}_cert_id')
+    dev_id = None
+    ru_name = frappe.get_value(dt, dt, f'{prefix}_ru_name')
+    refresh_token = frappe.utils.password.get_decrypted_password(
+        dt, dt, f'{prefix}_refresh_token')
+    refresh_token_expiry = frappe.get_value(dt, dt, f'{prefix}_refresh_expiry')
+    scopes = frappe.get_value(dt, dt, f'{prefix}_scopes')
+    if not (app_id and cert_id and ru_name and scopes):
+        frappe.throw(f'Missing API parameters for {prefix}!')
+    if not (refresh_token and refresh_token_expiry):
+        frappe.throw(f'Re-authorize eBay {prefix}; token missing')
+    refresh_token_expiry = (
+        frappe.utils.get_datetime(refresh_token_expiry)
+        - datetime.timedelta(minutes=5)
+    ).astimezone(datetime.timezone.utc)
+    env = Environment.SANDBOX if sandbox else Environment.PRODUCTION
+    app_info = Credentials(
+        app_id, cert_id, dev_id, ru_name
+    )
+    scopes = scopes.strip().split()
+    with Token._lock:
+        # Load credentials
+        CredentialUtil._credential_list.update({env.config_id: app_info})
+        Token._oauth2api_inst = OAuth2Api()
+        Token._user_scopes[sandbox] = scopes
+        Token._token_user[('refresh', sandbox)] = OAuthToken(
+            refresh_token=refresh_token,
+            refresh_token_expiry=refresh_token_expiry
+        )
+        # Patch out _refresh_user which doesn't do what it should
+        Token._refresh_user = _refresh_user
+        # Get new access token
+        Token._refresh_user(sandbox)
+
+    return API(sandbox, *args, **kwargs)
