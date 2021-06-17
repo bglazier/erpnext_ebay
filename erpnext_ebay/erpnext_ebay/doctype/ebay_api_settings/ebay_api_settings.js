@@ -5,6 +5,7 @@ const ebay_token_module = 'erpnext_ebay.ebay_tokens';
 
 function start_consent(frm, sandbox, app_id, ru_name, scopes) {
     // Start eBay user token consent flow
+    sandbox = sandbox ? 1 : 0
     if (frm.is_dirty()) {
         frappe.throw('Save form first!');
     }
@@ -23,14 +24,19 @@ function start_consent(frm, sandbox, app_id, ru_name, scopes) {
         : 'https://auth.ebay.com/oauth2/authorize'
     );
     frappe.call({
-        method: ebay_token_module + '.generate_state',
+        method: ebay_token_module + '.generate_state_token',
         args: {
             sandbox: sandbox
         }
-    }).then(({message: state}) => {
-        if (!state) {
+    }).then(({message: state_token}) => {
+        if (!state_token) {
             return
         }
+        const state = {
+            hostname: location.origin,
+            sandbox: sandbox,
+            state_token: state_token
+        };
         state.hostname = location.origin;
         const params = new URLSearchParams();
         params.append('client_id', app_id);
@@ -49,13 +55,13 @@ frappe.ui.form.on('eBay API Settings', {
         const app_id = frm.doc.sandbox_app_id;
         const ru_name = frm.doc.sandbox_ru_name;
         const scopes = frm.doc.sandbox_scopes;
-        start_consent(frm, true, app_id, ru_name, scopes);
+        start_consent(frm, 1, app_id, ru_name, scopes);
     },
     authorize_production_button(frm) {
         // Start consent flow for production
         const app_id = frm.doc.production_app_id;
         const ru_name = frm.doc.production_ru_name;
         const scopes = frm.doc.production_scopes;
-        start_consent(frm, false, app_id, ru_name, scopes);
+        start_consent(frm, 0, app_id, ru_name, scopes);
     }
 });

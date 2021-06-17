@@ -34,21 +34,18 @@ def oauth_basic_authentication(app_id, cert_id):
 
 
 @frappe.whitelist()
-def generate_state(sandbox):
-    """Generate a URL-encoded, JSON-encoded state dictionary"""
+def generate_state_token(sandbox):
+    """Generate a random state for eBay authorization flow"""
+    sandbox = int(sandbox)
     roles = frappe.get_roles()
     if 'Administrator' not in roles and 'System Manager' not in roles:
         frappe.throw('Must be Administrator or System Manager!',
                      frappe.PermissionError)
-    token = secrets.token_urlsafe(32)
-    state = {
-        'token': token,
-        'sandbox': 1 if sandbox else 0
-    }
+    state_token = secrets.token_urlsafe(32)
     cache_name = 'EBAY_SANDBOX_AUTH' if sandbox else 'EBAY_PRODUCT_AUTH'
     expiry = frappe.utils.now_datetime() + datetime.timedelta(seconds=60)
-    frappe.cache().hset(cache_name, token, expiry)
-    return state
+    frappe.cache().hset(cache_name, state_token, expiry)
+    return state_token
 
 
 @frappe.whitelist(allow_guest=True)
@@ -85,10 +82,10 @@ def receive_consent_token():
     hostname = state_dict['hostname']
     method_url = "/api/method/erpnext_ebay.ebay_tokens.accept_consent_token"
     sandbox = 1 if state_dict['sandbox'] else 0
-    token = urllib.parse.quote_plus(state_dict['token'])
+    state_token = urllib.parse.quote_plus(state_dict['state_token'])
     q_code = urllib.parse.quote_plus(code)
     base_url = f"{hostname}{method_url}"
-    query_url = f"?sandbox={sandbox}&token={token}&code={q_code}"
+    query_url = f"?sandbox={sandbox}&state_token={state_token}&code={q_code}"
     frappe.local.response["type"] = "redirect"
     frappe.local.response["location"] = f"{base_url}{query_url}"
 
@@ -100,21 +97,21 @@ def accept_consent_token():
     Then check the token for validity, and exchange the authorization
     token for a user token and refresh token.
 
-    WARNING - token must be checked for validity as there are no
+    WARNING - state token must be checked for validity as there are no
     permission restrictions on this guest whitelisted method.
     """
 
     # Get and check parameters
     sandbox = frappe.local.form_dict.get('sandbox')
-    token = frappe.local.form_dict.get('token')
+    state_token = frappe.local.form_dict.get('state_token')
     code = frappe.local.form_dict.get('code')
-    if not (token and code and (sandbox is not None)):
+    if not (state_token and code and (sandbox is not None)):
         frappe.throw('Invalid parameters!')
     sandbox = int(sandbox)
 
     # Check token is still valid
     cache_name = 'EBAY_SANDBOX_AUTH' if sandbox else 'EBAY_PRODUCT_AUTH'
-    expiry = frappe.cache().hget(cache_name, token)
+    expiry = frappe.cache().hget(cache_name, state_token)
     if not expiry:
         frappe.throw('Invalid parameters!')
     elif expiry <= frappe.utils.now_datetime():
@@ -127,7 +124,7 @@ def accept_consent_token():
             success=False
         )
     # Clear token validity
-    frappe.cache().hdel(cache_name, token)
+    frappe.cache().hdel(cache_name, state_token)
 
     # Set prefix and URL for gaining user refresh token later
     if sandbox:
