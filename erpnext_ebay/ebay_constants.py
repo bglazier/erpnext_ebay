@@ -12,85 +12,120 @@ EBAY_VALUE_LEN = 1000
 EBAY_VALUE_LEN_STR = str(EBAY_VALUE_LEN)
 
 HOME_SITE_ID = 3
+HOME_GLOBAL_ID = 'EBAY_GB'
+HOME_MARKETPLACE_ID = 'EBAY_GB'
 
 # eBay Site IDs
-EBAY_SITE_IDS = {0: 'US',
-                 2: 'Canada (English)',
-                 3: 'UK',
-                 15: 'Australia',
-                 16: 'Austria',
-                 23: 'Belgium (French)',
-                 71: 'France',
-                 77: 'Germany',
-                 100: 'Motors',
-                 101: 'Italy',
-                 123: 'Belgium (Dutch)',
-                 146: 'Netherlands',
-                 186: 'Spain',
-                 193: 'Switzerland',
-                 201: 'Hong Kong',
-                 203: 'India',
-                 205: 'Ireland',
-                 207: 'Malaysia',
-                 210: 'Canada (French)',
-                 211: 'Philippines',
-                 212: 'Poland',
-                 216: 'Singapore'}
+EBAY_SITE_IDS = {
+    0: 'US',
+    2: 'Canada (English)',
+    3: 'UK',
+    15: 'Australia',
+    16: 'Austria',
+    23: 'Belgium (French)',
+    71: 'France',
+    77: 'Germany',
+    100: 'Motors',
+    101: 'Italy',
+    123: 'Belgium (Dutch)',
+    146: 'Netherlands',
+    186: 'Spain',
+    193: 'Switzerland',
+    201: 'Hong Kong',
+    203: 'India',
+    205: 'Ireland',
+    207: 'Malaysia',
+    210: 'Canada (French)',
+    211: 'Philippines',
+    212: 'Poland',
+    216: 'Singapore'
+}
 
 EBAY_SITE_NAMES = {name: siteid for siteid, name in EBAY_SITE_IDS.items()}
 HOME_SITE_NAME = EBAY_SITE_IDS[HOME_SITE_ID]
 
-EBAY_TRANSACTION_SITE_IDS = {0: 'US',
-                             2: 'Canada',
-                             3: 'UK',
-                             15: 'Australia',
-                             16: 'Austria',
-                             23: 'Belgium_French',
-                             71: 'France',
-                             77: 'Germany',
-                             100: 'eBayMotors',
-                             101: 'Italy',
-                             123: 'Belgium_Dutch',
-                             146: 'Netherlands',
-                             186: 'Spain',
-                             193: 'Switzerland',
-                             201: 'HongKong',
-                             203: 'India',
-                             205: 'Ireland',
-                             207: 'Malaysia',
-                             210: 'CanadaFrench',
-                             211: 'Phillipines',
-                             212: 'Poland',
-                             215: 'Russia',
-                             216: 'Singapore'}
+EBAY_TRANSACTION_SITE_IDS = {
+    0: 'US',
+    2: 'Canada',
+    3: 'UK',
+    15: 'Australia',
+    16: 'Austria',
+    23: 'Belgium_French',
+    71: 'France',
+    77: 'Germany',
+    100: 'eBayMotors',
+    101: 'Italy',
+    123: 'Belgium_Dutch',
+    146: 'Netherlands',
+    186: 'Spain',
+    193: 'Switzerland',
+    201: 'HongKong',
+    203: 'India',
+    205: 'Ireland',
+    207: 'Malaysia',
+    210: 'CanadaFrench',
+    211: 'Phillipines',
+    212: 'Poland',
+    215: 'Russia',
+    216: 'Singapore'
+}
 
 EBAY_TRANSACTION_SITE_NAMES = {
     name: siteid for siteid, name in EBAY_TRANSACTION_SITE_IDS.items()}
 HOME_TRANSACTION_SITE_NAME = EBAY_TRANSACTION_SITE_IDS[HOME_SITE_ID]
 
-# eBay Site IDs
-EBAY_SITE_DOMAINS = {0: 'com',
-                     2: 'ca',
-                     3: 'co.uk',
-                     15: 'com.au',
-                     16: 'at',
-                     23: 'be',
-                     71: 'fr',
-                     77: 'de',
-                     100: 'com',
-                     101: 'it',
-                     123: 'be',
-                     146: 'nl',
-                     186: 'es',
-                     193: 'ch',
-                     201: 'com.hk',
-                     203: '.in',
-                     205: '.ie',
-                     207: 'com.my',
-                     210: '.ca',
-                     211: 'ph',
-                     212: 'pl',
-                     216: 'com.sg'}
+# eBay Site domains
+EBAY_SITE_DOMAINS = {
+    0: 'com',
+    2: 'ca',
+    3: 'co.uk',
+    15: 'com.au',
+    16: 'at',
+    23: 'be',
+    71: 'fr',
+    77: 'de',
+    100: 'com',
+    101: 'it',
+    123: 'be',
+    146: 'nl',
+    186: 'es',
+    193: 'ch',
+    201: 'com.hk',
+    203: '.in',
+    205: '.ie',
+    207: 'com.my',
+    210: '.ca',
+    211: 'ph',
+    212: 'pl',
+    216: 'com.sg'
+}
+
+# eBay Marketplace IDs
+EBAY_MARKETPLACE_IDS = {
+    'EBAY_US': 'United States',
+    'EBAY_AT': 'Austria',
+    'EBAY_AU': 'Australia',
+    'EBAY_BE': 'Belgium',
+    'EBAY_CA': 'Canada',
+    'EBAY_CH': 'Switzerland',
+    'EBAY_DE': 'Germany',
+    'EBAY_ES': 'Spain',
+    'EBAY_FR': 'France',
+    'EBAY_GB': 'United Kingdom',
+    'EBAY_HK': 'Hong Kong',
+    'EBAY_IE': 'Ireland',
+    'EBAY_IN': 'India',
+    'EBAY_IT': 'Italy',
+    'EBAY_MY': 'Malaysia',
+    'EBAY_NL': 'Netherlands',
+    'EBAY_PH': 'Philippines',
+    'EBAY_PL': 'Poland',
+    'EBAY_SG': 'Singapore',
+    'EBAY_TH': 'Thailand',
+    'EBAY_TW': 'Taiwan',
+    'EBAY_VN': 'Vietnam',
+    'EBAY_MOTORS_US': 'United States (Motors)'
+}
 
 # eBay PaymentMethods and their descriptions
 PAYMENT_METHODS = {'AmEx': 'American Express',
