@@ -13,7 +13,6 @@ from .country_data import lowercase_country_dict
 from iso3166 import countries, countries_by_name
 
 import frappe
-from frappe import msgprint, _
 
 from erpnext import get_default_currency
 from erpnext.setup.utils import get_exchange_rate
@@ -125,10 +124,17 @@ EXTRA_COUNTRIES = {
 COMPANY_ACRONYM = 'URTL'
 WAREHOUSE = f'Mamhilad - {COMPANY_ACRONYM}'
 SHIPPING_ITEM = 'ITEM-00358'
-CAR_ITEM = 'ITEM-11658'
-UK_VAT_ITEM = 'ITEM-15796'
-EU_VAT_ITEM = 'ITEM-15797'
+#CAR_ITEM = 'ITEM-11658'
+#UK_VAT_ITEM = 'ITEM-15796'
+#EU_VAT_ITEM = 'ITEM-15797'
 DEDUCT_UK_VAT = True
+
+TAX_DESCRIPTION = {
+    'STATE_SALES_TAX': 'US state sales tax',
+    'GST': 'AU/NZ Goods and Services Tax',
+    'UK_VAT': 'UK VAT',
+    'EU_VAT': 'EU VAT'
+}
 
 VAT_RATES = {f'Sales - {COMPANY_ACRONYM}': 0.2,
              f'Sales EU - {COMPANY_ACRONYM}': 0.0,
@@ -147,7 +153,7 @@ def debug_msgprint(message):
     """
     print(message)
     if msgprint_debug:
-        msgprint(message)
+        frappe.msgprint(message)
 
 
 @frappe.whitelist()
@@ -190,14 +196,10 @@ def sync():
         x['order_id']: x for x in transactions if x['order_id']
     }
     trans_by_order = collections.defaultdict(list)
-    trans_by_item_id = collections.defaultdict(list)
     for transaction in transactions:
         order_id = transaction['order_id']
         if order_id:
             trans_by_order[order_id].append(transaction)
-        line_items = transaction['order_line_items'] or []
-        for line_item in line_items:
-            trans_by_item_id[line_item['line_item_id']].append(transaction)
 
     # Create a synchronization log
     log_dict = {"doctype": "eBay sync log",
@@ -211,22 +213,34 @@ def sync():
         for order in orders:
             try:
                 # Identify the eBay site on which the item was listed.
-                site_id_order = 'EBAY_UNKNOWN'
+                listing_site = 'EBAY_UNKNOWN'
+                purchase_site = 'EBAY_UNKNOWN'
                 try:
                     listing_marketplaces = {
                         x['listing_marketplace_id'] for x in order['line_items']
                     }
+                    purchase_marketplaces = {
+                        x['purchase_marketplace_id']
+                        for x in order['line_items']
+                    }
                     if len(listing_marketplaces) != 1:
                         msgprint_log.append(
-                            'WARNING: unable to identify site ID from:'
-                            + f"\n{order['line_items']}\n")
+                            'WARNING: unable to identify listing eBay site '
+                            + f"from \n{order['line_items']}\n")
                     else:
-                        global_id, = listing_marketplaces
-                        site_id_order = EBAY_MARKETPLACE_IDS[global_id]
+                        listing_id, = listing_marketplaces
+                        listing_site = EBAY_MARKETPLACE_IDS[listing_id]
+                    if len(purchase_marketplaces) != 1:
+                        msgprint_log.append(
+                            'WARNING: unable to identify purchase eBay site '
+                            + f"from \n{order['line_items']}\n")
+                    else:
+                        purchase_id, = purchase_marketplaces
+                        purchase_site = EBAY_MARKETPLACE_IDS[purchase_id]
                 except (KeyError, TypeError) as e:
                     msgprint_log.append(
-                        'WARNING: unable to identify site ID from:'
-                        + '\n{}\n{}'.format(
+                        'WARNING: unable to identify listing/purchase eBay site '
+                        + 'from\n{}\n{}'.format(
                             order['line_items'], str(e)))
 
                 # Create/update Customer
@@ -240,8 +254,8 @@ def sync():
                 create_ebay_order(order_details, payment_status, changes)
 
                 # Create/update Sales Invoice
-                create_sales_invoice(order_details, order, site_id_order,
-                                     trans_by_order, trans_by_item_id,
+                create_sales_invoice(order_details, order, listing_site,
+                                     purchase_site, trans_by_order,
                                      msgprint_log, changes)
 
             except ErpnextEbaySyncError as e:
@@ -255,7 +269,7 @@ def sync():
                 err_msg = traceback.format_exc()
                 print(err_msg)
                 if not continue_on_error:
-                    msgprint('ORDER FAILED')
+                    frappe.msgprint('ORDER FAILED')
                     raise
                 else:
                     msgprint_log.append('ORDER FAILED:\n{}'.format(err_msg))
@@ -272,7 +286,7 @@ def sync():
             del log
         frappe.db.commit()
     msgprint_log.append('Finished.')
-    msgprint(msgprint_log)
+    frappe.msgprint(msgprint_log)
     return
 
 
@@ -338,9 +352,9 @@ def extract_customer(order):
         "doctype": "Customer",
         "customer_name": customer_name,
         "ebay_user_id": ebay_user_id,
-        "customer_group": _("Individual"),
+        "customer_group": "Individual",
         "territory": determine_territory(db_country),
-        "customer_type": _("Individual")}
+        "customer_type": "Individual"}
 
     # Rest of the information
     if not address_line1 and address_line2:
@@ -356,7 +370,7 @@ def extract_customer(order):
     address_dict = {
         "doctype": "Address",
         "address_title": shipping_name or ebay_user_id,
-        "address_type": _("Shipping"),
+        "address_type": "Shipping",
         "address_line1": address_line1 or '-',
         "address_line2": address_line2,
         "city": city or '-',
@@ -601,8 +615,8 @@ def create_ebay_order(order_dict, payment_status, changes):
     return None
 
 
-def create_sales_invoice(order_dict, order, site_id_order, trans_by_order,
-                         trans_by_item_id, msgprint_log, changes):
+def create_sales_invoice(order_dict, order, listing_site, purchase_site,
+                         trans_by_order, msgprint_log, changes):
     """
     Create a Sales Invoice from the eBay order.
     """
@@ -689,6 +703,17 @@ def create_sales_invoice(order_dict, order, site_id_order, trans_by_order,
         buyer_checkout_message = html.escape(buyer_checkout_message,
                                              quote=False)
 
+    # Find the VAT rate
+    country = frappe.db.get_value('Address', order_dict['address'], 'country')
+    if country is None:
+        raise ErpnextEbaySyncError(
+            f'No country for this order for user {ebay_user_id}!')
+    (
+        income_account, ship_income_account, tax_income_account
+    ) = determine_income_accounts(country)
+    territory = determine_territory(country)
+    vat_rate = VAT_RATES[income_account]
+
     # With eBay Managed Payments, only get paid in 'home' currency
     # Need to deal with conversions if paid in foreign currency so that fees
     # (when added later as PINV) will match
@@ -698,7 +723,8 @@ def create_sales_invoice(order_dict, order, site_id_order, trans_by_order,
     if price_total['currency'] != default_currency:
         raise ErpnextEbaySyncError(
             f'Order {ebay_order_id} has wrong home currency!')
-    total_to_pay = (
+    # total_price INCLUDES Collect and Remit Taxes
+    total_price = (
         float(price_total['converted_from_value'] or price_total['value'])
     )
 
@@ -713,11 +739,11 @@ def create_sales_invoice(order_dict, order, site_id_order, trans_by_order,
     )
     payout_amount_home_currency = float(t_amount_dict['value'])
     # Total fees (in seller currency)
-    fee_amount = float(transaction['total_fee_amount']['value'])
-    # Check total_to_pay - fees = payout_amount
-    if payout_amount + fee_amount != total_to_pay:
-        raise ErpnextEbaySyncError(
-            f"Order {ebay_order_id} payments don't add up!")
+    # Occasionally there are no fees on the accompanying transaction
+    if transaction['total_fee_amount']:
+        fee_amount = float(transaction['total_fee_amount']['value'])
+    else:
+        fee_amount = 0.0
     # Currency payout was converted from, or None if using home currency
     t_currency = t_amount_dict['converted_from_currency']
     if t_currency:
@@ -733,7 +759,7 @@ def create_sales_invoice(order_dict, order, site_id_order, trans_by_order,
         # Calculate fee amount as it will be calculated later (using eBay
         # exchange rate)
         fee_amount_home_currency = (
-            ebay_exchange_rate * float(transaction['total_fee_amount']['value'])
+            ebay_exchange_rate * float(fee_amount)
         )
     else:
         # Transaction in home currency; no conversion needed
@@ -751,11 +777,13 @@ def create_sales_invoice(order_dict, order, site_id_order, trans_by_order,
         # necessarily exactly the eBay rate). This is so when we later
         # deduct the fees based on the foreign fees and eBay exchange rate,
         # we don't lose anything due to rounding error.
-        conversion_rate = payment_amount_home_currency / total_to_pay
+        conversion_rate = (
+            payment_amount_home_currency / (payout_amount + fee_amount)
+        )
 
     # Collect item eBay fees (using transaction)
     item_fee_dict = collections.defaultdict(float)
-    for order_line_item in transaction['order_line_items']:
+    for order_line_item in (transaction['order_line_items'] or []):
         item_id = order_line_item['line_item_id']
         for marketplace_fee in order_line_item['marketplace_fees']:
             if marketplace_fee['amount']['currency'] != currency:
@@ -770,30 +798,20 @@ def create_sales_invoice(order_dict, order, site_id_order, trans_by_order,
         base_item_fee_dict = divide_rounded(
             item_fee_dict, fee_amount_home_currency)
 
-    sku_list = []
-
-    sum_vat = 0.0
-    sum_to_pay = 0.0
-    shipping_cost = 0.0
-    ebay_car = 0.0  # eBay Collect and Remit sales taxes
-    ebay_uk_vat = 0.0  # eBay Collect and Remit UK VAT
-    ebay_eu_vat = 0.0  # eBay Collect and Remit EU VAT
-
-    # Find the (local) correct VAT rate
-    country = frappe.db.get_value('Address', order_dict['address'], 'country')
-    if country is None:
-        raise ErpnextEbaySyncError(
-            f'No country for this order for user {ebay_user_id}!')
-    (
-        income_account, ship_income_account, tax_income_account
-    ) = determine_income_accounts(country)
-    territory = determine_territory(country)
-    vat_rate = VAT_RATES[income_account]
-
     # Loop over line items
-    item_list = []
+    sum_vat = 0.0
+    sum_line_items = 0.0
+    shipping_cost = 0.0
+    # eBay Collect and Remit taxes
+    car_references = collections.defaultdict(set)
+    car_by_type = collections.defaultdict(float)
+
+    sku_list = []
+    sinv_items = []
     for line_item in order['line_items']:
         line_item_id = line_item['line_item_id']
+        item_car_total = 0.0
+        item_car_reference = None, None
         # Only allow valid SKU
         sku = line_item['sku']
         if not sku:
@@ -816,6 +834,52 @@ def create_sales_invoice(order_dict, order, site_id_order, trans_by_order,
         if not frappe.utils.strip_html(description or '').strip():
             description = '(no item description)'
 
+        # Check for unhandled taxes
+        for tax_item in line_item['taxes'] or []:
+            tax_type = tax_item['tax_type']
+            if tax_type in ('STATE_SALES_TAX', 'GST', 'VAT'):
+                continue  # Appear in eBay Collect and Remit section
+            else:
+                raise ErpnextEbaySyncError(
+                    f'Order {ebay_order_id} has unhandled tax {tax_type}')
+
+        # Check for Collect and Remit taxes
+        for car_item in line_item['ebay_collect_and_remit_taxes'] or []:
+            tax_type = car_item['tax_type']
+            if tax_type not in ('STATE_SALES_TAX', 'GST', 'VAT'):
+                raise ErpnextEbaySyncError(
+                    f'Order {ebay_order_id} has unhandled CAR tax {tax_type}')
+            if tax_type == 'VAT':
+                # Handle UK and EU VAT separately
+                tax_type = 'UK_VAT' if territory == 'UK' else 'EU_VAT'
+            # Check currencies
+            car_currency = (
+                car_item['amount']['converted_from_currency']
+                or car_item['amount']['currency']
+            )
+            if car_currency != currency:
+                raise ErpnextEbaySyncError(
+                    f'Order {ebay_order_id} has inconsistent tax currencies')
+            # Get tax amount
+            tax_amount = float(
+                car_item['amount']['converted_from_value']
+                or car_item['amount']['value']
+            )
+            car_by_type[tax_type] += tax_amount
+            item_car_total += tax_amount
+            # Tax reference
+            if car_item['ebay_reference']:
+                if item_car_reference:
+                    raise ErpnextEbaySyncError(
+                        f"Order {ebay_order_id} has multiple CAR references "
+                        + "on the same item!"
+                    )
+                item_car_reference = (
+                    car_item['ebay_reference']['name'],
+                    car_item['ebay_reference']['value']
+                )
+                car_references[tax_type].add(item_car_reference)
+
         # Get price
         li_total = line_item['total']
         # Check buyer currencies match
@@ -823,23 +887,19 @@ def create_sales_invoice(order_dict, order, site_id_order, trans_by_order,
                 != currency):
             raise ErpnextEbaySyncError(
                 f'eBay order {ebay_order_id} has inconsistent currencies!')
-        # Line item price in buyer currency
+        # Line item price in buyer currency (after subtracting taxes)
         ebay_price = float(
             li_total['converted_from_value'] or li_total['value']
-        )
+        ) - item_car_total
+        sum_line_items += ebay_price
 
-        if line_item['ebay_collect_and_remit_taxes']:
-            raise NotImplementedError('car')
-
-        if line_item['taxes']:
-            raise NotImplementedError('taxes')
-
+        # Calculate VAT, pushing rounding error into VAT amount
+        # For multi-qty items, prices are rounded on per-qty level
         inc_vat = ebay_price
-        exc_vat = round(float(inc_vat) / (1.0 + vat_rate), 2)
+        exc_vat = qty * round(inc_vat / (qty * (1.0 + vat_rate)), 2)
         vat = inc_vat - exc_vat
 
-        sum_vat += vat * qty
-        sum_to_pay += inc_vat * qty
+        sum_vat += vat
 
         # Delivery costs in buyer currency
         shipping_dict = line_item['delivery_cost']['shipping_cost']
@@ -852,24 +912,36 @@ def create_sales_invoice(order_dict, order, site_id_order, trans_by_order,
         )
 
         # Create SINV item
-        item_list.append({
+        sinv_items.append({
                 "item_code": sku,
                 "description": description,
                 "warehouse": WAREHOUSE,
                 "qty": qty,
-                "rate": exc_vat,
+                "rate": exc_vat / qty,
                 "ebay_final_value_fee": item_fee_dict[line_item_id],
                 "base_ebay_final_value_fee": base_item_fee_dict[line_item_id],
+                "ebay_collect_and_remit": item_car_total,
+                "ebay_collect_and_remit_reference": item_car_reference[1],
                 "valuation_rate": 0.0,
                 "income_account": income_account,
                 "expense_account": f"Cost of Goods Sold - {COMPANY_ACRONYM}"
          })
 
-    # Check line item prices add up as expected
-    if sum_to_pay != total_to_pay:
+    # Total of all eBay Collect and Remit taxes
+    total_collect_and_remit = sum(car_by_type.values())
+    # Total amount for payout before deduction of fees
+    payout_subtotal = total_price - total_collect_and_remit
+
+    # Check line item prices add up as expected (excluding Collect and Remit)
+    if sum_line_items != payout_subtotal:
         raise ErpnextEbaySyncError(
             f'Order {ebay_order_id} inconsistent amounts!'
         )
+
+    # Check payout_subtotal - fees = payout_amount
+    if payout_subtotal - fee_amount != payout_amount:
+        raise ErpnextEbaySyncError(
+            f"Order {ebay_order_id} payments don't add up!")
 
     # Add a single line item for shipping services
     if shipping_cost > 0.0001:
@@ -879,9 +951,9 @@ def create_sales_invoice(order_dict, order, site_id_order, trans_by_order,
         vat = inc_vat - exc_vat
 
         sum_vat += vat
-        sum_to_pay += inc_vat
+        sum_line_items += inc_vat
 
-        item_list.append({
+        sinv_items.append({
             "item_code": SHIPPING_ITEM,
             "description": "Shipping costs (from eBay)",
             "warehouse": WAREHOUSE,
@@ -892,59 +964,38 @@ def create_sales_invoice(order_dict, order, site_id_order, trans_by_order,
             "expense_account": f"Cost of Goods Sold - {COMPANY_ACRONYM}"
         })
 
-    # Add a single line item for eBay Collect and Remit taxes
-    if ebay_car > 0.0001:
-        item_list.append({
-            "item_code": CAR_ITEM,
-            "description": "eBay Collect and Remit taxes",
-            "warehouse": WAREHOUSE,
-            "qty": 1.0,
-            "rate": ebay_car,
-            "valuation_rate": 0.0,
-            "income_account": tax_income_account,
-            "expense_account": f"Cost of Goods Sold - {COMPANY_ACRONYM}"
-        })
-        sum_to_pay += ebay_car
-
-    # Add a single line item for eBay Collect and Remit UK VAT
-    if ebay_uk_vat > 0.0001:
-        item_list.append({
-            "item_code": UK_VAT_ITEM,
-            "description": "eBay Collect and Remit UK VAT",
-            "warehouse": WAREHOUSE,
-            "qty": 1.0,
-            "rate": ebay_uk_vat,
-            "valuation_rate": 0.0,
-            "income_account": tax_income_account,
-            "expense_account": f"Cost of Goods Sold - {COMPANY_ACRONYM}"
-        })
-        sum_to_pay += ebay_uk_vat
-
-    # Add a single line item for eBay Collect and Remit UK VAT
-    if ebay_eu_vat > 0.0001:
-        item_list.append({
-            "item_code": EU_VAT_ITEM,
-            "description": "eBay Collect and Remit EU VAT",
-            "warehouse": WAREHOUSE,
-            "qty": 1.0,
-            "rate": ebay_eu_vat,
-            "valuation_rate": 0.0,
-            "income_account": tax_income_account,
-            "expense_account": f"Cost of Goods Sold - {COMPANY_ACRONYM}"
-        })
-        sum_to_pay += ebay_eu_vat
+    collect_and_remit_details = []
+    for tax_type, tax_amount in car_by_type.items():
+        # Add details for each eBay Collect and Remit type
+        if len(car_references[tax_type]) != 1:
+            raise ErpnextEbaySyncError(
+                f'Order {ebay_order_id} non-single {tax_type} reference!')
+        (car_code, car_ref), = car_references[tax_type]
+        # car_code should be ABN/IOSS/IRD/OSS/VOEC but is actually just
+        # the tax_type again, so ignore it
+        tax_desc = TAX_DESCRIPTION[tax_type]
+        amt = frappe.utils.fmt_money(tax_amount, currency=currency)
+        collect_and_remit_details.append(
+            f"""<li>{tax_desc} <strong>{amt}</strong><br>{car_ref}</li>"""
+        )
+    if collect_and_remit_details:
+        collect_and_remit_details = (
+            '<ul>' + '\n'.join(collect_and_remit_details) + '</ul>'
+        )
 
     # Taxes are a single line item not each transaction
     if DEDUCT_UK_VAT:
-        sum_vat -= ebay_uk_vat
+        # If eBay have already deducted UK VAT then no more is payable
+        sum_vat -= car_by_type['UK_VAT']
     taxes = []
     if VAT_RATES[income_account] > 0.00001:
         taxes.append({
-                    "charge_type": "Actual",
-                    "description": "VAT {}%".format(VAT_PERCENT[income_account]),
-                    "account_head": f"VAT - {COMPANY_ACRONYM}",
-                    "rate": VAT_PERCENT[income_account],
-                    "tax_amount": sum_vat})
+            "charge_type": "Actual",
+            "description": f"VAT {VAT_PERCENT[income_account]}%",
+            "account_head": f"VAT - {COMPANY_ACRONYM}",
+            "rate": VAT_PERCENT[income_account],
+            "tax_amount": sum_vat
+        })
 
     # All payments made by eBay Managed Payments
     # eBay Managed Payments (with/without eBay gift card)
@@ -955,10 +1006,10 @@ def create_sales_invoice(order_dict, order, site_id_order, trans_by_order,
         raise ErpnextEbaySyncError(
             f'Mode of Payment "{ebay_payment_account}" does not exist!')
     sinv_payments = []
-    if total_to_pay > 0.0:
+    if payout_subtotal > 0.0:
         sinv_payments.append({
             "mode_of_payment": ebay_payment_account,
-            "amount": total_to_pay}
+            "amount": payout_subtotal}
         )
         #submit_on_pay = (currency == default_currency)
         #submit_on_pay = True
@@ -978,8 +1029,11 @@ def create_sales_invoice(order_dict, order, site_id_order, trans_by_order,
         "territory": territory,
         "shipping_address_name": db_address_name,
         "ebay_order_id": ebay_order_id,
-        "ebay_site_id": site_id_order,
+        "ebay_site_id": listing_site,
+        "ebay_purchase_site_id": purchase_site,
         "buyer_message": buyer_checkout_message,
+        "ebay_collect_and_remit": total_collect_and_remit or None,
+        "collect_and_remit_details": collect_and_remit_details or None,
         "contact_email": cust_email,
         "posting_date": posting_date.date(),
         "posting_time": posting_date.time(),
@@ -994,7 +1048,7 @@ def create_sales_invoice(order_dict, order, site_id_order, trans_by_order,
         "is_pos": 1,
         "taxes": taxes,
         "payments": sinv_payments,
-        "items": item_list
+        "items": sinv_items
     }
 
     sinv = frappe.get_doc(sinv_dict)
@@ -1002,7 +1056,9 @@ def create_sales_invoice(order_dict, order, site_id_order, trans_by_order,
 
     sinv.insert()
 
-    if submit_on_pay:
+    if sinv.outstanding_amount:
+        debug_msgprint(f'Sales Invoice: {sinv.name} has an outstanding amount!')
+    elif submit_on_pay:
         # This is an order which adds up and has an approved payment method
         # Submit immediately
         sinv.submit()
