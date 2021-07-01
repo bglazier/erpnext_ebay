@@ -104,7 +104,8 @@ def paged_api_call(api_call, record_field, *args, **kwargs):
 
 def get_order(order_id):
     """Get a single order using the Sell Fulfillment API."""
-    return single_api_call('sell_fulfillment_get_order', order_id=order_id)
+    return single_api_call('sell_fulfillment_get_order', order_id=order_id,
+                           field_groups='TAX_BREAKDOWN')
 
 
 def get_orders(num_days=None, order_ids=None):
@@ -129,7 +130,8 @@ def get_orders(num_days=None, order_ids=None):
         kwargs['order_ids'] = ','.join(order_ids)
 
     # Make API call
-    return paged_api_call('sell_fulfillment_get_orders', 'orders', **kwargs)
+    return paged_api_call('sell_fulfillment_get_orders', 'orders',
+                          field_groups='TAX_BREAKDOWN', **kwargs)
 
 
 def get_transactions(num_days=None, buyer_username=None, payout_id=None,
