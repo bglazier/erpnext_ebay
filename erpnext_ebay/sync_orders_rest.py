@@ -208,9 +208,6 @@ def sync_orders():
     changes = []
     msgprint_log = []
 
-    # Update ebay_item_ids on each item
-    update_ebay_item_ids(orders)
-
     try:
         for order in orders:
             try:
@@ -1201,39 +1198,6 @@ def divide_rounded(input_dict, total, dp=2):
             k, v = next(next_values)
             rounded_dict[k] += 1
     return {k: (1/factor) * v for k, v in rounded_dict.items()}
-
-
-def update_ebay_item_ids(orders):
-    """Ensure eBay RESTful ItemID and legacy ID are included in
-    comma-separated list on Item.
-    """
-    for order in orders:
-        for li in order['line_items']:
-            sku = li['sku']
-            if not frappe.db.exists('Item', sku):
-                # Item does not exist? Skip
-                continue
-            item_list = frappe.get_value('Item', sku, 'ebay_item_ids') or ''
-            legacy_list = frappe.get_value('Item', sku, 'ebay_legacy_ids') or ''
-            item_id = li['line_item_id']
-            legacy_id = li['legacy_item_id']
-            if item_id not in item_list:
-                # Item ID not on item
-                if item_list:
-                    item_ids = item_list.split(',') + [item_id]
-                else:
-                    item_ids = [item_id]
-                frappe.db.set_value('Item', sku,
-                                    'ebay_item_ids', ','.join(item_ids))
-            if legacy_id not in legacy_list:
-                # Item legacy ID not on item
-                if legacy_list:
-                    legacy_ids = legacy_list.split(',') + [legacy_id]
-                else:
-                    legacy_ids = [legacy_id]
-                frappe.db.set_value('Item', sku,
-                                    'ebay_legacy_ids', ','.join(legacy_ids))
-    frappe.db.commit()
 
 
 def sync_error(changes, error_message, ebay_user_id=None, customer_name=None,
