@@ -121,12 +121,9 @@ EXTRA_COUNTRIES = {
     'macedonia': 'North Macedonia'
     }
 
-COMPANY_ACRONYM = 'URTL'
+COMPANY_ACRONYM = frappe.get_all('Company', fields=['abbr'])[0].abbr
 WAREHOUSE = f'Mamhilad - {COMPANY_ACRONYM}'
 SHIPPING_ITEM = 'ITEM-00358'
-#CAR_ITEM = 'ITEM-11658'
-#UK_VAT_ITEM = 'ITEM-15796'
-#EU_VAT_ITEM = 'ITEM-15797'
 DEDUCT_UK_VAT = True
 
 TAX_DESCRIPTION = {
@@ -136,9 +133,11 @@ TAX_DESCRIPTION = {
     'EU_VAT': 'EU VAT'
 }
 
-VAT_RATES = {f'Sales - {COMPANY_ACRONYM}': 0.2,
-             f'Sales EU - {COMPANY_ACRONYM}': 0.0,
-             f'Sales Non EU - {COMPANY_ACRONYM}': 0.0}
+VAT_RATES = {
+    f'Sales - {COMPANY_ACRONYM}': 0.2,
+    f'Sales EU - {COMPANY_ACRONYM}': 0.0,
+    f'Sales Non EU - {COMPANY_ACRONYM}': 0.0
+}
 VAT_PERCENT = {k: 100*v for k, v in VAT_RATES.items()}
 
 
@@ -157,7 +156,7 @@ def debug_msgprint(message):
 
 
 @frappe.whitelist()
-def sync():
+def sync_orders():
     """
     Pulls the latest orders from eBay. Creates Sales Invoices for sold items.
 
@@ -191,7 +190,7 @@ def sync():
     orders = get_orders(min(num_days, MAX_DAYS))
 
     # Load transactions from eBay
-    transactions = get_transactions(num_days=min(num_days + 20, MAX_DAYS))
+    transactions = get_transactions(num_days=min(num_days + 5, MAX_DAYS))
     trans_by_order = {
         x['order_id']: x for x in transactions if x['order_id']
     }
@@ -208,6 +207,9 @@ def sync():
                 "ebay_log_table": []}
     changes = []
     msgprint_log = []
+
+    # Update ebay_item_ids on each item
+    update_ebay_item_ids(orders)
 
     try:
         for order in orders:
@@ -228,15 +230,15 @@ def sync():
                             'WARNING: unable to identify listing eBay site '
                             + f"from \n{order['line_items']}\n")
                     else:
-                        listing_id, = listing_marketplaces
-                        listing_site = EBAY_MARKETPLACE_IDS[listing_id]
+                        listing_site_id, = listing_marketplaces
+                        listing_site = EBAY_MARKETPLACE_IDS[listing_site_id]
                     if len(purchase_marketplaces) != 1:
                         msgprint_log.append(
                             'WARNING: unable to identify purchase eBay site '
                             + f"from \n{order['line_items']}\n")
                     else:
-                        purchase_id, = purchase_marketplaces
-                        purchase_site = EBAY_MARKETPLACE_IDS[purchase_id]
+                        purchase_site_id, = purchase_marketplaces
+                        purchase_site = EBAY_MARKETPLACE_IDS[purchase_site_id]
                 except (KeyError, TypeError) as e:
                     msgprint_log.append(
                         'WARNING: unable to identify listing/purchase eBay site '
@@ -922,6 +924,8 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
                 "base_ebay_final_value_fee": base_item_fee_dict[line_item_id],
                 "ebay_collect_and_remit": item_car_total,
                 "ebay_collect_and_remit_reference": item_car_reference[1],
+                "ebay_order_line_item_id": line_item_id,
+                "ebay_item_id": line_item['legacy_item_id'],
                 "valuation_rate": 0.0,
                 "income_account": income_account,
                 "expense_account": f"Cost of Goods Sold - {COMPANY_ACRONYM}"
@@ -1197,6 +1201,39 @@ def divide_rounded(input_dict, total, dp=2):
             k, v = next(next_values)
             rounded_dict[k] += 1
     return {k: (1/factor) * v for k, v in rounded_dict.items()}
+
+
+def update_ebay_item_ids(orders):
+    """Ensure eBay RESTful ItemID and legacy ID are included in
+    comma-separated list on Item.
+    """
+    for order in orders:
+        for li in order['line_items']:
+            sku = li['sku']
+            if not frappe.db.exists('Item', sku):
+                # Item does not exist? Skip
+                continue
+            item_list = frappe.get_value('Item', sku, 'ebay_item_ids') or ''
+            legacy_list = frappe.get_value('Item', sku, 'ebay_legacy_ids') or ''
+            item_id = li['line_item_id']
+            legacy_id = li['legacy_item_id']
+            if item_id not in item_list:
+                # Item ID not on item
+                if item_list:
+                    item_ids = item_list.split(',') + [item_id]
+                else:
+                    item_ids = [item_id]
+                frappe.db.set_value('Item', sku,
+                                    'ebay_item_ids', ','.join(item_ids))
+            if legacy_id not in legacy_list:
+                # Item legacy ID not on item
+                if legacy_list:
+                    legacy_ids = legacy_list.split(',') + [legacy_id]
+                else:
+                    legacy_ids = [legacy_id]
+                frappe.db.set_value('Item', sku,
+                                    'ebay_legacy_ids', ','.join(legacy_ids))
+    frappe.db.commit()
 
 
 def sync_error(changes, error_message, ebay_user_id=None, customer_name=None,
