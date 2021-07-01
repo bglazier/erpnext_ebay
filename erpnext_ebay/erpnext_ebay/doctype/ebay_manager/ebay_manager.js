@@ -13,6 +13,15 @@ frappe.ui.form.on('eBay Manager', {
         });
     },
 
+    sync_orders_rest_button(frm) {
+        frappe.call({
+            method: "erpnext_ebay.sync_orders_rest.sync_orders",
+            args: {},
+            freeze: true,
+            freeze_message: "Syncing eBay customers and orders; this may take some time..."
+        });
+    },
+
     sync_listings_button(frm) {
         frappe.call({
             method: "erpnext_ebay.sync_listings.sync",
