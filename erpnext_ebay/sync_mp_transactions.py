@@ -94,6 +94,11 @@ def sync_mp_transactions():
             tax_entry.account_head = f'VAT - {COMPANY_ACRONYM}'
             tax_entry.included_in_print_rate = True
             tax_entry.rate = DOMESTIC_VAT * 100
+        # If total effect is negative, make a debit note
+        if sum(x.rate * x.qty for x in pinv_doc.items) < 0:
+            for item in pinv_doc.items:
+                item.qty = -item.qty
+            pinv_doc.is_return = True
         # Save and submit PINV
         pinv_doc.insert()
         #pinv_doc.submit()
@@ -119,18 +124,20 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account):
 
     # Deal with different transaction types
     if t_type == 'SALE':
+        return  # TODO REMOVE FIXME
         # Transaction for sale order
         # Only add fees (sale amount added by SINV)
         buyer = t['buyer']['username']
         total_fee = 0
+        order_id = t['order_id']
         for li in t['order_line_items']:
             # One PINV item per order line item
             item_code = get_item_code_for_order(
-                t['order_id'], order_line_item_id=li['line_item_id'])
+                order_id, order_line_item_id=li['line_item_id'])
             pinv_item = pinv_doc.append('items')
             pinv_item.item_code = FEE_ITEM
             pinv_item.ebay_transaction_id = t['transaction_id']
-            pinv_item.ebay_order_id = t['order_id']
+            pinv_item.ebay_order_id = order_id
             pinv_item.ebay_transaction_datetime = t['transaction_datetime']
             pinv_item.ebay_order_line_item_id = li['line_item_id']
             pinv_item.ebay_sku = item_code
@@ -189,6 +196,7 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account):
     #elif t_type == 'CREDIT':
         #pass
     elif t_type == 'NON_SALE_CHARGE':
+        return  # TODO REMOVE FIXME
         # Transaction for a non-sale charge (e.g. additional fees)
         # One PINV item
         if t['order_line_items']:
@@ -249,7 +257,7 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account):
         pinv_item = pinv_doc.append('items')
         pinv_item.item_code = FEE_ITEM
         pinv_item.ebay_transaction_id = t['transaction_id']
-        pinv_item.ebay_order_id = t['order_id']
+        pinv_item.ebay_order_id = order_id
         pinv_item.ebay_transaction_datetime = t['transaction_datetime']
         pinv_item.ebay_sku = item_code
         pinv_item.ebay_transaction_currency = currency
@@ -258,8 +266,59 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account):
         pinv_item.qty = 1
         pinv_item.rate = fee
         pinv_item.description = details
-    #elif t_type == 'REFUND':
-        #pass
+    elif t_type == 'REFUND':
+        return  # TODO REMOVE FIXME
+        # We do only consider the fees here; we assume the SINV will
+        # be refunded
+        # We don't record against any particular item as we can't do that
+        if not t['order_line_items']:
+            raise ErpnextEbaySyncError(
+                f'REFUND {t_id} has no order line items!')
+        order_id = t['order_id']
+        order_line_item_ids = [x['line_item_id'] for x in t['order_line_items']]
+        item_codes = [
+            get_item_code_for_order(order_id, order_line_item_id=x)
+            for x in order_line_item_ids
+        ]
+        # Check currency
+        if t['total_fee_amount']['currency'] != default_currency:
+            raise ErpnextEbaySyncError(
+                f'Transaction {t_id} not in default currency!')
+        # Fee in local quantity
+        if t['total_fee_amount']['converted_from_currency']:
+            fee_currency = frappe.utils.fmt_money(
+                float(t['total_fee_amount']['converted_from_value']),
+                currency=t['total_fee_amount']['converted_from_currency']
+            )
+            fee_currency_str = f""" <i>({fee_currency})</i>'"""
+        else:
+            fee_currency_str = ''
+        # Fee in home currency
+        fee = float(t['total_fee_amount']['value'])
+        fee_str = frappe.utils.fmt_money(
+            float(t['total_fee_amount']['value']),
+            currency=t['total_fee_amount']['currency']
+        )
+        t_memo = t['transaction_memo']
+        fee_memo = f" ({t_memo})" if t_memo else ""
+        details = (
+            f"""<div>eBay <i>REFUND (FEES)</i> Transaction {t_id}</div>
+            <div>Item codes: {', '.join(item_codes)}</div>
+            <div><i>{t['fee_type'] or ''}</i>{fee_memo}
+            {fee_str}{fee_currency_str} (inc VAT)</div>"""
+        )
+        pinv_item = pinv_doc.append('items')
+        pinv_item.item_code = FEE_ITEM
+        pinv_item.ebay_transaction_id = t['transaction_id']
+        pinv_item.ebay_order_id = t['order_id']
+        pinv_item.ebay_transaction_datetime = t['transaction_datetime']
+        pinv_item.ebay_sku = None  # don't record against any particular item
+        pinv_item.ebay_transaction_currency = currency
+        pinv_item.ebay_transaction_exchange_rate = exchange_rate
+        pinv_item.expense_account = expense_account
+        pinv_item.qty = 1
+        pinv_item.rate = -fee  # NOTE NEGATIVE because fee is refund
+        pinv_item.description = details
     #elif t_type == 'SHIPPING_LABEL':
         #pass
     #elif t_type == 'TRANSFER':

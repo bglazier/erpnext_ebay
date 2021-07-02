@@ -343,7 +343,7 @@
    "columns": 0,
    "creation": "2021-07-02 14:40:53.678826",
    "default": null,
-   "depends_on": "eval:doc.ebay_final_value_fee != 0.0",
+   "depends_on": "eval:doc.ebay_fixed_fee != 0.0",
    "description": null,
    "docstatus": 0,
    "dt": "Sales Invoice Item",
