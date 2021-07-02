@@ -140,6 +140,9 @@ VAT_RATES = {
 }
 VAT_PERCENT = {k: 100*v for k, v in VAT_RATES.items()}
 
+# Fee type for (non-refundable) fee type
+EBAY_FIXED_FEE = 'FINAL_VALUE_FEE_FIXED_PER_ORDER'
+
 
 class ErpnextEbaySyncError(Exception):
     pass
@@ -191,9 +194,6 @@ def sync_orders():
 
     # Load transactions from eBay
     transactions = get_transactions(num_days=min(num_days + 5, MAX_DAYS))
-    trans_by_order = {
-        x['order_id']: x for x in transactions if x['order_id']
-    }
     trans_by_order = collections.defaultdict(list)
     for transaction in transactions:
         order_id = transaction['order_id']
@@ -736,7 +736,6 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
     payout_amount = (
         float(t_amount_dict['converted_from_value'] or t_amount_dict['value'])
     )
-    payout_amount_home_currency = float(t_amount_dict['value'])
     # Total fees (in seller currency)
     # Occasionally there are no fees on the accompanying transaction
     if transaction['total_fee_amount']:
@@ -750,10 +749,6 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
         if t_currency != currency:
             raise ErpnextEbaySyncError(
                 f'eBay order {ebay_order_id} has inconsistent currencies!')
-        else:
-            payout_amount_currency = float(
-                t_amount_dict['converted_from_value']
-            )
         ebay_exchange_rate = float(t_amount_dict['exchange_rate'])
         # Calculate fee amount as it will be calculated later (using eBay
         # exchange rate)
@@ -768,7 +763,7 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
     # will add up later. This is the payout amount PLUS the fees in home
     # currency.
     payment_amount_home_currency = (
-        payout_amount_home_currency + fee_amount_home_currency
+        float(t_amount_dict['value']) + fee_amount_home_currency
     )
     if t_currency:
         # Calculate the conversion rate that gets from the payment amount
@@ -782,20 +777,29 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
 
     # Collect item eBay fees (using transaction)
     item_fee_dict = collections.defaultdict(float)
+    fixed_fee_dict = collections.defaultdict(float)
     for order_line_item in (transaction['order_line_items'] or []):
         item_id = order_line_item['line_item_id']
         for marketplace_fee in order_line_item['marketplace_fees']:
             if marketplace_fee['amount']['currency'] != currency:
                 raise ErpnextEbaySyncError(
                     f'Order {ebay_order_id} transactions in wrong currency!')
-            item_fee_dict[item_id] += float(marketplace_fee['amount']['value'])
+            fee = float(marketplace_fee['amount']['value'])
+            item_fee_dict[item_id] += fee
+            if marketplace_fee['fee_type'] == EBAY_FIXED_FEE:
+                fixed_fee_dict[item_id] += fee
 
     # Convert eBay fees if required, ensuring they add up
     if conversion_rate == 1.0:
         base_item_fee_dict = item_fee_dict
+        base_fixed_fee_dict = fixed_fee_dict
     else:
         base_item_fee_dict = divide_rounded(
             item_fee_dict, fee_amount_home_currency)
+        base_fixed_fee_dict = {
+            k: round(v * ebay_exchange_rate, 2)
+            for k, v in fixed_fee_dict.items()
+        }
 
     # Loop over line items
     sum_vat = 0.0
@@ -921,6 +925,8 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
                 "rate": exc_vat / qty,
                 "ebay_final_value_fee": item_fee_dict[line_item_id],
                 "base_ebay_final_value_fee": base_item_fee_dict[line_item_id],
+                "ebay_fixed_fee": fixed_fee_dict[line_item_id],
+                "base_ebay_fixed_fee": base_fixed_fee_dict[line_item_id],
                 "ebay_collect_and_remit": item_car_total,
                 "ebay_collect_and_remit_reference": item_car_reference or '',
                 "ebay_order_line_item_id": line_item_id,
