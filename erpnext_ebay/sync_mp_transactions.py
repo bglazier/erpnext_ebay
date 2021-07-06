@@ -246,9 +246,11 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account):
                 li_fee += fee
             li_fee_currency_dict[li['line_item_id']] = li_fee
         if t['amount']['converted_from_currency']:
-            # Conversion to home currency
-            li_fee_dict = divide_rounded(li_fee_currency_dict,
-                                         float(t['amount']['value']))
+            if t['total_fee_amount']['currency'] != currency:
+                raise ErpnextEbaySyncError(
+                    f'Transaction {t_id} has inconsistent currencies!')
+            fee_amount = float(t['total_fee_amount']['value']) * exchange_rate
+            li_fee_dict = divide_rounded(li_fee_currency_dict, fee_amount)
         else:
             li_fee_dict = li_fee_currency_dict
 
@@ -359,7 +361,7 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account):
                 float(t['amount']['converted_from_value']),
                 currency=t['amount']['converted_from_currency']
             )
-            fee_currency_str = f""" <i>({fee_currency})</i>'"""
+            fee_currency_str = f""" <i>({fee_currency})</i>"""
         else:
             fee_currency_str = ''
         # Fee in home currency
