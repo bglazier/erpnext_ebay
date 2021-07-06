@@ -2,14 +2,16 @@
 
 import collections
 import datetime
+import operator
 
 import frappe
 from erpnext import get_default_currency
 
 from ebay_rest.error import Error as eBayRestError
 
+from .ebay_requests import get_item as get_item_trading, ConnectionError
 from .ebay_requests_rest import get_transactions, get_order
-from .sync_orders_rest import ErpnextEbaySyncError, VAT_RATES
+from .sync_orders_rest import divide_rounded, ErpnextEbaySyncError, VAT_RATES
 
 MAX_DAYS = 90
 COMPANY_ACRONYM = frappe.get_all('Company', fields=['abbr'])[0].abbr
@@ -19,13 +21,12 @@ EBAY_SUPPLIER = 'eBay'
 DOMESTIC_VAT = VAT_RATES[f'Sales - {COMPANY_ACRONYM}']
 
 @frappe.whitelist()
-def sync_mp_transactions():
+def sync_mp_transactions(num_days=None):
     """Synchronise eBay Managed Payments transactions.
     Create Purchase Invoices that add all fees and charges to
     the eBay Managed Payment account.
-    NOTE - this must be run just after updating eBay listings as
-    the Rest APIs provide no way to get the SKU of an eBay listing
-    from the line_item_id.
+    NOTE - this should, ideally, be run just after updating eBay listings
+    to help identify items from item IDs.
     """
 
     default_currency = get_default_currency()
@@ -39,11 +40,13 @@ def sync_mp_transactions():
     frappe.msgprint('Syncing eBay transactions...')
 
     # Load orders from Ebay
-    num_days = int(frappe.get_value(
-        'eBay Manager Settings', filters=None, fieldname='ebay_sync_days'))
+    if num_days is None:
+        num_days = int(frappe.get_value(
+            'eBay Manager Settings', filters=None, fieldname='ebay_sync_days'))
 
     # Load transactions from eBay
     transactions = get_transactions(num_days=min(num_days, MAX_DAYS))
+    transactions.sort(key=operator.itemgetter('transaction_date'))
 
     # Group transactions by date
     transactions_by_date = collections.defaultdict(list)
@@ -71,6 +74,7 @@ def sync_mp_transactions():
             'supplier': EBAY_SUPPLIER,
             'is_paid': True,
             'posting_date': posting_date,
+            'set_posting_time': True,
             'update_stock': False,
             'cash_bank_account': ebay_bank,
             'mode_of_payment': f'eBay Managed {default_currency}'
@@ -81,6 +85,7 @@ def sync_mp_transactions():
                                expense_account)
             except ErpnextEbaySyncError as e:
                 # Handle this a bit better
+                print(transaction)
                 frappe.throw(f'Transaction sync error! {e}', exc=e)
         if not getattr(pinv_doc, 'items', None):
             # If there are no PINV items added, go to next date
@@ -124,14 +129,41 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account):
 
     # Deal with different transaction types
     if t_type == 'SALE':
-        return  # TODO REMOVE FIXME
         # Transaction for sale order
+        if not (t['total_fee_amount'] or t['order_line_items']):
+            # Entry with no fees; skip
+            return
         # Only add fees (sale amount added by SINV)
         buyer = t['buyer']['username']
-        total_fee = 0
         order_id = t['order_id']
+        # Sum marketplace fees according to total amount
+        li_fee_dict = {}
+        li_fee_currency_dict = {}
         for li in t['order_line_items']:
-            # One PINV item per order line item
+            li_fee = 0
+            for mf in li['marketplace_fees']:
+                # Check currency
+                if mf['amount']['currency'] != currency:
+                    raise ErpnextEbaySyncError(
+                        f'Transaction {t_id} has inconsistent currencies!')
+                if mf['amount']['converted_from_currency']:
+                    raise ErpnextEbaySyncError(
+                        f'Transaction {t_id} has converted marketplace fees?')
+                # Sum fees
+                fee = float(mf['amount']['value'])  # in local currency
+                li_fee += fee
+            li_fee_currency_dict[li['line_item_id']] = li_fee
+        if t['amount']['converted_from_currency']:
+            # Conversion to home currency
+            li_fee_dict = divide_rounded(li_fee_currency_dict,
+                                         float(t['amount']['value']))
+        else:
+            li_fee_dict = li_fee_currency_dict
+
+        # Now loop over each line item and add one PINV for each
+        total_fee = 0
+        total_fee_currency = 0
+        for li in t['order_line_items']:
             item_code = get_item_code_for_order(
                 order_id, order_line_item_id=li['line_item_id'])
             pinv_item = pinv_doc.append('items')
@@ -149,80 +181,78 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account):
                 f"""<div>eBay Order Line Item {li['line_item_id']}</div>""",
                 f"""<div>Item code {item_code}</div><ul>"""
             ]
-            li_fee = 0
             for mf in li['marketplace_fees']:
-                # Check currency
-                if mf['amount']['currency'] != default_currency:
-                    raise ErpnextEbaySyncError(
-                        f'Transaction {t_id} not '
-                        + 'in default currency!')
-                # Fee in local quantity
-                if mf['amount']['converted_from_currency']:
-                    fee_currency = frappe.utils.fmt_money(
-                        float(mf['amount']['converted_from_value']),
-                        currency=mf['amount']['converted_from_currency']
-                    )
-                    fee_currency_str = f""" <i>({fee_currency})</i>'"""
-                else:
-                    fee_currency_str = ''
-                # Fee in home currency
-                fee = float(mf['amount']['value'])
-                fee_str = frappe.utils.fmt_money(
-                    float(mf['amount']['value']),
-                    currency=mf['amount']['currency']
-                )
                 # Sum fees
-                li_fee += fee
-                total_fee += fee
+                fee = float(mf['amount']['value'])  # in local currency
+                # Format fee in local (and home) currency
+                fee_str = frappe.utils.fmt_money(fee, currency=currency)
+                if mf['amount']['currency'] != default_currency:
+                    fee_home = frappe.utils.fmt_money(
+                        exchange_rate * fee, currency=default_currency)
+                    fee_home_str = f""" <i>({fee_home})</i>"""
+                else:
+                    fee_home_str = ''
                 # Format descriptions for this item
                 fee_memo = f" ({mf['fee_memo']})" if mf['fee_memo'] else ""
                 details.append(f"""<li>{mf['fee_type']}{fee_memo}: """)
-                details.append(f"""{fee_str}{fee_currency_str}</li>""")
+                details.append(f"""{fee_str}{fee_home_str}</li>""")
             # Add PINV item for this order line item
-            li_fee = round(li_fee, 2)
+            li_id = li['line_item_id']
+            li_fee = li_fee_dict[li_id]
+            li_fee_currency = li_fee_currency_dict[li_id]
             li_fee_str = frappe.utils.fmt_money(
                 li_fee, currency=default_currency)
-            details.append(f"""</ul><div>Total: {li_fee_str} (inc VAT)</div>""")
+            if t['amount']['converted_from_currency']:
+                li_fee_currency_fmt = frappe.utils.fmt_money(
+                    li_fee_currency, currency=currency)
+                li_fee_currency_str = f""" ({li_fee_currency_fmt})"""
+            else:
+                li_fee_currency_str = ''
+            details.append(f"""</ul><div>Total: {li_fee_str}"""
+                           + f"""{li_fee_currency_str} (inc VAT)</div>""")
             pinv_item.qty = 1
             pinv_item.rate = li_fee
             pinv_item.description = '\n'.join(details)
+            total_fee += li_fee_currency
         # Check total fee
         total_fee = round(total_fee, 2)
         if (float(t['total_fee_amount']['value']) != total_fee
-                or t['total_fee_amount']['currency'] != default_currency):
+                or t['total_fee_amount']['currency'] != currency):
             raise ErpnextEbaySyncError(f'Transaction {t_id} inconsistent fees!')
-    #elif t_type == 'ADJUSTMENT':
-        #pass
-    #elif t_type == 'CREDIT':
-        #pass
-    elif t_type == 'NON_SALE_CHARGE':
-        return  # TODO REMOVE FIXME
+    elif t_type in ('NON_SALE_CHARGE', 'SHIPPING_LABEL'):
         # Transaction for a non-sale charge (e.g. additional fees)
         # One PINV item
         if t['order_line_items']:
             raise ErpnextEbaySyncError(
-                f'NON_SALE_CHARGE {t_id} has order line items!')
+                f'{t_type} {t_id} has order line items!')
         item_id = None
         order_id = None
-        for r in t['references']:
-            if r['reference_type'] == 'ITEM_ID':
-                # We have an item ID reference
-                if item_id:
-                    raise ErpnextEbaySyncError(
-                        f'Transaction {t_id} multiple item references!')
-                item_id = r['reference_id']
-            elif r['reference_type'] == 'ORDER_ID':
-                # We have an order ID reference
-                if order_id:
-                    raise ErpnextEbaySyncError(
-                        f'Transaction {t_id} multiple order references!')
-                order_id = r['reference_id']
+        item_ids = [r['reference_id'] for r in (t['references'] or [])
+                    if r['reference_type'] == 'ITEM_ID']
+        order_ids = [r['reference_id'] for r in (t['references'] or [])
+                     if r['reference_type'] == 'ORDER_ID']
+        # Set item_id only if we have a single item ID
+        if len(item_ids) == 1:
+            item_id = item_ids[0]
+        # More than one order ID is an error
+        if len(order_ids) == 1:
+            order_id = order_ids[0]
+        elif len(order_ids) > 1:
+            raise ErpnextEbaySyncError(
+                f'Transaction {t_id} multiple order references!')
         # Get item code
         if item_id and order_id:
             item_code = get_item_code_for_order(
                 order_id, item_id=item_id)
         elif item_id:
-            get_item_code_for_item_id(item_id)
+            item_code = get_item_code_for_item_id(item_id)
+        elif (order_id
+                and t['fee_type'] in ('AD_FEE', 'FINAL_VALUE_SHIPPING_FEE')):
+            # Some fees come, unhelpfully, with every item ID
+            item_code = None
+        elif t_type == 'SHIPPING_LABEL':
+            # Accept eBay's failure to identify anything
+            item_code = None
         else:
             raise ErpnextEbaySyncError(
                 f'Cannot identify item for transaction {t_id}')
@@ -248,12 +278,19 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account):
         )
         t_memo = t['transaction_memo']
         fee_memo = f" ({t_memo})" if t_memo else ""
-        details = (
-            f"""<div>eBay <i>NON_SALE_CHARGE</i> Transaction {t_id}</div>
-            <div>Item code {item_code}</div>
-            <div><i>{t['fee_type']}</i>{fee_memo}
-            {fee_str}{fee_currency_str} (inc VAT)</div>"""
-        )
+        if t_type == 'NON_SALE_CHARGE':
+            details = (
+                f"""<div>eBay <i>{t_type}</i> Transaction {t_id}</div>
+                <div>Item code {item_code or 'not available'}</div>
+                <div><i>{t['fee_type']}</i>{fee_memo}
+                {fee_str}{fee_currency_str} (inc VAT)</div>"""
+            )
+        else:
+            details = (
+                f"""<div>eBay <i>{t_type}</i> Transaction {t_id}</div>
+                <div>Shipping label: {fee_memo}
+                {fee_str}{fee_currency_str} (inc VAT)</div>"""
+            )
         pinv_item = pinv_doc.append('items')
         pinv_item.item_code = FEE_ITEM
         pinv_item.ebay_transaction_id = t['transaction_id']
@@ -267,7 +304,6 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account):
         pinv_item.rate = fee
         pinv_item.description = details
     elif t_type == 'REFUND':
-        return  # TODO REMOVE FIXME
         # We do only consider the fees here; we assume the SINV will
         # be refunded
         # We don't record against any particular item as we can't do that
@@ -319,7 +355,9 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account):
         pinv_item.qty = 1
         pinv_item.rate = -fee  # NOTE NEGATIVE because fee is refund
         pinv_item.description = details
-    #elif t_type == 'SHIPPING_LABEL':
+    #elif t_type == 'ADJUSTMENT':
+        #pass
+    #elif t_type == 'CREDIT':
         #pass
     #elif t_type == 'TRANSFER':
         #pass
@@ -332,8 +370,28 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account):
 
 
 def get_item_code_for_item_id(item_id):
-    """Get the item code that matches the (legacy?) item ID supplied."""
-    raise NotImplementedError('do this!')
+    """Get the item code that matches the (legacy?) item ID supplied.
+    First search the zeBayListings table, then call Buy Browse get_item."""
+    records = frappe.db.sql("""
+        SELECT ebay.sku
+        FROM `zeBayListings` as ebay
+        WHERE ebay.ebay_id = %(item_id)s;
+    """, {'item_id': item_id}, as_dict=True)
+    if len(records) > 1:
+        raise ErpnextEbaySyncError(f'Too many hits for item {item_id}!')
+    elif records:
+        return records[0].sku
+    # We have not located the item.
+    item_data = None
+    try:
+        item_data = get_item_trading(item_id, output_selector=['SKU'])
+    except ConnectionError as e:
+        if e.response.dict()['Errors']['ErrorCode'] == 17:
+            # Could not find/not allowed error
+            raise ErpnextEbaySyncError(f'Could not find {item_id}!')
+        else:
+            raise
+    return item_data['SKU']
 
 
 def get_item_code_for_order(order_id, order_line_item_id=None, item_id=None):

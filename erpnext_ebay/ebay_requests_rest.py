@@ -177,6 +177,17 @@ def get_transactions(num_days=None, buyer_username=None, payout_id=None,
         'sell_finances_get_transactions', 'transactions', **kwargs)
 
 
+def get_item(item_id, *args, **kwargs):
+    """Retrieve a single item using the Buy Browse API.
+
+    Arguments
+        item_id: Item ID to look up.
+    """
+
+    return single_api_call('buy_browse_get_item', item_id=item_id,
+                           *args, **kwargs)
+
+
 def get_items(item_ids):
     """Retrieve up to 20 items at once using the Buy Browse API.
 
