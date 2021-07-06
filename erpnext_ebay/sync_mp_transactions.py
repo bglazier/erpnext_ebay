@@ -21,6 +21,7 @@ FEE_ITEM = 'ITEM-15487'
 EBAY_SUPPLIER = 'eBay'
 DOMESTIC_VAT = VAT_RATES[f'Sales - {COMPANY_ACRONYM}']
 
+
 @frappe.whitelist()
 def sync_mp_transactions(num_days=None):
     """Synchronise eBay Managed Payments transactions.
@@ -546,16 +547,3 @@ def get_item_code_for_order(order_id, order_line_item_id=None, item_id=None):
     else:
         msg = f'item ID {item_id}'
     raise ErpnextEbaySyncError(f'Order {order_id} did not contain {msg}?')
-
-
-
-
-
-
-
-
-
-
-
-
-
