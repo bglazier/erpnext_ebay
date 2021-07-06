@@ -170,11 +170,39 @@ def get_transactions(num_days=None, buyer_username=None, payout_id=None,
         transaction_filters.append(f"payoutId:{{{payout_id}}}")
     if order_id:
         transaction_filters.append(f"orderId:{{{order_id}}}")
-    kwargs['filter'] = ','.join(transaction_filters)
+    if transaction_filters:
+        kwargs['filter'] = ','.join(transaction_filters)
 
     # Make API call
     return paged_api_call(
         'sell_finances_get_transactions', 'transactions', **kwargs)
+
+
+def get_payouts(num_days=None, payout_status=None):
+    """Get payout using the Sell Finances API.
+
+    Arguments
+        num_days: Only return payouts from the last num_days
+        payout_status: Only return payouts with this payout status
+    """
+
+    kwargs = {}
+    payout_filters = []
+    if num_days:
+        # Get number of dates and calculated payoutDate filter
+        payout_date = (
+            datetime.datetime.utcnow() - datetime.timedelta(days=num_days)
+        ).isoformat(timespec='milliseconds')
+        payout_filters.append(
+            f"payoutDate:[{payout_date}Z..]")
+    if payout_status:
+        payout_filters.append(f"payoutStatus={{{payout_status}}}")
+    if payout_filters:
+        kwargs['filter'] = ','.join(payout_filters)
+
+    # Make API call
+    return paged_api_call(
+        'sell_finances_get_payouts', 'payouts', **kwargs)
 
 
 def get_item(item_id, *args, **kwargs):

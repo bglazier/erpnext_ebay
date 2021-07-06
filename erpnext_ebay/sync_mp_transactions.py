@@ -3,6 +3,7 @@
 import collections
 import datetime
 import operator
+import textwrap
 
 import frappe
 from erpnext import get_default_currency
@@ -10,7 +11,7 @@ from erpnext import get_default_currency
 from ebay_rest.error import Error as eBayRestError
 
 from .ebay_requests import get_item as get_item_trading, ConnectionError
-from .ebay_requests_rest import get_transactions, get_order
+from .ebay_requests_rest import get_transactions, get_order, get_payouts
 from .sync_orders_rest import divide_rounded, ErpnextEbaySyncError, VAT_RATES
 
 MAX_DAYS = 90
@@ -107,6 +108,95 @@ def sync_mp_transactions(num_days=None):
         # Save and submit PINV
         pinv_doc.insert()
         #pinv_doc.submit()
+
+    return
+
+
+@frappe.whitelist()
+def sync_mp_payouts(num_days=None):
+    """Synchronise eBay Managed Payments payouts.
+    Create Journal Entries for payouts from the eBay Managed Payment account.
+    """
+
+    default_currency = get_default_currency()
+    ebay_bank = f'eBay Managed {default_currency} - {COMPANY_ACRONYM}'
+
+    # This is a whitelisted function; check permissions.
+    if not frappe.has_permission('eBay Manager'):
+        frappe.throw('You do not have permission to access the eBay Manager',
+                     frappe.PermissionError)
+    frappe.msgprint('Syncing eBay transactions...')
+
+    # Load orders from Ebay
+    if num_days is None:
+        num_days = int(frappe.get_value(
+            'eBay Manager Settings', filters=None, fieldname='ebay_sync_days'))
+    payout_account = frappe.get_value(
+        'eBay Manager Settings', 'eBay Manager Settings', 'ebay_payout_account')
+    if not payout_account:
+        raise ErpnextEbaySyncError('No eBay payout account set!')
+    currency = (
+        frappe.get_value('Account', payout_account, 'account_currency')
+        or default_currency
+    )
+
+    # Load payouts from eBay
+    payouts = get_payouts(num_days=min(num_days, MAX_DAYS))
+    payouts.sort(key=operator.itemgetter('payout_date'))
+
+    for payout in payouts:
+        if payout['payout_status'] in ('INITIATED', 'RETRYABLE_FAILED',
+                                       'TERMINAL_FAILED'):
+            # This transaction hasn't happened or didn't happen
+            continue
+        elif payout['payout_status'] == 'REVERSED':
+            raise NotImplementedError('Need to check how this works?')
+        if payout['amount']['currency'] != currency:
+            raise ErpnextEbaySyncError(
+                'Payout account has different currency to eBay payouts')
+
+        # Get date of payout
+        payout_datetime = datetime.datetime.strptime(
+            payout['payout_date'], '%Y-%m-%dT%H:%M:%S.%fZ'
+        )
+        payout_date = payout_datetime.date()
+
+        pi_amount = float(payout['amount']['value'])
+        pi = payout['payout_instrument']
+        amount_str = frappe.utils.fmt_money(pi_amount, currency=currency)
+        details = textwrap.dedent(
+            f"""\
+            eBay Payout {payout['payout_id']}
+            Payout date: {payout_datetime}
+            Payout ID: {payout['payout_id']}
+            Paid to {pi['instrument_type']} '{pi['nickname']}' \
+            (last four digits {pi['account_last_four_digits']})
+            {payout['payout_status']}: {payout['payout_status_description']}
+            Value: {amount_str}"""
+        )
+
+        # Create Journal Entry
+        je_doc = frappe.get_doc({
+            'doctype': 'Journal Entry',
+            'title': f'eBay Managed Payments payout {payout_date}',
+            'posting_date': payout_date,
+            'cheque_no': payout['payout_id'],
+            'user_remark': details,
+            'accounts': [
+                {
+                    'account': ebay_bank,
+                    'credit': pi_amount,
+                    'credit_in_account_currency': pi_amount
+                },
+                {
+                    'account': payout_account,
+                    'debit': pi_amount,
+                    'debit_in_account_currency': pi_amount
+                }
+            ]
+        })
+        je_doc.insert()
+        #je_doc.submit()
 
     return
 
