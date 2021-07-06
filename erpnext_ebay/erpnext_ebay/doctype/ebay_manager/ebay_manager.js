@@ -2,16 +2,16 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on('eBay Manager', {
-    sync_orders_button(frm) {
-        frappe.call({
-            method: "erpnext_ebay.sync_orders.sync",
-            args: {
-                site_id: 3
-            },
-            freeze: true,
-            freeze_message: "Syncing eBay customers and orders; this may take some time..."
-        });
-    },
+//     sync_orders_button(frm) {
+//         frappe.call({
+//             method: "erpnext_ebay.sync_orders.sync",
+//             args: {
+//                 site_id: 3
+//             },
+//             freeze: true,
+//             freeze_message: "Syncing eBay customers and orders; this may take some time..."
+//         });
+//     },
 
     sync_orders_rest_button(frm) {
         frappe.call({
@@ -19,6 +19,24 @@ frappe.ui.form.on('eBay Manager', {
             args: {},
             freeze: true,
             freeze_message: "Syncing eBay customers and orders; this may take some time..."
+        });
+    },
+
+    sync_transactions_button(frm) {
+        frappe.call({
+            method: "erpnext_ebay.sync_mp_transactions.sync_mp_transactions",
+            args: {},
+            freeze: true,
+            freeze_message: "Syncing eBay transactions; this may take some time..."
+        });
+    },
+
+    sync_payouts_button(frm) {
+        frappe.call({
+            method: "erpnext_ebay.sync_mp_transactions.sync_mp_payouts",
+            args: {},
+            freeze: true,
+            freeze_message: "Syncing eBay payouts; this may take some time..."
         });
     },
 

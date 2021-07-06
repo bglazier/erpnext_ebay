@@ -114,7 +114,7 @@ def sync_mp_transactions(num_days=None):
 
 
 @frappe.whitelist()
-def sync_mp_payouts(num_days=None):
+def sync_mp_payouts(num_days=None, payout_account=None):
     """Synchronise eBay Managed Payments payouts.
     Create Journal Entries for payouts from the eBay Managed Payment account.
     """
@@ -132,8 +132,10 @@ def sync_mp_payouts(num_days=None):
     if num_days is None:
         num_days = int(frappe.get_value(
             'eBay Manager Settings', filters=None, fieldname='ebay_sync_days'))
-    payout_account = frappe.get_value(
-        'eBay Manager Settings', 'eBay Manager Settings', 'ebay_payout_account')
+    if payout_account is None:
+        payout_account = frappe.get_value(
+            'eBay Manager Settings', 'eBay Manager Settings',
+            'ebay_payout_account')
     if not payout_account:
         raise ErpnextEbaySyncError('No eBay payout account set!')
     currency = (
@@ -165,13 +167,13 @@ def sync_mp_payouts(num_days=None):
         pi_amount = float(payout['amount']['value'])
         pi = payout['payout_instrument']
         amount_str = frappe.utils.fmt_money(pi_amount, currency=currency)
+        last_four = f"last four digits {pi['account_last_four_digits']}"
         details = textwrap.dedent(
             f"""\
             eBay Payout {payout['payout_id']}
             Payout date: {payout_datetime}
             Payout ID: {payout['payout_id']}
-            Paid to {pi['instrument_type']} '{pi['nickname']}' \
-            (last four digits {pi['account_last_four_digits']})
+            Paid to {pi['instrument_type']} '{pi['nickname']}' ({last_four})
             {payout['payout_status']}: {payout['payout_status_description']}
             Value: {amount_str}"""
         )
@@ -181,7 +183,6 @@ def sync_mp_payouts(num_days=None):
             'doctype': 'Journal Entry',
             'title': f'eBay Managed Payments payout {payout_date}',
             'posting_date': payout_date,
-            'cheque_no': payout['payout_id'],
             'user_remark': details,
             'accounts': [
                 {

@@ -6,8 +6,9 @@
  "field_order": [
   "heading",
   "main_section",
-  "sync_orders_button",
   "sync_orders_rest_button",
+  "sync_transactions_button",
+  "sync_payouts_button",
   "sync_listings_button",
   "sync_categories_button",
   "column_break_1",
@@ -22,13 +23,6 @@
   {
    "fieldname": "main_section",
    "fieldtype": "Section Break"
-  },
-  {
-   "bold": 1,
-   "fieldname": "sync_orders_button",
-   "fieldtype": "Button",
-   "label": "Sync eBay Orders (Old)",
-   "width": "300"
   },
   {
    "bold": 1,
@@ -59,12 +53,24 @@
    "bold": 1,
    "fieldname": "sync_orders_rest_button",
    "fieldtype": "Button",
-   "label": "Sync eBay Orders (New)",
+   "label": "Sync eBay Orders",
    "width": "300"
+  },
+  {
+   "bold": 1,
+   "fieldname": "sync_transactions_button",
+   "fieldtype": "Button",
+   "label": "Sync eBay Transactions"
+  },
+  {
+   "bold": 1,
+   "fieldname": "sync_payouts_button",
+   "fieldtype": "Button",
+   "label": "Sync eBay Payouts"
   }
  ],
  "issingle": 1,
- "modified": "2021-07-01 22:31:25.589860",
+ "modified": "2021-07-06 13:17:39.000785",
  "modified_by": "Administrator",
  "module": "Erpnext Ebay",
  "name": "eBay Manager",

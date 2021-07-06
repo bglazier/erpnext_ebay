@@ -1018,9 +1018,8 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
             "mode_of_payment": ebay_payment_account,
             "amount": payout_subtotal}
         )
-        #submit_on_pay = (currency == default_currency)
+        submit_on_pay = (country == 'United Kingdom')
         #submit_on_pay = True
-        submit_on_pay = False
 
     customer_name = order_dict['customer_name']
     cust_email = frappe.get_value('Address', db_address_name, 'email_id')
