@@ -10,6 +10,7 @@
   "ebay_image_size",
   "ebay_thumbnail_size",
   "ebay_price_list",
+  "ebay_payout_account",
   "ebay_cbreak",
   "ebay_live_hostname",
   "get_current_hostname",
@@ -65,10 +66,16 @@
    "fieldtype": "Link",
    "label": "eBay Price List",
    "options": "Price List"
+  },
+  {
+   "fieldname": "ebay_payout_account",
+   "fieldtype": "Link",
+   "label": "eBay Managed Payments payout account",
+   "options": "Account"
   }
  ],
  "issingle": 1,
- "modified": "2021-06-15 18:14:43.093955",
+ "modified": "2021-07-06 10:04:41.008856",
  "modified_by": "Administrator",
  "module": "Erpnext Ebay",
  "name": "eBay Manager Settings",
