@@ -23,10 +23,14 @@ DOMESTIC_VAT = VAT_RATES[f'Sales - {COMPANY_ACRONYM}']
 
 
 @frappe.whitelist()
-def sync_mp_transactions(num_days=None):
+def sync_mp_transactions(num_days=None, not_today=False):
     """Synchronise eBay Managed Payments transactions.
     Create Purchase Invoices that add all fees and charges to
     the eBay Managed Payment account.
+
+    Arguments:
+        num_days: Include transactions from the last num_days days.
+        not_today: If set, transactions from today are not included.
     NOTE - this should, ideally, be run just after updating eBay listings
     to help identify items from item IDs.
     """
@@ -34,6 +38,7 @@ def sync_mp_transactions(num_days=None):
     default_currency = get_default_currency()
     ebay_bank = f'eBay Managed {default_currency} - {COMPANY_ACRONYM}'
     expense_account = f'eBay Managed Fees - {COMPANY_ACRONYM}'
+    today = datetime.date.today()
 
     # This is a whitelisted function; check permissions.
     if not frappe.has_permission('eBay Manager'):
@@ -66,6 +71,9 @@ def sync_mp_transactions(num_days=None):
         )
         transaction['transaction_datetime'] = transaction_datetime
         transaction_date = transaction_datetime.date()
+        if not_today and (transaction_date == today):
+            # Don't include transactions from today if not_today set
+            continue
         transactions_by_date[transaction_date].append(transaction)
 
     # Create a PINV for each date with transactions
