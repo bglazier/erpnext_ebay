@@ -41,7 +41,6 @@ def sync_mp_transactions(num_days=None):
                      frappe.PermissionError)
     frappe.msgprint('Syncing eBay transactions...')
 
-    # Load orders from Ebay
     if num_days is None:
         num_days = int(frappe.get_value(
             'eBay Manager Settings', filters=None, fieldname='ebay_sync_days'))
@@ -114,6 +113,8 @@ def sync_mp_transactions(num_days=None):
         pinv_doc.insert()
         #pinv_doc.submit()
 
+    frappe.msgprint('Finished.')
+
     return
 
 
@@ -132,7 +133,6 @@ def sync_mp_payouts(num_days=None, payout_account=None):
                      frappe.PermissionError)
     frappe.msgprint('Syncing eBay payouts...')
 
-    # Load orders from Ebay
     if num_days is None:
         num_days = int(frappe.get_value(
             'eBay Manager Settings', filters=None, fieldname='ebay_sync_days'))
@@ -152,6 +152,25 @@ def sync_mp_payouts(num_days=None, payout_account=None):
     payouts.sort(key=operator.itemgetter('payout_date'))
 
     for payout in payouts:
+        p_id = payout['payout_id']
+
+        # Get date of payout
+        payout_datetime = datetime.datetime.strptime(
+            payout['payout_date'], '%Y-%m-%dT%H:%M:%S.%fZ'
+        )
+        payout_date = payout_datetime.date()
+
+        # Check for existing journal entry for this transaction
+        if frappe.get_all(
+                'Journal Entry',
+                filters={
+                    'cheque_no': p_id,
+                    'cheque_date': payout_date,
+                    'title': ['like', 'eBay Managed Payments Payout%']
+                }):
+            continue
+
+        # Check payout succeeded
         if payout['payout_status'] in ('INITIATED', 'RETRYABLE_FAILED',
                                        'TERMINAL_FAILED'):
             # This transaction hasn't happened or didn't happen
@@ -161,12 +180,6 @@ def sync_mp_payouts(num_days=None, payout_account=None):
         if payout['amount']['currency'] != currency:
             raise ErpnextEbaySyncError(
                 'Payout account has different currency to eBay payouts')
-
-        # Get date of payout
-        payout_datetime = datetime.datetime.strptime(
-            payout['payout_date'], '%Y-%m-%dT%H:%M:%S.%fZ'
-        )
-        payout_date = payout_datetime.date()
 
         pi_amount = float(payout['amount']['value'])
         pi = payout['payout_instrument']
@@ -188,6 +201,8 @@ def sync_mp_payouts(num_days=None, payout_account=None):
             'title': f'eBay Managed Payments payout {payout_date}',
             'posting_date': payout_date,
             'user_remark': details,
+            'cheque_no': payout['payout_id'],
+            'cheque_date': payout_date,
             'accounts': [
                 {
                     'account': ebay_bank,
@@ -203,6 +218,8 @@ def sync_mp_payouts(num_days=None, payout_account=None):
         })
         je_doc.insert()
         #je_doc.submit()
+
+    frappe.msgprint('Finished.')
 
     return
 
