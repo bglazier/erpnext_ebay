@@ -102,9 +102,13 @@ def sync_mp_transactions(num_days=None):
             tax_entry.included_in_print_rate = True
             tax_entry.rate = DOMESTIC_VAT * 100
         # If total effect is negative, make a debit note
-        if sum(x.rate * x.qty for x in pinv_doc.items) < 0:
+        # We need to set quantities negative (for debit note to validate)
+        # which means we also need to set rates * -1
+        pinv_doc.paid_amount = sum(x.rate * x.qty for x in pinv_doc.items)
+        if pinv_doc.paid_amount < 0:
             for item in pinv_doc.items:
                 item.qty = -item.qty
+                item.rate = -item.rate
             pinv_doc.is_return = True
         # Save and submit PINV
         pinv_doc.insert()
@@ -126,7 +130,7 @@ def sync_mp_payouts(num_days=None, payout_account=None):
     if not frappe.has_permission('eBay Manager'):
         frappe.throw('You do not have permission to access the eBay Manager',
                      frappe.PermissionError)
-    frappe.msgprint('Syncing eBay transactions...')
+    frappe.msgprint('Syncing eBay payouts...')
 
     # Load orders from Ebay
     if num_days is None:
@@ -218,6 +222,9 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account):
         t['amount']['converted_from_currency'] or t['amount']['currency']
     )
     exchange_rate = float(t['amount']['exchange_rate'] or 0) or 1.0
+    # Is this a debit or credit entry?
+    MULT_DICT = {'CREDIT': -1, 'DEBIT': 1}
+    multiplier = MULT_DICT[t['booking_entry']]
 
     # Deal with different transaction types
     if t_type == 'SALE':
@@ -305,7 +312,9 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account):
             details.append(f"""</ul><div>Total: {li_fee_str}"""
                            + f"""{li_fee_currency_str} (inc VAT)</div>""")
             pinv_item.qty = 1
-            pinv_item.rate = li_fee
+            # NOTE fee is negative, but multiplier will also be negative
+            # (so removing money)
+            pinv_item.rate = -li_fee * multiplier
             pinv_item.description = '\n'.join(details)
             total_fee += li_fee_currency
         # Check total fee
@@ -395,15 +404,16 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account):
         pinv_item.ebay_transaction_exchange_rate = exchange_rate
         pinv_item.expense_account = expense_account
         pinv_item.qty = 1
-        pinv_item.rate = fee
+        pinv_item.rate = fee * multiplier
         pinv_item.description = details
     elif t_type == 'REFUND':
         # We do only consider the fees here; we assume the SINV will
         # be refunded
         # We don't record against any particular item as we can't do that
-        if not t['order_line_items']:
-            raise ErpnextEbaySyncError(
-                f'REFUND {t_id} has no order line items!')
+        # Transaction for sale order
+        if not (t['total_fee_amount'] or t['order_line_items']):
+            # Entry with no fees; skip
+            return
         order_id = t['order_id']
         order_line_item_ids = [x['line_item_id'] for x in t['order_line_items']]
         item_codes = [
@@ -447,7 +457,8 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account):
         pinv_item.ebay_transaction_exchange_rate = exchange_rate
         pinv_item.expense_account = expense_account
         pinv_item.qty = 1
-        pinv_item.rate = -fee  # NOTE NEGATIVE because fee is refund
+        # NOTE fee is negative; multiplier will be positive (so adding money)
+        pinv_item.rate = -fee * multiplier
         pinv_item.description = details
     #elif t_type == 'ADJUSTMENT':
         #pass

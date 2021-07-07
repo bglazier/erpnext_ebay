@@ -159,7 +159,7 @@ def debug_msgprint(message):
 
 
 @frappe.whitelist()
-def sync_orders():
+def sync_orders(num_days=None):
     """
     Pulls the latest orders from eBay. Creates Sales Invoices for sold items.
 
@@ -188,8 +188,9 @@ def sync_orders():
     frappe.msgprint('Syncing eBay orders...')
 
     # Load orders from Ebay
-    num_days = int(frappe.get_value(
-        'eBay Manager Settings', filters=None, fieldname='ebay_sync_days'))
+    if num_days is None:
+        num_days = int(frappe.get_value(
+            'eBay Manager Settings', filters=None, fieldname='ebay_sync_days'))
     orders = get_orders(min(num_days, MAX_DAYS))
 
     # Load transactions from eBay
@@ -680,21 +681,9 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
             f"Multiple transactions matching eBay order {ebay_order_id}!")
     transaction = transactions[0]
 
-    # Get order payments
-    payments = order['payment_summary']['payments'] or []
-    if len(payments) != 1:
-        raise ErpnextEbaySyncError(
-            f'Order {ebay_order_id} has multiple payments!')
-    payment = payments[0]
-
     # eBay date format: YYYY-MM-DDTHH:MM:SS.SSSZ
-    paid_datetime = payment['payment_date']
-    if paid_datetime:
-        posting_date = datetime.datetime.strptime(
-            paid_datetime[:-1] + 'UTC', '%Y-%m-%dT%H:%M:%S.%f%Z')
-    else:
-        posting_date = datetime.datetime.strptime(
-            order['creation_date'][:-1] + 'UTC', '%Y-%m-%dT%H:%M:%S.%f%Z')
+    posting_date = datetime.datetime.strptime(
+        order['creation_date'][:-1] + 'UTC', '%Y-%m-%dT%H:%M:%S.%f%Z')
 
     # Get Buyer Checkout Message, if any
     buyer_checkout_message = order['buyer_checkout_notes']
@@ -1058,9 +1047,16 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
     }
 
     sinv = frappe.get_doc(sinv_dict)
+    if sinv.posting_date != posting_date.date():
+        raise ErpnextEbaySyncError(f'Wrong posting date 1! {sinv.posting_date} {posting_date.date()}')
     sinv.run_method('erpnext_ebay_before_insert')
+    if sinv.posting_date != posting_date.date():
+        raise ErpnextEbaySyncError(f'Wrong posting date 2! {sinv.posting_date} {posting_date.date()}')
 
     sinv.insert()
+    if sinv.posting_date != posting_date.date():
+        raise ErpnextEbaySyncError(f'Wrong posting date 3! {sinv.posting_date} {posting_date.date()}')
+    print('posting date: ', posting_date.date(), sinv.posting_date)
 
     if sinv.outstanding_amount:
         debug_msgprint(f'Sales Invoice: {sinv.name} has an outstanding amount!')
