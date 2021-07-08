@@ -17,7 +17,7 @@ from .sync_orders_rest import divide_rounded, ErpnextEbaySyncError, VAT_RATES
 MAX_DAYS = 90
 COMPANY_ACRONYM = frappe.get_all('Company', fields=['abbr'])[0].abbr
 
-FEE_ITEM = 'ITEM-15487'
+FEE_ITEM = 'ITEM-15847'
 EBAY_SUPPLIER = 'eBay'
 DOMESTIC_VAT = VAT_RATES[f'Sales - {COMPANY_ACRONYM}']
 
