@@ -119,7 +119,7 @@ def sync_mp_transactions(num_days=None, not_today=False):
             pinv_doc.is_return = True
         # Save and submit PINV
         pinv_doc.insert()
-        #pinv_doc.submit()
+        pinv_doc.submit()
 
     frappe.msgprint('Finished.')
 
@@ -225,7 +225,7 @@ def sync_mp_payouts(num_days=None, payout_account=None):
             ]
         })
         je_doc.insert()
-        #je_doc.submit()
+        je_doc.submit()
 
     frappe.msgprint('Finished.')
 
