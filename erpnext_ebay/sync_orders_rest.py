@@ -741,8 +741,8 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
         ebay_exchange_rate = float(t_amount_dict['exchange_rate'])
         # Calculate fee amount as it will be calculated later (using eBay
         # exchange rate)
-        fee_amount_home_currency = (
-            ebay_exchange_rate * float(fee_amount)
+        fee_amount_home_currency = round(
+            ebay_exchange_rate * float(fee_amount), 2
         )
     else:
         # Transaction in home currency; no conversion needed
