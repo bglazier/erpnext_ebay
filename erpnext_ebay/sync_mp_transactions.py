@@ -347,7 +347,7 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account):
         if (float(t['total_fee_amount']['value']) != total_fee
                 or t['total_fee_amount']['currency'] != currency):
             raise ErpnextEbaySyncError(f'Transaction {t_id} inconsistent fees!')
-    elif t_type in ('NON_SALE_CHARGE', 'SHIPPING_LABEL'):
+    elif t_type in ('NON_SALE_CHARGE', 'SHIPPING_LABEL', 'DISPUTE', 'CREDIT'):
         # Transaction for a non-sale charge (e.g. additional fees)
         # One PINV item
         if t['order_line_items']:
@@ -359,6 +359,8 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account):
                     if r['reference_type'] == 'ITEM_ID']
         order_ids = [r['reference_id'] for r in (t['references'] or [])
                      if r['reference_type'] == 'ORDER_ID']
+        if t['order_id'] and (t['order_id'] not in order_ids):
+            order_ids.append(t['order_id'])
         # Set item_id only if we have a single item ID
         if len(item_ids) == 1:
             item_id = item_ids[0]
@@ -377,6 +379,9 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account):
         elif (order_id
                 and t['fee_type'] in ('AD_FEE', 'FINAL_VALUE_SHIPPING_FEE')):
             # Some fees come, unhelpfully, with every item ID
+            item_code = None
+        elif (order_id and t_type in ('DISPUTE', 'CREDIT')):
+            # Disputes and dispute credits come with no item ID
             item_code = None
         elif t_type == 'SHIPPING_LABEL':
             # Accept eBay's failure to identify anything
@@ -405,20 +410,21 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account):
             currency=t['amount']['currency']
         )
         t_memo = t['transaction_memo']
-        fee_memo = f" ({t_memo})" if t_memo else ""
-        if t_type == 'NON_SALE_CHARGE':
-            details = (
-                f"""<div>eBay <i>{t_type}</i> Transaction {t_id}</div>
-                <div>Item code {item_code or 'not available'}</div>
-                <div><i>{t['fee_type']}</i>{fee_memo}
-                {fee_str}{fee_currency_str} (inc VAT)</div>"""
-            )
+        t_memo_str = f" ({t_memo})" if t_memo else ""
+        if item_code:
+            item_code_line = f"""<div>Item code {item_code}</div>"""
         else:
-            details = (
-                f"""<div>eBay <i>{t_type}</i> Transaction {t_id}</div>
-                <div>Shipping label: {fee_memo}
-                {fee_str}{fee_currency_str} (inc VAT)</div>"""
-            )
+            item_code_line = ""
+        if t['fee_type']:
+            fee_type_str = f"""<i>{t['fee_type']}</i>"""
+        else:
+            fee_type_str = ""
+        details = (
+            f"""<div>eBay <i>{t_type}</i> Transaction {t_id}</div>
+            {item_code_line}
+            <div>{fee_type_str}{t_memo_str}
+            {fee_str}{fee_currency_str} (inc VAT)</div>"""
+        )
         pinv_item = pinv_doc.append('items')
         pinv_item.item_code = FEE_ITEM
         pinv_item.ebay_transaction_id = t['transaction_id']
