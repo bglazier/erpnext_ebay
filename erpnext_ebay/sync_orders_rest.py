@@ -928,7 +928,7 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
     # Total of all eBay Collect and Remit taxes
     total_collect_and_remit = sum(car_by_type.values())
     # Total amount for payout before deduction of fees
-    payout_subtotal = total_price - total_collect_and_remit
+    payout_subtotal = round(total_price - total_collect_and_remit, 2)
 
     # Add a single line item for shipping services
     if shipping_cost > 0.0001:
@@ -951,6 +951,8 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
             "expense_account": f"Cost of Goods Sold - {COMPANY_ACRONYM}"
         })
 
+    sum_line_items = round(sum_line_items, 2)
+
     # Check line item prices add up as expected (excluding Collect and Remit)
     if sum_line_items != payout_subtotal:
         raise ErpnextEbaySyncError(
@@ -965,7 +967,11 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
     collect_and_remit_details = []
     for tax_type, tax_amount in car_by_type.items():
         # Add details for each eBay Collect and Remit type
-        if len(car_references[tax_type]) != 1:
+        if not car_references[tax_type]:
+            # If there isn't actually any amount on this tax type
+            # (and therefore no entry here), just continue
+            continue
+        elif len(car_references[tax_type]) != 1:
             raise ErpnextEbaySyncError(
                 f'Order {ebay_order_id} non-single {tax_type} reference!')
         car_ref, = car_references[tax_type]
@@ -1047,16 +1053,8 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
     }
 
     sinv = frappe.get_doc(sinv_dict)
-    if sinv.posting_date != posting_date.date():
-        raise ErpnextEbaySyncError(f'Wrong posting date 1! {sinv.posting_date} {posting_date.date()}')
     sinv.run_method('erpnext_ebay_before_insert')
-    if sinv.posting_date != posting_date.date():
-        raise ErpnextEbaySyncError(f'Wrong posting date 2! {sinv.posting_date} {posting_date.date()}')
-
     sinv.insert()
-    if sinv.posting_date != posting_date.date():
-        raise ErpnextEbaySyncError(f'Wrong posting date 3! {sinv.posting_date} {posting_date.date()}')
-    print('posting date: ', posting_date.date(), sinv.posting_date)
 
     if sinv.outstanding_amount:
         debug_msgprint(f'Sales Invoice: {sinv.name} has an outstanding amount!')
