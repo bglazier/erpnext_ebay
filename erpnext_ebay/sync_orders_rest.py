@@ -293,7 +293,7 @@ def sync_orders(num_days=None):
 def extract_customer(order):
     """Process an order, and extract limited customer information.
 
-    order - a single order entry from the eBay TradingAPI.
+    order - a single order entry from the eBay Sell Fulfillment API.
 
     Returns a tuple of two dictionarys.
     The first dictionary is ready to create a Customer Doctype entry.
@@ -302,6 +302,7 @@ def extract_customer(order):
     """
 
     ebay_user_id = order['buyer']['username']
+    order_id = order['order_id']
 
     fulfillment = order['fulfillment_start_instructions'][0]
     ship_to = fulfillment['shipping_step']['ship_to']
@@ -363,12 +364,14 @@ def extract_customer(order):
         address_line1, address_line2 = address_line2, ''
 
     # Note - the Fulfillment API does not generate an eBay AddressID
+    # so we use the Order ID prefixed by 'ORDER_'
 
     # Prepare the address dictionary
     if postcode is not None and db_country == 'United Kingdom':
         postcode = sanitize_postcode(postcode)
     address_dict = {
         "doctype": "Address",
+        "ebay_address_id": f"ORDER_{order_id}",
         "address_title": shipping_name or ebay_user_id,
         "address_type": "Shipping",
         "address_line1": address_line1 or '-',
@@ -388,7 +391,7 @@ def create_customer(customer_dict, address_dict, changes=None):
     Does not duplicate entries where possible.
 
     customer_dict - A dictionary ready to create a Customer doctype.
-    address_dict - A dictionary ready to create an Address doctype (or None).
+    address_dict - A dictionary ready to create an Address doctype.
     changes - A sync log list to append to.
 
     Returns the db name of the customer and address.
@@ -402,6 +405,7 @@ def create_customer(customer_dict, address_dict, changes=None):
     # Test if the customer already exists
     db_cust_name = None
     ebay_user_id = customer_dict['ebay_user_id']
+    ebay_address_id = address_dict['ebay_address_id']
 
     cust_fields = db_get_ebay_doc(
         "Customer", ebay_user_id, fields=["name", "customer_name", "territory"],
@@ -436,41 +440,49 @@ def create_customer(customer_dict, address_dict, changes=None):
                         "address": None,
                         "ebay_order": None})
 
-    # Test if there is already an identical address without the AddressID
+    # Get name of existing address, if one exists
     db_address_name = None
-    keys = ('address_title', 'address_line1', 'address_line2',
-            'city', 'pincode')
-    filters = {}
-    for key in keys:
-        filters[key] = address_dict[key] or ''
+    address_fields = db_get_ebay_doc(
+        "Address", ebay_address_id, fields=["name"],
+        log=changes, none_ok=True)
+    if address_fields:
+        db_address_name = address_fields.get['name']
 
-    address_queries = frappe.db.get_values(
-        "Address",
-        filters=filters,
-        fieldname="name")
+    # Test if there is already an identical address without the AddressID
+    if not db_address_name:
+        keys = ('address_title', 'address_line1', 'address_line2',
+                'city', 'pincode')
+        filters = {}
+        for key in keys:
+            filters[key] = address_dict[key] or ''
 
-    if len(address_queries) == 1:
-        # We have found a matching address; add eBay AddressID
-        db_address_name = address_queries[0][0]
-        address_doc = frappe.get_doc("Address", db_address_name)
-        for link in address_doc.links:
-            if (link.link_doctype == 'Customer'
-                    and link.link_name == db_cust_name):
-                # A dynamic link to the customer exists
-                break
-        else:
-            # There was no link; add one
-            link_doc = address_doc.append('links')
-            link_doc.link_doctype = 'Customer'
-            link_doc.link_name = db_cust_name
-        address_doc.save()
-        updated_db = True
-        # Update the customer territory, if required
-        if cust_fields:
-            territory = determine_territory(address_doc.country)
-            if territory != cust_fields['territory']:
-                frappe.set_value('Customer', db_cust_name,
-                                 'territory', territory)
+        address_queries = frappe.db.get_all(
+            "Address",
+            fields=["name"],
+            filters=filters)
+
+        if len(address_queries) >= 1:
+            # We have found a matching address; add eBay AddressID
+            db_address_name = address_queries[0].name
+            address_doc = frappe.get_doc("Address", db_address_name)
+            for link in address_doc.links:
+                if (link.link_doctype == 'Customer'
+                        and link.link_name == db_cust_name):
+                    # A dynamic link to the customer exists
+                    break
+            else:
+                # There was no link; add one
+                link_doc = address_doc.append('links')
+                link_doc.link_doctype = 'Customer'
+                link_doc.link_name = db_cust_name
+            address_doc.save()
+            updated_db = True
+            # Update the customer territory, if required
+            if cust_fields:
+                territory = determine_territory(address_doc.country)
+                if territory != cust_fields['territory']:
+                    frappe.set_value('Customer', db_cust_name,
+                                     'territory', territory)
 
     # Add address if required
     if not db_address_name:
