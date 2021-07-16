@@ -708,7 +708,11 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
     default_currency = get_default_currency()
     price_total = order['pricing_summary']['total']
     currency = price_total['converted_from_currency'] or price_total['currency']
-    if price_total['currency'] != default_currency:
+    payments_summary = order['payment_summary']['payments']
+    if len(payments_summary) != 1:
+        raise ErpnextEbaySyncError(
+            f'Order {ebay_order_id} has number of payments != 1!')
+    if payments_summary[0]['amount']['currency'] != default_currency:
         raise ErpnextEbaySyncError(
             f'Order {ebay_order_id} has wrong home currency!')
     # total_price INCLUDES Collect and Remit Taxes
@@ -912,10 +916,12 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
                 "warehouse": WAREHOUSE,
                 "qty": qty,
                 "rate": exc_vat / qty,
-                "ebay_final_value_fee": item_fee_dict[line_item_id],
-                "base_ebay_final_value_fee": base_item_fee_dict[line_item_id],
-                "ebay_fixed_fee": fixed_fee_dict[line_item_id],
-                "base_ebay_fixed_fee": base_fixed_fee_dict[line_item_id],
+                "ebay_final_value_fee": item_fee_dict.get(line_item_id, 0.0),
+                "base_ebay_final_value_fee":
+                    base_item_fee_dict.get(line_item_id, 0.0),
+                "ebay_fixed_fee": fixed_fee_dict.get(line_item_id, 0.0),
+                "base_ebay_fixed_fee":
+                    base_fixed_fee_dict.get(line_item_id, 0.0),
                 "ebay_collect_and_remit": item_car_total,
                 "ebay_collect_and_remit_reference": item_car_reference or '',
                 "ebay_order_line_item_id": line_item_id,
