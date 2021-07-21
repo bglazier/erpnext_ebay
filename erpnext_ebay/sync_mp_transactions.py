@@ -119,7 +119,8 @@ def sync_mp_transactions(num_days=None, not_today=False):
             pinv_doc.is_return = True
         # Save and submit PINV
         pinv_doc.insert()
-        pinv_doc.submit()
+        if not pinv_doc.flags.do_not_submit:
+            pinv_doc.submit()
 
     frappe.msgprint('Finished.')
 
@@ -359,6 +360,7 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account):
                     if r['reference_type'] == 'ITEM_ID']
         order_ids = [r['reference_id'] for r in (t['references'] or [])
                      if r['reference_type'] == 'ORDER_ID']
+        reference_types = {r['reference_type'] for r in (t['references'] or [])}
         if t['order_id'] and (t['order_id'] not in order_ids):
             order_ids.append(t['order_id'])
         # Set item_id only if we have a single item ID
@@ -383,6 +385,11 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account):
         elif (order_id and t_type in ('DISPUTE', 'CREDIT')):
             # Disputes and dispute credits come with no item ID
             item_code = None
+        elif 'INVOICE' in reference_types:
+            # Invoices not linked to any individual item (e.g. monthly fee)
+            # Don't submit as VAT can be wrong
+            item_code = None
+            pinv_doc.flags.do_not_submit = True
         elif t_type == 'SHIPPING_LABEL':
             # Accept eBay's failure to identify anything
             item_code = None
