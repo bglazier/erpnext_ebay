@@ -446,7 +446,7 @@ def create_customer(customer_dict, address_dict, changes=None):
         "Address", ebay_address_id, fields=["name"],
         log=changes, none_ok=True)
     if address_fields:
-        db_address_name = address_fields.get['name']
+        db_address_name = address_fields.get('name')
 
     # Test if there is already an identical address without the AddressID
     if not db_address_name:
