@@ -27,7 +27,7 @@ def chunker(seq, size):
     return (seq[pos:pos + size] for pos in range(0, len(seq), size))
 
 
-def revise_ebay_prices(price_data, print=print):
+def revise_ebay_prices(price_data, print=print, **kwargs):
     """Revises multiple eBay prices. Attempts to pack price updates into as few
     ReviseInventoryStatus calls as possible.
     Accepts a list of tuples, each of which contains:
@@ -45,10 +45,10 @@ def revise_ebay_prices(price_data, print=print):
         for (ebay_id, new_price, *_) in price_data
     ]
 
-    revise_ebay_inventory(item_data, print=print)
+    revise_ebay_inventory(item_data, print=print, **kwargs)
 
 
-def revise_ebay_quantities(qty_data, print=print):
+def revise_ebay_quantities(qty_data, print=print, **kwargs):
     """Revises multiple eBay quantities. Attempts to pack quantity updates
     into as few ReviseInventoryStatus calls as possible.
     Accepts a list of tuples, each of which contains:
@@ -71,19 +71,23 @@ def revise_ebay_quantities(qty_data, print=print):
 
     # First revise listing quantities
     if revise_listings:
-        revise_ebay_inventory(revise_listings, print=print)
+        revise_ebay_inventory(revise_listings, print=print, **kwargs)
 
     # Then end listings
     if end_listings:
-        end_ebay_listings(end_listings, print=print)
+        end_ebay_listings(end_listings, print=print, **kwargs)
 
 
-def revise_ebay_inventory(item_data, print=print):
+def revise_ebay_inventory(item_data, print=print, error_log=None,
+                          retries=1, **kwargs):
     """Revises multiple eBay prices and quantities. Attempts to pack
     price updates into as few ReviseInventoryStatus calls as possible.
     Accepts a list of tuples of the form (ebay_id, price, qty).
     If either price or qty is None, the price or qty, respectively,
     is not changed.
+    Tries each transaction 'retries' times.
+    If error_log is supplied, then the process continues on error,
+    appending to the error_log.
     """
 
     CHUNK_SIZE = 4
@@ -115,7 +119,23 @@ def revise_ebay_inventory(item_data, print=print):
         prev_percent = percent
 
         # Submit the updates for these items.
-        revise_inventory_status(chunked_items)
+        for i in range(retries):
+            try:
+                revise_inventory_status(chunked_items)
+            except Exception as e:
+                error_log.append('revise_ebay_inventory exception: {e}')
+            else:
+                # Success
+                break
+            print('Retrying transaction...')
+        else:
+            if error_log:
+                # Carry on
+                error_log.append(
+                    f'revise_ebay_inventory failed after {retries} retries')
+            else:
+                # Give up here
+                raise
 
     print(' - 100% complete.')
 
@@ -165,7 +185,7 @@ def client_relist_ebay_item(ebay_id, item_dict=None):
     relist_item(ebay_id, item_dict=item_dict)
 
 
-def end_ebay_listings(listings, print=print):
+def end_ebay_listings(listings, print=print, **kwargs):
     """Ends a number of eBay listings.
 
     Arguments:
