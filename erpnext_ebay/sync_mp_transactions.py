@@ -348,7 +348,8 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account):
         if (float(t['total_fee_amount']['value']) != total_fee
                 or t['total_fee_amount']['currency'] != currency):
             raise ErpnextEbaySyncError(f'Transaction {t_id} inconsistent fees!')
-    elif t_type in ('NON_SALE_CHARGE', 'SHIPPING_LABEL', 'DISPUTE', 'CREDIT'):
+    elif t_type in ('NON_SALE_CHARGE', 'SHIPPING_LABEL', 'DISPUTE', 'CREDIT',
+                    'ADJUSTMENT'):
         # Transaction for a non-sale charge (e.g. additional fees)
         # One PINV item
         if t['order_line_items']:
@@ -392,6 +393,9 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account):
             pinv_doc.flags.do_not_submit = True
         elif t_type == 'SHIPPING_LABEL':
             # Accept eBay's failure to identify anything
+            item_code = None
+        elif t_type == 'ADJUSTMENT':
+            # No item or order ID for adjustments
             item_code = None
         else:
             raise ErpnextEbaySyncError(
