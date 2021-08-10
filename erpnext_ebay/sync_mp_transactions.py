@@ -22,6 +22,76 @@ EBAY_SUPPLIER = 'eBay'
 DOMESTIC_VAT = VAT_RATES[f'Sales - {COMPANY_ACRONYM}']
 
 
+def date_range(start_date, end_date):
+    """Yield all dates between start_date and end_date, *inclusive*.
+    Based on https://stackoverflow.com/a/32616832/1427742
+    """
+    for ordinal in range(start_date.toordinal(), end_date.toordinal() + 1):
+        yield datetime.date.fromordinal(ordinal)
+
+
+def archive_transactions(start_date, end_date):
+    """Archive all transactions and payouts between start_date and
+    end_date (inclusive). Raises an error is end_date is on or later
+    than today's UTC date.
+    Stores all entries in a database table as JSON-encoded entries.
+    """
+
+    # Check start and end date (inclusive) are reasonable
+    if end_date < start_date:
+        frappe.throw('Start date after end date!')
+    if end_date >= datetime.datetime.now().date():
+        frappe.throw('Cannot archive dates on or after current UTC date!')
+    dates = tuple(date_range(start_date, end_date))
+
+    # Create table if it does not exist
+    frappe.db.sql("""
+        CREATE TABLE IF NOT EXISTS `zeBayTransactions`
+        (
+            posting_date DATE PRIMARY KEY,
+            transactions MEDIUMTEXT NOT NULL,
+            payouts MEDIUMTEXT NOT NULL
+        );
+        """)
+    # Get transactions
+    transactions_by_date = {x: [] for x in dates}
+    transactions = get_transactions(start_date=start_date, end_date=end_date)
+    transactions.sort(key=operator.itemgetter('transaction_date'))
+    for transaction in transactions:
+        # Get date of transaction and append to list
+        transaction_datetime = datetime.datetime.strptime(
+            transaction['transaction_date'], '%Y-%m-%dT%H:%M:%S.%fZ'
+        )
+        transaction['transaction_datetime'] = transaction_datetime
+        transactions_by_date[transaction_datetime.date()].append(transaction)
+
+    # Get payouts
+    payouts_by_date = {x: [] for x in dates}
+    payouts = get_payouts(start_date=start_date, end_date=end_date)
+    payouts.sort(key=operator.itemgetter('payout_date'))
+    for payout in payouts:
+        # Get date of payout and append to list
+        payout_datetime = datetime.datetime.strptime(
+            payout['payout_date'], '%Y-%m-%dT%H:%M:%S.%fZ'
+        )
+        payout['transaction_datetime'] = payout_datetime
+        payouts_by_date[payout_datetime.date()].append(payout)
+
+    # Save transactions and payouts in table
+    for entry_date in dates:
+        t_data = frappe.as_json(transactions_by_date[entry_date])
+        p_data = frappe.as_json(payouts_by_date[entry_date])
+        params = {
+            'posting_date': entry_date,
+            'transactions': t_data,
+            'payouts': p_data
+        }
+        frappe.db.sql("""
+            REPLACE INTO `zeBayTransactions`
+            VALUES (%(posting_date)s, %(transactions)s, %(payouts)s);
+        """, params)
+
+
 @frappe.whitelist()
 def sync_mp_transactions(num_days=None, not_today=False):
     """Synchronise eBay Managed Payments transactions.
