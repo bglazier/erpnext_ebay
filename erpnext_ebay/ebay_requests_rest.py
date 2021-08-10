@@ -136,7 +136,7 @@ def get_orders(num_days=None, order_ids=None):
 
 def get_transactions(num_days=None, buyer_username=None, payout_id=None,
                      transaction_id=None, transaction_type=None,
-                     order_id=None):
+                     order_id=None, start_date=None, end_date=None):
     """Get transactions using the Sell Finances API.
 
     Arguments
@@ -145,11 +145,17 @@ def get_transactions(num_days=None, buyer_username=None, payout_id=None,
         payout_id: Return transactions relating to this payout
         transaction_id: Return this transaction only
         order_id: Return transactions relating to this sales order
+        start_date, end_date: Only transactions between these UTC dates (inc.)
     """
 
     if transaction_id and not transaction_type:
         frappe.throw(
             'transaction_type must be supplied if transaction_id is used!')
+
+    if bool(start_date) != bool(end_date):
+        frappe.throw('Must provide both start_date and end_date or neither!')
+    elif num_days and start_date:
+        frappe.throw('Use either num_days OR start_date/end_date (or neither)!')
 
     kwargs = {}
     transaction_filters = []
@@ -160,6 +166,18 @@ def get_transactions(num_days=None, buyer_username=None, payout_id=None,
         ).isoformat(timespec='milliseconds')
         transaction_filters.append(
             f"transactionDate:[{last_transaction_date}Z..]")
+    if start_date:
+        # Get transactionDate filter from start and end date filters
+        start_dt = (
+            datetime.datetime.combine(start_date, datetime.time.min)
+            .isoformat(timespec='milliseconds')
+        )
+        end_dt = (
+            datetime.datetime.combine(end_date, datetime.time.max)
+            .isoformat(timespec='milliseconds')
+        )
+        transaction_filters.append(
+            f"transactionDate:[{start_dt}Z..{end_dt}Z]")
     if buyer_username:
         transaction_filters.append(f"buyerUsername:{{{buyer_username}}}")
     if transaction_type:
@@ -178,13 +196,20 @@ def get_transactions(num_days=None, buyer_username=None, payout_id=None,
         'sell_finances_get_transactions', 'transactions', **kwargs)
 
 
-def get_payouts(num_days=None, payout_status=None):
+def get_payouts(num_days=None, payout_status=None,
+                start_date=None, end_date=None):
     """Get payout using the Sell Finances API.
 
     Arguments
         num_days: Only return payouts from the last num_days
         payout_status: Only return payouts with this payout status
+        start_date, end_date: Only payouts between these UTC dates (inclusive)
     """
+
+    if bool(start_date) != bool(end_date):
+        frappe.throw('Must provide both start_date and end_date or neither!')
+    elif num_days and start_date:
+        frappe.throw('Use either num_days OR start_date/end_date (or neither)!')
 
     kwargs = {}
     payout_filters = []
@@ -195,6 +220,18 @@ def get_payouts(num_days=None, payout_status=None):
         ).isoformat(timespec='milliseconds')
         payout_filters.append(
             f"payoutDate:[{payout_date}Z..]")
+    if start_date:
+        # Get payoutDate filter from start and end date filters
+        start_dt = (
+            datetime.datetime.combine(start_date, datetime.time.min)
+            .isoformat(timespec='milliseconds')
+        )
+        end_dt = (
+            datetime.datetime.combine(end_date, datetime.time.max)
+            .isoformat(timespec='milliseconds')
+        )
+        payout_filters.append(
+            f"payoutDate:[{start_dt}Z..{end_dt}Z]")
     if payout_status:
         payout_filters.append(f"payoutStatus={{{payout_status}}}")
     if payout_filters:
