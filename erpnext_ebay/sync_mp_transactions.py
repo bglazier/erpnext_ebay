@@ -253,12 +253,12 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account):
     multiplier = MULT_DICT[t['booking_entry']]
 
     # Deal with different transaction types
-    if t_type == 'SALE':
-        # Transaction for sale order
+    if t_type in ('SALE', 'REFUND'):
+        # Transaction for sale order or refund
         if not (t['total_fee_amount'] or t['order_line_items']):
             # Entry with no fees; skip
             return
-        # Only add fees (sale amount added by SINV)
+        # Only add fees (sale/refund amount added by SINV)
         buyer = t['buyer']['username']
         order_id = t['order_id']
         # Sum marketplace fees according to total amount
@@ -287,7 +287,7 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account):
         else:
             li_fee_dict = li_fee_currency_dict
 
-        # Now loop over each line item and add one PINV for each
+        # Now loop over each line item and add one PINV item for each
         total_fee = 0
         total_fee_currency = 0
         for li in t['order_line_items']:
@@ -305,8 +305,9 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account):
             pinv_item.ebay_buyer = buyer
             pinv_item.expense_account = expense_account
             details = [
-                f"""<div>eBay Order Line Item {li['line_item_id']}</div>""",
-                f"""<div>Item code {item_code}</div><ul>"""
+                f"""<div>eBay <i>{t_type} (FEES)</i> Transaction {t_id}</div>
+                <div>eBay Order Line Item {li['line_item_id']}</div>
+                <div>Item code {item_code}</div><ul>"""
             ]
             for mf in li['marketplace_fees']:
                 # Sum fees
@@ -338,8 +339,8 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account):
             details.append(f"""</ul><div>Total: {li_fee_str}"""
                            + f"""{li_fee_currency_str} (inc VAT)</div>""")
             pinv_item.qty = 1
-            # NOTE fee is negative, but multiplier will also be negative
-            # (so removing money)
+            # NOTE fee is negative compared to multiplier
+            # (so removing money for SALE, adding for REFUND)
             pinv_item.rate = -li_fee * multiplier
             pinv_item.description = '\n'.join(details)
             total_fee += li_fee_currency
@@ -448,64 +449,60 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account):
         pinv_item.qty = 1
         pinv_item.rate = fee * multiplier
         pinv_item.description = details
-    elif t_type == 'REFUND':
-        # We do only consider the fees here; we assume the SINV will
-        # be refunded
-        # We don't record against any particular item as we can't do that
-        # Transaction for sale order
-        if not (t['total_fee_amount'] or t['order_line_items']):
-            # Entry with no fees; skip
-            return
-        order_id = t['order_id']
-        order_line_item_ids = [x['line_item_id'] for x in t['order_line_items']]
-        item_codes = [
-            get_item_code_for_order(order_id, order_line_item_id=x)
-            for x in order_line_item_ids
-        ]
-        # Check currency
-        if t['total_fee_amount']['currency'] != default_currency:
-            raise ErpnextEbaySyncError(
-                f'Transaction {t_id} not in default currency!')
-        # Fee in local quantity
-        if t['total_fee_amount']['converted_from_currency']:
-            fee_currency = frappe.utils.fmt_money(
-                float(t['total_fee_amount']['converted_from_value']),
-                currency=t['total_fee_amount']['converted_from_currency']
-            )
-            fee_currency_str = f""" <i>({fee_currency})</i>'"""
-        else:
-            fee_currency_str = ''
-        # Fee in home currency
-        fee = float(t['total_fee_amount']['value'])
-        fee_str = frappe.utils.fmt_money(
-            float(t['total_fee_amount']['value']),
-            currency=t['total_fee_amount']['currency']
-        )
-        t_memo = t['transaction_memo']
-        fee_memo = f" ({t_memo})" if t_memo else ""
-        details = (
-            f"""<div>eBay <i>REFUND (FEES)</i> Transaction {t_id}</div>
-            <div>Item codes: {', '.join(item_codes)}</div>
-            <div><i>{t['fee_type'] or ''}</i>{fee_memo}
-            {fee_str}{fee_currency_str} (inc VAT)</div>"""
-        )
-        pinv_item = pinv_doc.append('items')
-        pinv_item.item_code = FEE_ITEM
-        pinv_item.ebay_transaction_id = t['transaction_id']
-        pinv_item.ebay_order_id = t['order_id']
-        pinv_item.ebay_transaction_datetime = t['transaction_datetime']
-        pinv_item.ebay_sku = None  # don't record against any particular item
-        pinv_item.ebay_transaction_currency = currency
-        pinv_item.ebay_transaction_exchange_rate = exchange_rate
-        pinv_item.expense_account = expense_account
-        pinv_item.qty = 1
-        # NOTE fee is negative; multiplier will be positive (so adding money)
-        pinv_item.rate = -fee * multiplier
-        pinv_item.description = details
-    #elif t_type == 'ADJUSTMENT':
-        #pass
-    #elif t_type == 'CREDIT':
-        #pass
+    #elif t_type == 'REFUND':
+        ## We do only consider the fees here; we assume the SINV will
+        ## be refunded
+        ## We don't record against any particular item as we can't do that
+        ## Transaction for sale order
+        #if not (t['total_fee_amount'] or t['order_line_items']):
+            ## Entry with no fees; skip
+            #return
+        #order_id = t['order_id']
+        #order_line_item_ids = [x['line_item_id'] for x in t['order_line_items']]
+        #item_codes = [
+            #get_item_code_for_order(order_id, order_line_item_id=x)
+            #for x in order_line_item_ids
+        #]
+        ## Check currency
+        #if t['total_fee_amount']['currency'] != default_currency:
+            #raise ErpnextEbaySyncError(
+                #f'Transaction {t_id} not in default currency!')
+        ## Fee in local quantity
+        #if t['total_fee_amount']['converted_from_currency']:
+            #fee_currency = frappe.utils.fmt_money(
+                #float(t['total_fee_amount']['converted_from_value']),
+                #currency=t['total_fee_amount']['converted_from_currency']
+            #)
+            #fee_currency_str = f""" <i>({fee_currency})</i>'"""
+        #else:
+            #fee_currency_str = ''
+        ## Fee in home currency
+        #fee = float(t['total_fee_amount']['value'])
+        #fee_str = frappe.utils.fmt_money(
+            #float(t['total_fee_amount']['value']),
+            #currency=t['total_fee_amount']['currency']
+        #)
+        #t_memo = t['transaction_memo']
+        #fee_memo = f" ({t_memo})" if t_memo else ""
+        #details = (
+            #f"""<div>eBay <i>REFUND (FEES)</i> Transaction {t_id}</div>
+            #<div>Item codes: {', '.join(item_codes)}</div>
+            #<div><i>{t['fee_type'] or ''}</i>{fee_memo}
+            #{fee_str}{fee_currency_str} (inc VAT)</div>"""
+        #)
+        #pinv_item = pinv_doc.append('items')
+        #pinv_item.item_code = FEE_ITEM
+        #pinv_item.ebay_transaction_id = t['transaction_id']
+        #pinv_item.ebay_order_id = t['order_id']
+        #pinv_item.ebay_transaction_datetime = t['transaction_datetime']
+        #pinv_item.ebay_sku = None  # don't record against any particular item
+        #pinv_item.ebay_transaction_currency = currency
+        #pinv_item.ebay_transaction_exchange_rate = exchange_rate
+        #pinv_item.expense_account = expense_account
+        #pinv_item.qty = 1
+        ## NOTE fee is negative; multiplier will be positive (so adding money)
+        #pinv_item.rate = -fee * multiplier
+        #pinv_item.description = details
     #elif t_type == 'TRANSFER':
         #pass
     else:
