@@ -30,12 +30,25 @@ def date_range(start_date, end_date):
         yield datetime.date.fromordinal(ordinal)
 
 
+@frappe.whitelist()
 def archive_transactions(start_date, end_date):
     """Archive all transactions and payouts between start_date and
     end_date (inclusive). Raises an error is end_date is on or later
     than today's UTC date.
     Stores all entries in a database table as JSON-encoded entries.
     """
+
+    # This is a whitelisted function; check permissions.
+    if not frappe.has_permission('eBay Manager', 'write'):
+        frappe.throw('You do not have permission to access the eBay Manager',
+                     frappe.PermissionError)
+    frappe.msgprint('Syncing eBay transactions...')
+
+    # Convert string or datetime arguments to date objects (e.g. from JS)
+    if not (start_date and end_date):
+        frappe.throw('Must have start and end dates!')
+    start_date = frappe.utils.getdate(start_date)
+    end_date = frappe.utils.getdate(end_date)
 
     # Check start and end date (inclusive) are reasonable
     if end_date < start_date:
@@ -105,16 +118,16 @@ def sync_mp_transactions(num_days=None, not_today=False):
     to help identify items from item IDs.
     """
 
+    # This is a whitelisted function; check permissions.
+    if not frappe.has_permission('eBay Manager', 'write'):
+        frappe.throw('You do not have permission to access the eBay Manager',
+                     frappe.PermissionError)
+    frappe.msgprint('Syncing eBay transactions...')
+
     default_currency = get_default_currency()
     ebay_bank = f'eBay Managed {default_currency} - {COMPANY_ACRONYM}'
     expense_account = f'eBay Managed Fees - {COMPANY_ACRONYM}'
     today = datetime.date.today()
-
-    # This is a whitelisted function; check permissions.
-    if not frappe.has_permission('eBay Manager'):
-        frappe.throw('You do not have permission to access the eBay Manager',
-                     frappe.PermissionError)
-    frappe.msgprint('Syncing eBay transactions...')
 
     if num_days is None:
         num_days = int(frappe.get_value(
@@ -203,14 +216,14 @@ def sync_mp_payouts(num_days=None, payout_account=None):
     Create Journal Entries for payouts from the eBay Managed Payment account.
     """
 
-    default_currency = get_default_currency()
-    ebay_bank = f'eBay Managed {default_currency} - {COMPANY_ACRONYM}'
-
     # This is a whitelisted function; check permissions.
-    if not frappe.has_permission('eBay Manager'):
+    if not frappe.has_permission('eBay Manager', 'write'):
         frappe.throw('You do not have permission to access the eBay Manager',
                      frappe.PermissionError)
     frappe.msgprint('Syncing eBay payouts...')
+
+    default_currency = get_default_currency()
+    ebay_bank = f'eBay Managed {default_currency} - {COMPANY_ACRONYM}'
 
     if num_days is None:
         num_days = int(frappe.get_value(
