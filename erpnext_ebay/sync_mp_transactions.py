@@ -2,6 +2,7 @@
 
 import collections
 import datetime
+import json
 import operator
 import textwrap
 
@@ -71,11 +72,10 @@ def archive_transactions(start_date, end_date):
     transactions.sort(key=operator.itemgetter('transaction_date'))
     for transaction in transactions:
         # Get date of transaction and append to list
-        transaction_datetime = datetime.datetime.strptime(
+        transaction_date = datetime.datetime.strptime(
             transaction['transaction_date'], '%Y-%m-%dT%H:%M:%S.%fZ'
-        )
-        transaction['transaction_datetime'] = transaction_datetime
-        transactions_by_date[transaction_datetime.date()].append(transaction)
+        ).date()
+        transactions_by_date[transaction_date].append(transaction)
 
     # Get payouts
     payouts_by_date = {x: [] for x in dates}
@@ -83,11 +83,10 @@ def archive_transactions(start_date, end_date):
     payouts.sort(key=operator.itemgetter('payout_date'))
     for payout in payouts:
         # Get date of payout and append to list
-        payout_datetime = datetime.datetime.strptime(
+        payout_date = datetime.datetime.strptime(
             payout['payout_date'], '%Y-%m-%dT%H:%M:%S.%fZ'
-        )
-        payout['transaction_datetime'] = payout_datetime
-        payouts_by_date[payout_datetime.date()].append(payout)
+        ).date()
+        payouts_by_date[payout_date].append(payout)
 
     # Save transactions and payouts in table
     for entry_date in dates:
@@ -103,8 +102,8 @@ def archive_transactions(start_date, end_date):
             # Store transactions and payouts
             params = {
                 'posting_date': entry_date,
-                'transactions': frappe.as_json(t_data),
-                'payouts': frappe.as_json(p_data)
+                'transactions': json.dumps(t_data),
+                'payouts': json.dumps(p_data)
             }
             frappe.db.sql("""
                 REPLACE INTO `zeBayTransactions`
