@@ -1,0 +1,25 @@
+{
+ "add_total_row": 0,
+ "creation": "2021-08-10 14:20:33.310103",
+ "disable_prepared_report": 0,
+ "disabled": 0,
+ "docstatus": 0,
+ "doctype": "Report",
+ "idx": 0,
+ "is_standard": "Yes",
+ "letter_head": "Standard Letter Head",
+ "modified": "2021-08-10 14:30:57.111011",
+ "modified_by": "Administrator",
+ "module": "Erpnext Ebay",
+ "name": "eBay Managed Payments Transactions",
+ "owner": "Administrator",
+ "prepared_report": 0,
+ "ref_doctype": "eBay Manager",
+ "report_name": "eBay Managed Payments Transactions",
+ "report_type": "Script Report",
+ "roles": [
+  {
+   "role": "eBay Administrator"
+  }
+ ]
+}
