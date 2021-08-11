@@ -42,7 +42,6 @@ def archive_transactions(start_date, end_date):
     if not frappe.has_permission('eBay Manager', 'write'):
         frappe.throw('You do not have permission to access the eBay Manager',
                      frappe.PermissionError)
-    frappe.msgprint('Syncing eBay transactions...')
 
     # Convert string or datetime arguments to date objects (e.g. from JS)
     if not (start_date and end_date):
@@ -92,17 +91,27 @@ def archive_transactions(start_date, end_date):
 
     # Save transactions and payouts in table
     for entry_date in dates:
-        t_data = frappe.as_json(transactions_by_date[entry_date])
-        p_data = frappe.as_json(payouts_by_date[entry_date])
-        params = {
-            'posting_date': entry_date,
-            'transactions': t_data,
-            'payouts': p_data
-        }
-        frappe.db.sql("""
-            REPLACE INTO `zeBayTransactions`
-            VALUES (%(posting_date)s, %(transactions)s, %(payouts)s);
-        """, params)
+        t_data = transactions_by_date[entry_date]
+        p_data = payouts_by_date[entry_date]
+        if not (t_data or p_data):
+            # No transactions or payouts for this date
+            frappe.db.sql("""
+                DELETE FROM `zeBayTransactions`
+                    WHERE posting_date = %(posting_date)s;
+            """, {'posting_date': entry_date})
+        else:
+            # Store transactions and payouts
+            params = {
+                'posting_date': entry_date,
+                'transactions': frappe.as_json(t_data),
+                'payouts': frappe.as_json(p_data)
+            }
+            frappe.db.sql("""
+                REPLACE INTO `zeBayTransactions`
+                VALUES (%(posting_date)s, %(transactions)s, %(payouts)s);
+            """, params)
+
+    frappe.db.commit()
 
 
 @frappe.whitelist()
