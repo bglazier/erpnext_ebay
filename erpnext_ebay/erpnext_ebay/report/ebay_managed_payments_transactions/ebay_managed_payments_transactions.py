@@ -9,11 +9,11 @@ import frappe
 from erpnext import get_default_currency
 
 
-def cur_flt(value):
+def cur_flt(value, multiplier=1.0):
     """Convert to 2dp rounded float if not None, else None."""
     if value is None:
         return None
-    return round(float(value), 2)
+    return round(float(value) * multiplier, 2)
 
 
 COLUMNS = [
@@ -40,13 +40,6 @@ COLUMNS = [
         'label': 'Type',
         'fieldtype': 'Data',
         'width': 150
-    },
-    {
-        'fieldname': 'booking_entry',
-        'label': '',
-        'fieldtype': 'Select',
-        'options': 'CREDIT\nDEBIT',
-        'width': 60
     },
     {
         'fieldname': 'amount',
@@ -86,13 +79,6 @@ COLUMNS = [
         'label': 'Linked Document',
         'fieldtype': 'Dynamic Link',
         'options': 'link_doctype'
-    },
-    {
-        'fieldname': 'link_booking_entry',
-        'label': '',
-        'fieldtype': 'Select',
-        'options': 'CREDIT\nDEBIT',
-        'width': 60
     },
     {
         'fieldname': 'link_amount',
@@ -145,6 +131,7 @@ def execute(filters=None):
         t_datetime = datetime.datetime.strptime(
             t['transaction_date'], '%Y-%m-%dT%H:%M:%S.%fZ'
         )
+        multiplier = 1 if (t['booking_entry'] == 'DEBIT') else -1
         amount = t['amount']
         fees = t['total_fee_amount']
         currency = amount['converted_from_currency']  # Non-local currency
@@ -160,14 +147,13 @@ def execute(filters=None):
                 'transaction_datetime': t_datetime,
                 'transaction_id': t['transaction_id'],
                 'transaction_type': t['transaction_type'],
-                'booking_entry': t['booking_entry'],
-                'amount': cur_flt(amount['value']),
-                'converted_from': cur_flt(amount['converted_from_value']),
+                'amount': cur_flt(amount['value'], multiplier),
+                'converted_from': cur_flt(
+                    amount['converted_from_value'], multiplier),
                 'currency': currency,
                 'exchange_rate': exchange_rate,
                 'link_doctype': None,
                 'link_docname': None,
-                'link_booking_entry': None,
                 'link_amount': None,
                 'item_code': None,
                 'transaction': t
@@ -194,36 +180,31 @@ def execute(filters=None):
                 'transaction_datetime': t_datetime,
                 'transaction_id': t['transaction_id'],
                 'transaction_type': t['transaction_type'],
-                'booking_entry': t['booking_entry'],
-                'amount': cur_flt(sale_value),
-                'converted_from': cur_flt(sale_converted_from_value),
+                'amount': cur_flt(sale_value, multiplier),
+                'converted_from': cur_flt(
+                    sale_converted_from_value, multiplier),
                 'currency': currency,
                 'exchange_rate': exchange_rate,
                 'link_doctype': None,
                 'link_docname': None,
-                'link_booking_entry': None,
                 'link_amount': None,
                 'item_code': None,
                 'transaction': t
             })
-            # Add fee entry
+            # Add fee entry (note opposite sign for fees)
             if fee_value:
-                fee_booking_entry = (
-                    'CREDIT' if t['booking_entry'] == 'DEBIT' else 'DEBIT'
-                )
                 data.append({
                     'transaction_datetime': t_datetime,
                     'transaction_id': t['transaction_id'],
                     'item_code': None,
                     'transaction_type': t['transaction_type'] + ' FEES',
-                    'booking_entry': fee_booking_entry,
-                    'amount': cur_flt(fee_value),
-                    'converted_from': cur_flt(fee_converted_from_value),
+                    'amount': cur_flt(fee_value, -multiplier),
+                    'converted_from': cur_flt(
+                        fee_converted_from_value, -multiplier),
                     'currency': currency,
                     'exchange_rate': exchange_rate,
                     'link_doctype': None,
                     'link_docname': None,
-                    'link_booking_entry': None,
                     'link_amount': None,
                     'item_code': None,
                     'transaction': t
@@ -248,7 +229,6 @@ def execute(filters=None):
             'transaction_datetime': p_datetime,
             'transaction_id': p['payout_id'],
             'transaction_type': 'PAYOUT',
-            'booking_entry': 'DEBIT',
             'amount': cur_flt(p['amount']['value']),
             'converted_from': None,
             'currency': None,
@@ -321,17 +301,11 @@ def execute(filters=None):
                 )
                 if len(gl_entries) != 1:
                     frappe.throw('Wrong GL entries?')
-                payment_value = gl_entries[0].debit - gl_entries[0].credit
+                payment_value = gl_entries[0].credit - gl_entries[0].debit
             # Now add link
             t['link_doctype'] = 'Sales Invoice'
             t['link_docname'] = sinv.name
-            if payment_value:
-                if t_type == 'SALE':
-                    t['link_booking_entry'] = 'CREDIT'
-                    t['link_amount'] = cur_flt(payment_value)
-                else:
-                    t['link_booking_entry'] = 'DEBIT'
-                    t['link_amount'] = cur_flt(-payment_value)
+            t['link_amount'] = cur_flt(payment_value)
         elif t_type == 'PAYOUT':
             # Find a Journal Entry with this payout ID
             je = frappe.get_all(
@@ -368,7 +342,6 @@ def execute(filters=None):
             # Now add link
             t['link_doctype'] = 'Journal Entry'
             t['link_docname'] = je[0].name
-            t['link_booking_entry'] = 'DEBIT'
             t['link_amount'] = cur_flt(payout_value)
         else:
             # Find submitted PINV items with this transaction ID
@@ -393,19 +366,11 @@ def execute(filters=None):
             submitted_sum = round(sum(
                 x.amount for x in pinv_items if x.docstatus == 1
             ), 2)
-            if submitted_sum > 0:
-                t['link_booking_entry'] = 'DEBIT'
-            elif submitted_sum < 0:
-                t['link_booking_entry'] = 'CREDIT'
-                submitted_sum *= -1
             t['link_amount'] = submitted_sum or None
 
     # Check if values are matched
     for t in data:
-        t['matched'] = (
-            t['amount'] == t['link_amount']
-            and t['booking_entry'] == t['link_booking_entry']
-        )
+        t['matched'] = t['amount'] == t['link_amount']
 
     data.sort(key=operator.itemgetter('transaction_datetime'))
 
