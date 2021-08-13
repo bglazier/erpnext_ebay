@@ -9,14 +9,20 @@ import frappe
 from erpnext import get_default_currency
 
 
-def flt(value):
-    """Convert to float if not None, else None."""
+def cur_flt(value):
+    """Convert to 2dp rounded float if not None, else None."""
     if value is None:
         return None
-    return float(value)
+    return round(float(value), 2)
 
 
 COLUMNS = [
+    {
+        'fieldname': 'matched',
+        'label': 'Match',
+        'fieldtype': 'Check',
+        'width': 69
+    },
     {
         'fieldname': 'transaction_datetime',
         'label': 'Date and time (UTC)',
@@ -82,6 +88,13 @@ COLUMNS = [
         'options': 'link_doctype'
     },
     {
+        'fieldname': 'link_booking_entry',
+        'label': '',
+        'fieldtype': 'Select',
+        'options': 'CREDIT\nDEBIT',
+        'width': 60
+    },
+    {
         'fieldname': 'link_amount',
         'label': 'Linked Value',
         'fieldtype': 'Currency'
@@ -124,6 +137,7 @@ def execute(filters=None):
         transactions.extend(json.loads(entry.transactions))
         payouts.extend(json.loads(entry.payouts))
 
+    # Loop over transactions and add entries
     for t in transactions:
         if t['transaction_status'] == 'FAILED':
             # Skip failed transactions
@@ -134,7 +148,8 @@ def execute(filters=None):
         amount = t['amount']
         fees = t['total_fee_amount']
         currency = amount['converted_from_currency']  # Non-local currency
-        exchange_rate = flt(amount['exchange_rate'])
+        er = amount['exchange_rate']
+        exchange_rate = None if (er is None) else float(er)
         if amount['currency'] != default_currency:
             frappe.throw('Wrong default currency!')
         if t['transaction_type'] not in ('SALE', 'REFUND'):
@@ -146,12 +161,13 @@ def execute(filters=None):
                 'transaction_id': t['transaction_id'],
                 'transaction_type': t['transaction_type'],
                 'booking_entry': t['booking_entry'],
-                'amount': flt(amount['value']),
-                'converted_from': flt(amount['converted_from_value']),
+                'amount': cur_flt(amount['value']),
+                'converted_from': cur_flt(amount['converted_from_value']),
                 'currency': currency,
                 'exchange_rate': exchange_rate,
                 'link_doctype': None,
                 'link_docname': None,
+                'link_booking_entry': None,
                 'link_amount': None,
                 'item_code': None,
                 'transaction': t
@@ -160,7 +176,7 @@ def execute(filters=None):
             # Deal with SALE and REFUND differently in two steps
             fee_value = 0.0
             if fees and fees['value']:
-                fee_value = flt(fees['value'])
+                fee_value = cur_flt(fees['value'])
             if currency:
                 fee_converted_from_value = fee_value
                 fee_value *= exchange_rate
@@ -179,12 +195,13 @@ def execute(filters=None):
                 'transaction_id': t['transaction_id'],
                 'transaction_type': t['transaction_type'],
                 'booking_entry': t['booking_entry'],
-                'amount': sale_value,
-                'converted_from': sale_converted_from_value,
+                'amount': cur_flt(sale_value),
+                'converted_from': cur_flt(sale_converted_from_value),
                 'currency': currency,
                 'exchange_rate': exchange_rate,
                 'link_doctype': None,
                 'link_docname': None,
+                'link_booking_entry': None,
                 'link_amount': None,
                 'item_code': None,
                 'transaction': t
@@ -200,17 +217,50 @@ def execute(filters=None):
                     'item_code': None,
                     'transaction_type': t['transaction_type'] + ' FEES',
                     'booking_entry': fee_booking_entry,
-                    'amount': fee_value,
-                    'converted_from': fee_converted_from_value,
+                    'amount': cur_flt(fee_value),
+                    'converted_from': cur_flt(fee_converted_from_value),
                     'currency': currency,
                     'exchange_rate': exchange_rate,
                     'link_doctype': None,
                     'link_docname': None,
+                    'link_booking_entry': None,
                     'link_amount': None,
                     'item_code': None,
                     'transaction': t
                 })
 
+    # Loop over payouts and add entries
+    for p in payouts:
+        if p['payout_status'] in ('INITIATED', 'RETRYABLE_FAILED',
+                                  'TERMINAL_FAILED'):
+            # This payout hasn't happened or didn't happen
+            continue
+        elif p['payout_status'] == 'REVERSED':
+            raise NotImplementedError('Need to check how this works?')
+        if p['amount']['currency'] != default_currency:
+            frappe.throw('Non-default eBay payout currency')
+
+        p_datetime = datetime.datetime.strptime(
+            p['payout_date'], '%Y-%m-%dT%H:%M:%S.%fZ'
+        )
+
+        data.append({
+            'transaction_datetime': p_datetime,
+            'transaction_id': p['payout_id'],
+            'transaction_type': 'PAYOUT',
+            'booking_entry': 'DEBIT',
+            'amount': cur_flt(p['amount']['value']),
+            'converted_from': None,
+            'currency': None,
+            'exchange_rate': None,
+            'link_doctype': None,
+            'link_docname': None,
+            'link_amount': None,
+            'item_code': None,
+            'payout': p
+        })
+
+    # Add linked documents
     for t in data:
         t_type = t['transaction_type']
         t_id = t['transaction_id']
@@ -275,19 +325,94 @@ def execute(filters=None):
             # Now add link
             t['link_doctype'] = 'Sales Invoice'
             t['link_docname'] = sinv.name
-            t['link_amount'] = payment_value
+            if payment_value:
+                if t_type == 'SALE':
+                    t['link_booking_entry'] = 'CREDIT'
+                    t['link_amount'] = cur_flt(payment_value)
+                else:
+                    t['link_booking_entry'] = 'DEBIT'
+                    t['link_amount'] = cur_flt(-payment_value)
         elif t_type == 'PAYOUT':
             # Find a Journal Entry with this payout ID
-            pass
+            je = frappe.get_all(
+                'Journal Entry',
+                fields=['name'],
+                filters={
+                    'cheque_no': t['transaction_id'],
+                    'docstatus': 1
+                }
+            )
+            if not je:
+                # No Journal Entries found
+                continue
+            elif len(je) > 1:
+                # Too many Journal Entries
+                frappe.throw('Multiple journal entries!')
+            jea = frappe.get_all(
+                'Journal Entry Account',
+                fields=['credit', 'debit'],
+                filters={
+                    'account': ebay_bank,
+                    'parent': je[0].name
+                }
+            )
+            if not jea:
+                frappe.throw('Missing eBay bank account!')
+            elif len(jea) > 1:
+                frappe.throw('Too many eBay bank account entries!')
+            # Note this entry in the JE is for money moving _from_ eBay
+            # (another entry will be the money moving _to_ a bank account)
+            payout_value = jea[0].credit - jea[0].debit
+            if payout_value < 0:
+                frappe.throw('Negative payout amount!')
+            # Now add link
+            t['link_doctype'] = 'Journal Entry'
+            t['link_docname'] = je[0].name
+            t['link_booking_entry'] = 'DEBIT'
+            t['link_amount'] = cur_flt(payout_value)
         else:
-            # Find PINV items with this transaction ID
-            pass
+            # Find submitted PINV items with this transaction ID
+            pinv_items = frappe.get_all(
+                'Purchase Invoice Item',
+                fields=['name', 'amount', 'parent', 'docstatus'],
+                filters={
+                    'ebay_transaction_id': t_id,
+                    'docstatus': ['!=', 2]
+                }
+            )
+            if not pinv_items:
+                # No identified PINVs
+                continue
+            # Check for multiple parents
+            parents = {x.parent for x in pinv_items}
+            t['link_doctype'] = 'Purchase Invoice'
+            if len(parents) > 1:
+                t['link_docname'] = 'Various'
+            else:
+                t['link_docname'] = pinv_items[0].parent
+            submitted_sum = round(sum(
+                x.amount for x in pinv_items if x.docstatus == 1
+            ), 2)
+            if submitted_sum > 0:
+                t['link_booking_entry'] = 'DEBIT'
+            elif submitted_sum < 0:
+                t['link_booking_entry'] = 'CREDIT'
+                submitted_sum *= -1
+            t['link_amount'] = submitted_sum or None
+
+    # Check if values are matched
+    for t in data:
+        t['matched'] = (
+            t['amount'] == t['link_amount']
+            and t['booking_entry'] == t['link_booking_entry']
+        )
 
     data.sort(key=operator.itemgetter('transaction_datetime'))
 
-    # Remove the transaction links
+    # Remove the transaction/payout links
     for t in data:
-        del t['transaction']
+        t.pop('transaction', None)
+        t.pop('payout', None)
 
     return COLUMNS, data
 
