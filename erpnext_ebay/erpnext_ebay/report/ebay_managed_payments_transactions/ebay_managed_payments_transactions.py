@@ -89,7 +89,7 @@ COLUMNS = [
         'fieldname': 'order_id',
         'label': 'eBay order ID',
         'fieldtype': 'Data',
-        'width': 100
+        'width': 120
     },
     {
         'fieldname': 'item_codes',
@@ -115,7 +115,10 @@ def execute(filters=None):
     end_date = filters.get('end_date')
     if not (start_date and end_date):
         return [], []
+    start_date = frappe.utils.getdate(start_date)
+    end_date = frappe.utils.getdate(end_date)
 
+    # Get all transactions and payouts in time period
     entries = frappe.db.sql("""
         SELECT posting_date, transactions, payouts
         FROM `zeBayTransactions`
@@ -128,6 +131,9 @@ def execute(filters=None):
     for entry in entries:
         transactions.extend(json.loads(entry.transactions))
         payouts.extend(json.loads(entry.payouts))
+
+    # Set of all linked documents
+    linked_documents = set()
 
     # Loop over transactions and add entries
     for t in transactions:
@@ -315,6 +321,8 @@ def execute(filters=None):
             t['link_doctype'] = 'Sales Invoice'
             t['link_docname'] = sinv.name
             t['link_amount'] = cur_flt(payment_value)
+            if payment_value:
+                linked_documents.add(('Sales Invoice', sinv.name))
         elif t_type == 'PAYOUT':
             # Find a Journal Entry with this payout ID
             je = frappe.get_all(
@@ -352,6 +360,7 @@ def execute(filters=None):
             t['link_doctype'] = 'Journal Entry'
             t['link_docname'] = je[0].name
             t['link_amount'] = cur_flt(payout_value)
+            linked_documents.add(('Journal Entry', je[0].name))
         else:
             # Find submitted PINV items with this transaction ID
             pinv_items = frappe.get_all(
@@ -376,11 +385,79 @@ def execute(filters=None):
                 x.amount for x in pinv_items if x.docstatus == 1
             ), 2)
             t['link_amount'] = submitted_sum or None
+            for pinv_item in pinv_items:
+                if pinv_item.docstatus != 1:
+                    continue
+                linked_documents.add(('Purchase Invoice Item', pinv_item.name))
+
+    # Get any GL Entries that aren't accounted for
+    gl_entries = frappe.get_all(
+        'GL Entry',
+        fields=['posting_date', 'debit', 'credit',
+                'voucher_type', 'voucher_no'],
+        filters={'account': ebay_bank}
+    )
+    gl_entries = [
+        x for x in gl_entries
+        if (start_date <= x.posting_date <= end_date)
+    ]
+    for gl_entry in gl_entries:
+        amount = gl_entry.credit - gl_entry.debit
+        meta = frappe.get_meta(gl_entry.voucher_type)
+        if hasattr(meta, 'posting_date'):
+            posting_date = frappe.get_value(
+                gl_entry.voucher_type, gl_entry.voucher_no, 'posting_date')
+        else:
+            posting_date = gl_entry.posting_date
+        if hasattr(meta, 'posting_time'):
+            posting_time = frappe.get_value(
+                gl_entry.voucher_type, gl_entry.voucher_no, 'posting_time')
+            posting_time = (datetime.datetime.min + posting_time).time()
+        else:
+            posting_time = datetime.time.min
+        posting_datetime = datetime.datetime.combine(
+            posting_date,
+            posting_time
+        )
+        if gl_entry.voucher_type == 'Purchase Invoice':
+            # Check all PINVs are allocated
+            all_pinv_items = frappe.get_all(
+                'Purchase Invoice Item',
+                fields=['name', 'amount'],
+                filters={'parent': gl_entry.voucher_no}
+            )
+            linked_pinv_items = [
+                x for x in all_pinv_items
+                if ('Purchase Invoice Item', x.name) in linked_documents
+            ]
+            if len(linked_pinv_items) == len(all_pinv_items):
+                continue  # if all PINVs allocated
+            amount -= sum(x.amount for x in pinv_items)
+        else:
+            key = (gl_entry.voucher_type, gl_entry.voucher_no)
+            if key in linked_documents:
+                # This document already considered
+                continue
+        data.append({
+            'transaction_datetime': posting_datetime,
+            'transaction_id': None,
+            'transaction_type': 'UNMATCHED',
+            'amount': None,
+            'converted_from': None,
+            'currency': None,
+            'exchange_rate': None,
+            'link_doctype': gl_entry.voucher_type,
+            'link_docname': gl_entry.voucher_no,
+            'link_amount': amount,
+            'order_id': None,
+            'item_codes': None
+        })
 
     # Check if values are matched
     for t in data:
         t['matched'] = t['amount'] == t['link_amount']
 
+    # Sort data into datetime order
     data.sort(key=operator.itemgetter('transaction_datetime'))
 
     # Remove the transaction/payout links
@@ -392,29 +469,6 @@ def execute(filters=None):
     for t in data:
         item_codes = t['item_codes'] or []
         links = [frappe.utils.get_link_to_form('Item', x) for x in item_codes]
-        t['item_codes'] = ', '.join(links)
+        t['item_codes'] = ', '.join(links) + '&nbsp;&nbsp;'
 
     return COLUMNS, data
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
