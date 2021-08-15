@@ -137,8 +137,8 @@ def execute(filters=None):
 
     # Loop over transactions and add entries
     for t in transactions:
-        if t['transaction_status'] == 'FAILED':
-            # Skip failed transactions
+        if t['transaction_status'] in ('FAILED', 'FUNDS_ON_HOLD'):
+            # Skip failed and on-hold transactions
             continue
         t_datetime = datetime.datetime.strptime(
             t['transaction_date'], '%Y-%m-%dT%H:%M:%S.%fZ'
