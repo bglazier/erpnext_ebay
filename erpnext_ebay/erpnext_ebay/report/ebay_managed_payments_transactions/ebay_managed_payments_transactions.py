@@ -86,17 +86,16 @@ COLUMNS = [
         'fieldtype': 'Currency'
     },
     {
-        'fieldname': 'item_codes',
-        'label': 'Item Code(s)',
-        'fieldtype': 'Link',
-        'options': 'Item',
-        'width': 100
-    },
-    {
         'fieldname': 'order_id',
         'label': 'eBay order ID',
         'fieldtype': 'Data',
         'width': 100
+    },
+    {
+        'fieldname': 'item_codes',
+        'label': 'Item Code(s)',
+        'fieldtype': 'HTML',
+        'width': 250
     }
 ]
 
@@ -162,8 +161,8 @@ def execute(filters=None):
                 'link_doctype': None,
                 'link_docname': None,
                 'link_amount': None,
-                'item_codes': t['item_codes'],
                 'order_id': t['order_id'],
+                'item_codes': t['item_codes'],
                 'transaction': t
             })
         else:
@@ -196,8 +195,8 @@ def execute(filters=None):
                 'link_doctype': None,
                 'link_docname': None,
                 'link_amount': None,
-                'item_codes': t['item_codes'],
                 'order_id': t['order_id'],
+                'item_codes': t['item_codes'],
                 'transaction': t
             })
             # Add fee entry (note opposite sign for fees)
@@ -214,8 +213,8 @@ def execute(filters=None):
                     'link_doctype': None,
                     'link_docname': None,
                     'link_amount': None,
-                    'item_codes': t['item_codes'],
                     'order_id': t['order_id'],
+                    'item_codes': t['item_codes'],
                     'transaction': t
                 })
 
@@ -245,8 +244,8 @@ def execute(filters=None):
             'link_doctype': None,
             'link_docname': None,
             'link_amount': None,
-            'item_codes': None,
             'order_id': None,
+            'item_codes': None,
             'payout': p
         })
 
@@ -392,7 +391,8 @@ def execute(filters=None):
     # Convert item codes to string
     for t in data:
         item_codes = t['item_codes'] or []
-        t['item_codes'] = ', '.join(item_codes)
+        links = [frappe.utils.get_link_to_form('Item', x) for x in item_codes]
+        t['item_codes'] = ', '.join(links)
 
     return COLUMNS, data
 
