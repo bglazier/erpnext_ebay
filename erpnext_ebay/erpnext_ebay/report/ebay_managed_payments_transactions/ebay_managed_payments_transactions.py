@@ -86,10 +86,17 @@ COLUMNS = [
         'fieldtype': 'Currency'
     },
     {
-        'fieldname': 'item_code',
-        'label': 'Item Code',
+        'fieldname': 'item_codes',
+        'label': 'Item Code(s)',
         'fieldtype': 'Link',
-        'options': 'Item'
+        'options': 'Item',
+        'width': 100
+    },
+    {
+        'fieldname': 'order_id',
+        'label': 'eBay order ID',
+        'fieldtype': 'Data',
+        'width': 100
     }
 ]
 
@@ -155,7 +162,8 @@ def execute(filters=None):
                 'link_doctype': None,
                 'link_docname': None,
                 'link_amount': None,
-                'item_code': None,
+                'item_codes': t['item_codes'],
+                'order_id': t['order_id'],
                 'transaction': t
             })
         else:
@@ -188,7 +196,8 @@ def execute(filters=None):
                 'link_doctype': None,
                 'link_docname': None,
                 'link_amount': None,
-                'item_code': None,
+                'item_codes': t['item_codes'],
+                'order_id': t['order_id'],
                 'transaction': t
             })
             # Add fee entry (note opposite sign for fees)
@@ -196,7 +205,6 @@ def execute(filters=None):
                 data.append({
                     'transaction_datetime': t_datetime,
                     'transaction_id': t['transaction_id'],
-                    'item_code': None,
                     'transaction_type': t['transaction_type'] + ' FEES',
                     'amount': cur_flt(fee_value, -multiplier),
                     'converted_from': cur_flt(
@@ -206,7 +214,8 @@ def execute(filters=None):
                     'link_doctype': None,
                     'link_docname': None,
                     'link_amount': None,
-                    'item_code': None,
+                    'item_codes': t['item_codes'],
+                    'order_id': t['order_id'],
                     'transaction': t
                 })
 
@@ -236,7 +245,8 @@ def execute(filters=None):
             'link_doctype': None,
             'link_docname': None,
             'link_amount': None,
-            'item_code': None,
+            'item_codes': None,
+            'order_id': None,
             'payout': p
         })
 
@@ -378,6 +388,11 @@ def execute(filters=None):
     for t in data:
         t.pop('transaction', None)
         t.pop('payout', None)
+
+    # Convert item codes to string
+    for t in data:
+        item_codes = t['item_codes'] or []
+        t['item_codes'] = ', '.join(item_codes)
 
     return COLUMNS, data
 
