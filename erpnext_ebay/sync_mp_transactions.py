@@ -116,7 +116,8 @@ def archive_transactions(start_date, end_date):
 
 
 @frappe.whitelist()
-def sync_mp_transactions(num_days=None, not_today=False):
+def sync_mp_transactions(num_days=None, not_today=False,
+                         start_date=None, end_date=None):
     """Synchronise eBay Managed Payments transactions.
     Create Purchase Invoices that add all fees and charges to
     the eBay Managed Payment account.
@@ -124,6 +125,8 @@ def sync_mp_transactions(num_days=None, not_today=False):
     Arguments:
         num_days: Include transactions from the last num_days days.
         not_today: If set, transactions from today are not included.
+        start_date, end_date: Include transactions in this range.
+    Only one of num_days or start_date and end_date should be used.
     NOTE - this should, ideally, be run just after updating eBay listings
     to help identify items from item IDs.
     """
@@ -139,12 +142,27 @@ def sync_mp_transactions(num_days=None, not_today=False):
     expense_account = f'eBay Managed Fees - {COMPANY_ACRONYM}'
     today = datetime.date.today()
 
-    if num_days is None:
+    if num_days and (start_date or end_date):
+        frappe.throw('Must have num_days OR start_date/end_date, not both!')
+
+    if start_date or end_date:
+        # If using start_date and end_date, check we have both and then
+        # convert if necessary.
+        if not (start_date and end_date):
+            frappe.throw('Must have both start and end dates, or neither!')
+        start_date = frappe.utils.getdate(start_date)
+        end_date = frappe.utils.getdate(end_date)
+    elif num_days is None:
+        # If not using start_date/end_date and num_days not supplied,
+        # get from eBay Manager Settings.
         num_days = int(frappe.get_value(
             'eBay Manager Settings', filters=None, fieldname='ebay_sync_days'))
 
     # Load transactions from eBay
-    transactions = get_transactions(num_days=min(num_days, MAX_DAYS))
+    if num_days:
+        num_days = min(num_days, MAX_DAYS)
+    transactions = get_transactions(num_days=num_days,
+                                    start_date=start_date, end_date=end_date)
     transactions.sort(key=operator.itemgetter('transaction_date'))
 
     # Group transactions by date
