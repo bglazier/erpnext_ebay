@@ -176,6 +176,9 @@ def sync_mp_transactions(num_days=None, not_today=False,
         # Check transaction is not failed
         if transaction['transaction_status'] == 'FAILED':
             continue
+        # Check transaction is not held (will be deleted and re-added later
+        if transaction['transaction_status'] == 'FUNDS_ON_HOLD':
+            continue
         # Get date of transaction
         transaction_datetime = datetime.datetime.strptime(
             transaction['transaction_date'], '%Y-%m-%dT%H:%M:%S.%fZ'
