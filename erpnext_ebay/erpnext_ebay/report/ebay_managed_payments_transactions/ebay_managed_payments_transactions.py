@@ -315,13 +315,16 @@ def execute(filters=None):
                         'account': ebay_bank
                     }
                 )
-                if len(gl_entries) != 1:
+                if not gl_entries:
+                    payment_value = None
+                elif len(gl_entries) != 1:
                     frappe.throw(
                         f"""Transaction {t_id}
                         Sales invoice {sinv.name}
                         Wrong GL entries?"""
                     )
-                payment_value = gl_entries[0].credit - gl_entries[0].debit
+                else:
+                    payment_value = gl_entries[0].credit - gl_entries[0].debit
             # Now add link
             t['link_doctype'] = 'Sales Invoice'
             t['link_docname'] = sinv.name
