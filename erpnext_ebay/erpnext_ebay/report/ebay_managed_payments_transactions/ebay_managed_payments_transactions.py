@@ -440,7 +440,7 @@ def execute(filters=None):
             ]
             if len(linked_pinv_items) == len(all_pinv_items):
                 continue  # if all PINVs allocated
-            amount -= sum(x.amount for x in pinv_items)
+            amount -= sum(x.amount for x in linked_pinv_items)
         else:
             key = (gl_entry.voucher_type, gl_entry.voucher_no)
             if key in linked_documents:
