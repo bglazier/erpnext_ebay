@@ -16,6 +16,12 @@ frappe.query_reports["eBay Managed Payments Transactions"] = {
             "fieldtype": "Date",
             "default": null
         },
+        {
+            "fieldname": "mismatches",
+            "label": "Only mismatches",
+            "fieldtype": "Check",
+            "default": false
+        }
     ],
     onload(report) {
         report.page.add_inner_button("Update data archive", () => {

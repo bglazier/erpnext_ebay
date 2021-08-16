@@ -111,6 +111,7 @@ def execute(filters=None):
     if not filters:
         return [], []
 
+    only_mismatches = filters.get('mismatches', False)
     start_date = filters.get('start_date')
     end_date = filters.get('end_date')
     if not (start_date and end_date):
@@ -470,5 +471,9 @@ def execute(filters=None):
         item_codes = t['item_codes'] or []
         links = [frappe.utils.get_link_to_form('Item', x) for x in item_codes]
         t['item_codes'] = ', '.join(links) + '&nbsp;&nbsp;'
+
+    # If only showing mismatches, filter data
+    if only_mismatches:
+        data = [x for x in data if not x['matched']]
 
     return COLUMNS, data
