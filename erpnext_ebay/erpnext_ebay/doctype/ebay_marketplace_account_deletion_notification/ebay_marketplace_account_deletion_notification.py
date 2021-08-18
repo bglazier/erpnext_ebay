@@ -4,6 +4,7 @@
 
 import base64
 import datetime
+import ecdsa
 import hashlib
 import json
 
@@ -13,6 +14,21 @@ import frappe
 from frappe.model.document import Document
 
 from erpnext_ebay.ebay_tokens import get_api
+
+
+def fix_public_key(str_key):
+    """eBay public keys are delivered in the format:
+    -----BEGIN PUBLIC KEY-----key-----END PUBLIC KEY-----
+    which is missing critical newlines around the key for ecdsa to
+    process it.
+    This adds those newlines and converts to bytes.
+    """
+    return (
+        str_key
+        .replace('KEY-----', 'KEY-----\n')
+        .replace('-----END', '\n-----END')
+        .encode('utf-8')
+    )
 
 
 @frappe.whitelist(allow_guest=True)
@@ -51,13 +67,33 @@ def ebay_adn_endpoint(challenge_code=None, **kwargs):
         ebay_sig = frappe.local.request.headers.get('X-Ebay-Signature', None)
         if not ebay_sig:
             raise PermissionError()
-        pki = base64.b64decode(ebay_sig.encode('utf-8'))
+        sig_dict = json.loads(base64.b64decode(ebay_sig))
+        kid = sig_dict['kid']
         # Get key_dict from cache, if it exists
-        key_dict = frappe.cache().hget('erpnext_ebay_pki', pki)
+        key_dict = frappe.cache().hget('erpnext_ebay_pki', kid)
+        print('key_dict from cache: ', key_dict)
         if not key_dict:
             api = get_api(sandbox=False)
-            key_dict = api.commerce_notification_get_public_key(public_key_id=pki)
-            frappe.cache().hset('erpnext_ebay', pki, key_dict)
+            key_dict = api.commerce_notification_get_public_key(
+                public_key_id=kid)
+            frappe.cache().hset('erpnext_ebay', kid, key_dict)
+        print('key_dict: ', key_dict)
+        if key_dict['algorithm'] != 'ECDSA':
+            raise NotImplementedError('Only ECDSA implemented!')
+        if key_dict['digest'] != 'SHA1':
+            raise NotImplementedError('Only SHA1 digest implemented!')
+        # Gather for verification and verify
+        public_key = fix_public_key(key_dict['key'])
+        message = frappe.local.request.data
+        signature = base64.b64decode(sig_dict['signature'])
+        vk = ecdsa.VerifyingKey.from_pem(public_key, hashfunc=hashlib.sha1)
+        try:
+            vk.verify(
+                signature, message, sigdecode=ecdsa.util.sigdecode_der
+            )
+        except ecdsa.BadSignatureError:
+            print('Bad signature?')
+            raise PermissionError()
 
         # Verify all expected fields exist
         for field in ('topic', 'schemaVersion', 'deprecated'):
