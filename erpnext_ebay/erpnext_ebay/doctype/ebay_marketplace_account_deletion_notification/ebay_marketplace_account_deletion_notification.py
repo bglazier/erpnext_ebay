@@ -90,40 +90,51 @@ def ebay_adn_endpoint(challenge_code=None, **kwargs):
 
         # Verify all expected fields exist
         for field in ('topic', 'schemaVersion', 'deprecated'):
-            if field not in metadata:
+            if not (field in metadata and metadata[field]):
                 raise frappe.PermissionError()
         for field in ('notificationId', 'eventDate',
                       'publishDate', 'publishAttemptCount'):
-            if field not in notification:
+            if not (field in notification and notification[field]):
                 raise frappe.PermissionError()
         for field in ('username', 'userId', 'eiasToken'):
-            if field not in data:
+            if not (field in data and data[field]):
                 raise frappe.PermissionError()
-        # Field conversions
-        event_date = datetime.datetime.strptime(
-            notification['eventDate'], '%Y-%m-%dT%H:%M:%S.%fZ'
-        )
-        publish_date = datetime.datetime.strptime(
-            notification['publishDate'], '%Y-%m-%dT%H:%M:%S.%fZ'
-        )
-        publish_attempt_count = int(notification['publishAttemptCount'])
 
-        # Add eBay Marketplace Account Deletion/Closure Notification
-        adn_doc = frappe.get_doc({
-            'doctype': 'eBay Marketplace Account Deletion Notification',
-            'topic': metadata.get('topic'),
-            'schema_version': metadata.get('schemaVersion'),
-            'deprecated': metadata.get('deprecated'),
-            'notification_id': notification.get('notificationId'),
-            'event_date': event_date,
-            'publish_date': publish_date,
-            'publish_attempt_count': publish_attempt_count,
-            'username': data.get('username'),
-            'user_id': data.get('userId'),
-            'eias_token': data.get('eiasToken')
-        })
-        adn_doc.insert(ignore_permissions=True)
+        # Blank, but successful return
         return_data = ''
+
+        # Check for matching customer, and if so record
+        customers = frappe.get_all(
+            'Customer',
+            filters={'ebay_user_id': data['username']}
+        )
+        if customers:
+            # Only record if we have a matching customer
+
+            # Field conversions
+            event_date = datetime.datetime.strptime(
+                notification['eventDate'], '%Y-%m-%dT%H:%M:%S.%fZ'
+            )
+            publish_date = datetime.datetime.strptime(
+                notification['publishDate'], '%Y-%m-%dT%H:%M:%S.%fZ'
+            )
+            publish_attempt_count = int(notification['publishAttemptCount'])
+
+            # Add eBay Marketplace Account Deletion/Closure Notification
+            adn_doc = frappe.get_doc({
+                'doctype': 'eBay Marketplace Account Deletion Notification',
+                'topic': metadata['topic'],
+                'schema_version': metadata['schemaVersion'],
+                'deprecated': metadata['deprecated'],
+                'notification_id': notification['notificationId'],
+                'event_date': event_date,
+                'publish_date': publish_date,
+                'publish_attempt_count': publish_attempt_count,
+                'username': data['username'],
+                'user_id': data['userId'],
+                'eias_token': data['eiasToken']
+            })
+            adn_doc.insert(ignore_permissions=True)
     else:
         raise frappe.PermissionError()
 
