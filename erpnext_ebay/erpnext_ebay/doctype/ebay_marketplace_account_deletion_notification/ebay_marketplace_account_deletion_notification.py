@@ -52,11 +52,6 @@ def ebay_adn_endpoint(challenge_code=None, **kwargs):
         return_data = {'challengeResponse': m.hexdigest()}
 
     elif 'notification' in kwargs and 'metadata' in kwargs:
-        print('kwargs: ', kwargs)
-        print('frappe.local.form_dict: ', frappe.local.form_dict)
-        print('content: ')
-        print(frappe.local.request.data)
-        print(frappe.local.request.headers)
         metadata = kwargs['metadata']
         notification = kwargs['notification']
         data = notification.get('data')
@@ -71,13 +66,11 @@ def ebay_adn_endpoint(challenge_code=None, **kwargs):
         kid = sig_dict['kid']
         # Get key_dict from cache, if it exists
         key_dict = frappe.cache().hget('erpnext_ebay_pki', kid)
-        print('key_dict from cache: ', key_dict)
         if not key_dict:
             api = get_api(sandbox=False)
             key_dict = api.commerce_notification_get_public_key(
                 public_key_id=kid)
             frappe.cache().hset('erpnext_ebay', kid, key_dict)
-        print('key_dict: ', key_dict)
         if key_dict['algorithm'] != 'ECDSA':
             raise NotImplementedError('Only ECDSA implemented!')
         if key_dict['digest'] != 'SHA1':
@@ -92,7 +85,7 @@ def ebay_adn_endpoint(challenge_code=None, **kwargs):
                 signature, message, sigdecode=ecdsa.util.sigdecode_der
             )
         except ecdsa.BadSignatureError:
-            print('Bad signature?')
+            # Bad signature
             raise PermissionError()
 
         # Verify all expected fields exist
@@ -129,7 +122,7 @@ def ebay_adn_endpoint(challenge_code=None, **kwargs):
             'user_id': data.get('userId'),
             'eias_token': data.get('eiasToken')
         })
-        #adn_doc.insert(ignore_permissions=True)
+        adn_doc.insert(ignore_permissions=True)
         return_data = ''
     else:
         raise frappe.PermissionError()
