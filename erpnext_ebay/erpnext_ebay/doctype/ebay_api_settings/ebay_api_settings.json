@@ -20,7 +20,9 @@
   "production_scopes",
   "authorize_production_button",
   "production_refresh_token",
-  "production_refresh_expiry"
+  "production_refresh_expiry",
+  "notifications_section",
+  "adn_verification_token"
  ],
  "fields": [
   {
@@ -120,10 +122,20 @@
    "fieldtype": "Datetime",
    "label": "Refresh token expiry (UTC)",
    "read_only": 1
+  },
+  {
+   "fieldname": "notifications_section",
+   "fieldtype": "Section Break",
+   "label": "Notifications"
+  },
+  {
+   "fieldname": "adn_verification_token",
+   "fieldtype": "Password",
+   "label": "Verification Token (Marketplace Account Deletion/Closure Notifications)"
   }
  ],
  "issingle": 1,
- "modified": "2021-06-16 18:06:24.977625",
+ "modified": "2021-08-18 16:06:37.603241",
  "modified_by": "Administrator",
  "module": "Erpnext Ebay",
  "name": "eBay API Settings",

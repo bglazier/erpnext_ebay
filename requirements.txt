@@ -1,6 +1,7 @@
 iso3166
 ebaysdk
 ebay_rest
+ecdsa
 jpegtran-cffi
 frappe
 erpnext

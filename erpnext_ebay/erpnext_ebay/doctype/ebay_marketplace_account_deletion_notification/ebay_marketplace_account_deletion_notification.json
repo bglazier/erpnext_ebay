@@ -1,0 +1,103 @@
+{
+ "autoname": "MADN-.#####",
+ "creation": "2021-08-18 15:46:22.676634",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "topic",
+  "event_date",
+  "username",
+  "user_id",
+  "eias_token",
+  "notification_id",
+  "publish_date",
+  "publish_attempt_count",
+  "schema_version",
+  "deprecated"
+ ],
+ "fields": [
+  {
+   "fieldname": "event_date",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Deletion request date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "username",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "eBay username",
+   "read_only": 1
+  },
+  {
+   "fieldname": "user_id",
+   "fieldtype": "Data",
+   "label": "eBay user ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "eias_token",
+   "fieldtype": "Data",
+   "label": "EIAS token",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notification_id",
+   "fieldtype": "Data",
+   "label": "Notification ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "publish_date",
+   "fieldtype": "Datetime",
+   "label": "Notification sent date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "publish_attempt_count",
+   "fieldtype": "Int",
+   "label": "Notification publish count",
+   "read_only": 1
+  },
+  {
+   "fieldname": "topic",
+   "fieldtype": "Data",
+   "label": "Topic",
+   "read_only": 1
+  },
+  {
+   "fieldname": "schema_version",
+   "fieldtype": "Data",
+   "label": "Schema version",
+   "read_only": 1
+  },
+  {
+   "fieldname": "deprecated",
+   "fieldtype": "Data",
+   "label": "Deprecated",
+   "read_only": 1
+  }
+ ],
+ "in_create": 1,
+ "modified": "2021-08-18 17:10:54.732679",
+ "modified_by": "Administrator",
+ "module": "Erpnext Ebay",
+ "name": "eBay Marketplace Account Deletion Notification",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}
