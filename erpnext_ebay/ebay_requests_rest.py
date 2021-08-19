@@ -111,19 +111,19 @@ def get_order(order_id):
 def get_orders(num_days=None, order_ids=None):
     """Get orders using the Sell Fulfillment API.
 
-    If num_days is supplied, only orders created in the last num_days
+    If num_days is supplied, only orders modified in the last num_days
     are returned.
     If order_ids is supplied, only orders in the list supplied
     are returned.
     """
     kwargs = {}
 
-    # Get number of dates and calculated creation_date filter
+    # Get number of dates and calculated lastmodifieddate filter
     if num_days:
-        creation_date = (
+        last_modified_date = (
             datetime.datetime.utcnow() - datetime.timedelta(days=num_days)
         ).isoformat(timespec='milliseconds')
-        kwargs['filter'] = f"creationdate:[{creation_date}Z..]"
+        kwargs['filter'] = f"lastmodifieddate:[{last_modified_date}Z..]"
 
     # Add order_ids as comma-separated string
     if order_ids:
