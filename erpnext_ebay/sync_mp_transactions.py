@@ -506,6 +506,9 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account):
             # Don't submit as VAT can be wrong
             item_code = None
             pinv_doc.flags.do_not_submit = True
+        elif t['fee_type'] == 'OTHER_FEES':
+            # Some fees are not associated with items at all
+            item_code = None
         elif t_type == 'SHIPPING_LABEL':
             # Accept eBay's failure to identify anything
             item_code = None
