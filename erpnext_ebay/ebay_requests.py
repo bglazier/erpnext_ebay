@@ -131,7 +131,8 @@ def test_for_message(api_dict):
 
 
 def get_trading_api(site_id=HOME_SITE_ID, warnings=True, timeout=20,
-                    force_sandbox_value=None, api_call=None, executor=None):
+                    force_sandbox_value=None, api_call=None, executor=None,
+                    **kwargs):
     """Get a TradingAPI instance which can be reused.
     If executor is passed, a ParallelTrading instance is returned instead.
     """
@@ -147,18 +148,19 @@ def get_trading_api(site_id=HOME_SITE_ID, warnings=True, timeout=20,
 
     domain = 'api.sandbox.ebay.com' if sandbox else 'api.ebay.com'
 
-    kwargs = {
+    trading_kwargs = {
         'domain': domain,
         'config_file': PATH_TO_YAML,
         'siteid': site_id,
         'warnings': warnings,
         'timeout': timeout
     }
+    trading_kwargs.update(kwargs)
 
     if executor:
-        return ParallelTrading(**kwargs, executor=executor)
+        return ParallelTrading(**trading_kwargs, executor=executor)
     else:
-        return Trading(**kwargs)
+        return Trading(**trading_kwargs)
 
 
 def get_orders(order_status='All', include_final_value_fees=True):
