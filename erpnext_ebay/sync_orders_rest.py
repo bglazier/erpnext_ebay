@@ -16,6 +16,7 @@ import frappe
 
 from erpnext import get_default_currency
 from erpnext.setup.utils import get_exchange_rate
+from erpnext.controllers.sales_and_purchase_return import make_return_doc
 
 from .ebay_constants import EBAY_MARKETPLACE_IDS
 from .ebay_requests_rest import get_orders, get_transactions
@@ -143,6 +144,9 @@ VAT_PERCENT = {k: 100*v for k, v in VAT_RATES.items()}
 # Fee type for (non-refundable) fee type
 EBAY_FIXED_FEE = 'FINAL_VALUE_FEE_FIXED_PER_ORDER'
 
+# Word used to describe refund
+REFUND_NAME = {'PARTIALLY_REFUNDED': 'Partial', 'FULLY_REFUNDED': 'Full'}
+
 
 class ErpnextEbaySyncError(Exception):
     pass
@@ -193,8 +197,18 @@ def sync_orders(num_days=None):
             'eBay Manager Settings', filters=None, fieldname='ebay_sync_days'))
     orders = get_orders(min(num_days, MAX_DAYS))
 
+    # Get earliest creation date
+    creation_dates = []
+    for order in orders:
+        creation_dates.append(datetime.datetime.strptime(
+            order['creation_date'][:-1], '%Y-%m-%dT%H:%M:%S.%f').date()
+        )
+    trans_start_date = min(creation_dates)
+    trans_end_date = datetime.datetime.utcnow().date()
+
     # Load transactions from eBay
-    transactions = get_transactions(num_days=min(num_days + 5, MAX_DAYS))
+    transactions = get_transactions(start_date=trans_start_date,
+                                    end_date=trans_end_date)
     trans_by_order = collections.defaultdict(list)
     for transaction in transactions:
         order_id = transaction['order_id']
@@ -253,10 +267,14 @@ def sync_orders(num_days=None):
                     order, db_cust_name, db_address_name, changes)
                 create_ebay_order(order_details, payment_status, changes)
 
-                # Create/update Sales Invoice
-                create_sales_invoice(order_details, order, listing_site,
-                                     purchase_site, trans_by_order,
-                                     msgprint_log, changes)
+                # Create Sales Invoice
+                create_sales_invoice(
+                    order_details, order, listing_site, purchase_site,
+                    trans_by_order, changes
+                )
+
+                # Create Sales Invoice refund
+                create_return_sales_invoice(order_details, order, changes)
 
             except ErpnextEbaySyncError as e:
                 # Continue to next order
@@ -628,7 +646,7 @@ def create_ebay_order(order_dict, payment_status, changes):
 
 
 def create_sales_invoice(order_dict, order, listing_site, purchase_site,
-                         trans_by_order, msgprint_log, changes):
+                         trans_by_order, changes):
     """
     Create a Sales Invoice from the eBay order.
     """
@@ -870,7 +888,9 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
                     f'Order {ebay_order_id} has unhandled CAR tax {tax_type}')
             if tax_type == 'VAT':
                 # Handle UK and EU VAT separately
-                tax_type = 'UK_VAT' if territory == 'UK' else 'EU_VAT'
+                tax_type = (
+                    'UK_VAT' if territory == 'United Kingdom' else 'EU_VAT'
+                )
             # Check currencies
             car_currency = (
                 car_item['amount']['converted_from_currency']
@@ -923,24 +943,24 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
 
         # Create SINV item
         sinv_items.append({
-                "item_code": sku,
-                "description": description,
-                "warehouse": WAREHOUSE,
-                "qty": qty,
-                "rate": exc_vat / qty,
-                "ebay_final_value_fee": item_fee_dict.get(line_item_id, 0.0),
-                "base_ebay_final_value_fee":
-                    base_item_fee_dict.get(line_item_id, 0.0),
-                "ebay_fixed_fee": fixed_fee_dict.get(line_item_id, 0.0),
-                "base_ebay_fixed_fee":
-                    base_fixed_fee_dict.get(line_item_id, 0.0),
-                "ebay_collect_and_remit": item_car_total,
-                "ebay_collect_and_remit_reference": item_car_reference or '',
-                "ebay_order_line_item_id": line_item_id,
-                "ebay_item_id": line_item['legacy_item_id'],
-                "valuation_rate": 0.0,
-                "income_account": income_account,
-                "expense_account": f"Cost of Goods Sold - {COMPANY_ACRONYM}"
+            "item_code": sku,
+            "description": description,
+            "warehouse": WAREHOUSE,
+            "qty": qty,
+            "rate": exc_vat / qty,
+            "ebay_final_value_fee": item_fee_dict.get(line_item_id, 0.0),
+            "base_ebay_final_value_fee":
+                base_item_fee_dict.get(line_item_id, 0.0),
+            "ebay_fixed_fee": fixed_fee_dict.get(line_item_id, 0.0),
+            "base_ebay_fixed_fee":
+                base_fixed_fee_dict.get(line_item_id, 0.0),
+            "ebay_collect_and_remit": item_car_total,
+            "ebay_collect_and_remit_reference": item_car_reference or '',
+            "ebay_order_line_item_id": line_item_id,
+            "ebay_item_id": line_item['legacy_item_id'],
+            "valuation_rate": 0.0,
+            "income_account": income_account,
+            "expense_account": f"Cost of Goods Sold - {COMPANY_ACRONYM}"
          })
 
     # Total of all eBay Collect and Remit taxes
@@ -1056,14 +1076,14 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
         "posting_date": posting_date.date(),
         "posting_time": posting_date.time(),
         "due_date": posting_date,
-        "set_posting_time": 1,
+        "set_posting_time": True,
         "currency": currency,
         "conversion_rate": conversion_rate,
-        "ignore_pricing_rule": 1,
+        "ignore_pricing_rule": True,
         "apply_discount_on": "Net Total",
         "status": "Draft",
-        "update_stock": 1,
-        "is_pos": 1,
+        "update_stock": True,
+        "is_pos": True,
         "taxes": taxes,
         "payments": sinv_payments,
         "items": sinv_items
@@ -1080,8 +1100,6 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
         # Submit immediately
         sinv.submit()
 
-    updated_db = True
-
     debug_msgprint('Adding Sales Invoice: ' + ebay_user_id + ' : ' + sinv.name)
     changes.append({"ebay_change": "Adding Sales Invoice",
                     "ebay_user_id": ebay_user_id,
@@ -1091,10 +1109,207 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
                     "ebay_order": ebay_order_id})
 
     # Commit changes to database
-    if updated_db:
-        frappe.db.commit()
+    frappe.db.commit()
 
     return
+
+
+def create_return_sales_invoice(order_dict, order, changes):
+    """
+    If the order has been refunded, Create a Sales Invoice return from
+    the eBay order.
+    """
+
+    # Check there is a refund.
+    if order['order_payment_status'] not in ('FULLY_REFUNDED',
+                                             'PARTIALLY_REFUNDED'):
+        # If no refund, return now.
+        return
+
+    # Find the existing Sales Invoice, and its latest amendment.
+    ebay_user_id = order_dict['ebay_user_id']
+    ebay_order_id = order_dict['ebay_order_id']
+    customer = order_dict['customer']
+    customer_name = order_dict['customer_name']
+    cancelled_names = []
+
+    sinv_fields = db_get_ebay_doc(
+        'Sales Invoice', ebay_order_id, fields=['name', 'docstatus'],
+        log=changes, none_ok=True)
+    if sinv_fields is None:
+        # No SINV, so don't create refund
+        return
+    while sinv_fields.docstatus != 1:
+        if sinv_fields.docstatus == 0:
+            # Don't create refund from non-submitted SINV
+            return
+        cancelled_names.append(sinv_fields.name)
+        search = frappe.get_all(
+            'Sales Invoice',
+            fields=['name', 'docstatus'],
+            filters={'amended_from': sinv_fields.name}
+        )
+        if not search:
+            # No amended document
+            return
+        elif len(search) > 1:
+            raise ValueError(f'Multiple amended documents! {sinv_fields.name}')
+        sinv_fields = search[0]
+    # sinv_fields is now the final SINV
+    sinv_name = sinv_fields.name
+
+    # Check for a return to any of the cancelled documents
+    for cancelled_name in cancelled_names:
+        return_sinvs = frappe.get_all(
+            'Sales Invoice',
+            fields=['name'],
+            filters={'return_against': cancelled_name, 'docstatus': ['!=', 2]}
+        )
+        if return_sinvs:
+            return_names = ', '.join([x.name for x in return_sinvs])
+            raise ValueError(
+                f'Cancelled {cancelled_name} has return(s) {return_names}!')
+
+    # Check for return from the final SINV
+    sinv_ret = frappe.get_all(
+        'Sales Invoice',
+        fields=['name'],
+        filters={'return_against': sinv_name, 'docstatus': ['!=', 2]}
+    )
+    if sinv_ret:
+        return
+
+    # Need to create return SINV - gather info and run checks
+    if len(order['payment_summary']['refunds']) != 1:
+        frappe.throw(f'Order {ebay_order_id} has multiple refunds!',
+                     exc=ErpnextEbaySyncError)
+    refund = order['payment_summary']['refunds'][0]
+
+    default_currency = get_default_currency()
+    ebay_payment_account = f'eBay Managed {default_currency}'
+    posting_date = datetime.datetime.strptime(
+        refund['refund_date'][:-1] + 'UTC', '%Y-%m-%dT%H:%M:%S.%f%Z')
+    base_refund_amount = float(refund['amount']['value'])
+    if refund['amount']['currency'] != default_currency:
+        raise ValueError('Unexpected base refund currency!')
+
+    # Create a return Sales Invoice for the relevant quantities and amount.
+    sinv_doc = frappe.get_doc('Sales Invoice', sinv_name)
+    return_doc = make_return_doc("Sales Invoice", sinv_name)
+    return_doc.update_stock = False
+    return_doc.posting_date = posting_date.date()
+    return_doc.posting_time = posting_date.time()
+    return_doc.due_date = posting_date
+    return_doc.set_posting_time = True
+    refund_type_str = REFUND_NAME[order['order_payment_status']]
+    return_doc.title = f"""eBay {refund_type_str} Refund: {customer_name}"""
+
+    if len(return_doc.payments) != 1:
+        raise ValueError('Wrong number of payments!')
+    if return_doc.payments[0].mode_of_payment != ebay_payment_account:
+        raise ValueError('Wrong mode of payment!')
+
+    if order['order_payment_status'] == 'PARTIALLY_REFUNDED':
+        # Adjust quantities and rates on return
+        exc_rate = return_doc.conversion_rate
+        refund_total = base_refund_amount / exc_rate
+
+        # Adjust payment
+        return_doc.payments[0].amount = -refund_total
+
+        # Calculate taxes
+        tax = (sinv_doc.taxes or [None])[0]
+
+        if not sinv_doc.taxes:
+            tax_rate = 0
+        elif len(sinv_doc.taxes) != 1:
+            frappe.throw(f'Sales invoice {sinv_name} has multiple tax entries!',
+                         exc=ErpnextEbaySyncError)
+        elif tax.included_in_print_rate:
+            frappe.throw(f'Sales invoice {sinv_name} has inclusive tax',
+                         exc=ErpnextEbaySyncError)
+        elif tax.charge_type != 'Actual':
+            frappe.throw(f'Sales invoice {sinv_name} has calculated tax',
+                         exc=ErpnextEbaySyncError)
+        else:
+            # Need to adjust actual taxes
+            tax_rate = round(tax.total / (tax.total - tax.tax_amount), 3)
+
+        # Adjust taxes
+        if tax_rate:
+            ret_tax = return_doc.taxes[0]
+            ret_tax.charge_type = 'Actual'
+            ret_tax.total = -refund_total
+            ret_tax.tax_amount = -(refund_total - (refund_total / tax_rate))
+
+        # Delete shipping items
+        return_doc.items[:] = [
+            x for x in return_doc.items if x.item_code != SHIPPING_ITEM
+        ]
+
+        # Set all items to negative qty and correct rate
+        refund_part = round(refund_total / len(return_doc.items), 2)
+        refund_remainder = refund_total - (refund_part * len(return_doc.items))
+        for i, item in enumerate(return_doc.items):
+            if i == 0:
+                item_refund = refund_part + refund_remainder
+            else:
+                item_refund = refund_part
+            item.rate = item_refund / -item.qty
+            item.amount = -item_refund
+
+        # Delete items that have zero value or qty
+        return_doc.items[:] = [
+            x for x in return_doc.items if (x.rate and x.qty)
+        ]
+        if sum(round(x.amount, 2) for x in return_doc.items) != -refund_total:
+            raise ErpnextEbaySyncError('Problem calculating refund rates!')
+
+    return_doc.insert()
+    #return_doc.submit()
+
+    # Create a Warranty Claim for the refund, if one does not exist.
+    wc_doc = frappe.get_doc({
+        'doctype': 'Warranty Claim',
+        'status': 'Open',
+        'complaint_date': return_doc.posting_date,
+        'customer': customer,
+        'customer_name': customer_name
+    })
+    sinv_url = frappe.utils.get_url_to_form('Sales Invoice', sinv_doc.name)
+    ret_url = frappe.utils.get_url_to_form('Sales Invoice', return_doc.name)
+    sinv_name_html = frappe.utils.escape_html(sinv_doc.name)
+    ret_name_html = frappe.utils.escape_html(return_doc.name)
+    refund_html = frappe.utils.escape_html(
+        frappe.utils.fmt_money(base_refund_amount, currency=default_currency)
+    )
+    if return_doc.currency == default_currency:
+        refund_currency_html = ''
+    else:
+        cur_str = frappe.utils.fmt_money(return_doc.paid_amount,
+                                         currency=return_doc.currency)
+        refund_currency_html = frappe.utils.escape_html(f' ({cur_str})')
+
+    wc_doc.complaint = f"""
+        <p>eBay {refund_type_str} Refund</p>
+        <p>SINV <a href="{sinv_url}">{sinv_name_html}</a>;
+            Return SINV <a href="{ret_url}">{ret_name_html}</a></p>
+        <p>Refund amount: {refund_html}{refund_currency_html}</p>
+        <p>This Warranty Claim has been auto-generated in response
+        to a refund on eBay.</p>"""
+    wc_doc.insert()
+
+    debug_msgprint('Adding return Sales Invoice: ' + ebay_user_id
+                   + ' : ' + return_doc.name)
+    changes.append({"ebay_change": "Adding return Sales Invoice",
+                    "ebay_user_id": ebay_user_id,
+                    "customer_name": customer_name,
+                    "customer": customer,
+                    "address": order_dict['address'],
+                    "ebay_order": ebay_order_id})
+
+    # Commit changes to database
+    frappe.db.commit()
 
 
 def determine_territory(country):
@@ -1255,14 +1470,11 @@ def db_get_ebay_doc(doctype, ebay_id, fields=None, log=None, none_ok=True,
     doc_queries = frappe.db.get_all(
         doctype,
         filters={ebay_id_name: ebay_id},
-        fields=fields_search)
+        fields=fields_search
+    )
 
     if len(doc_queries) == 1:
-        if fields is None:
-            db_doc_name = doc_queries[0]['name']
-            retval = frappe.get_doc(doctype, db_doc_name).as_dict()
-        else:
-            retval = doc_queries[0]
+        retval = doc_queries[0]
     elif len(doc_queries) == 0:
         if none_ok:
             retval = None
