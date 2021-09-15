@@ -1005,19 +1005,25 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
     collect_and_remit_details = []
     for tax_type, tax_amount in car_by_type.items():
         # Add details for each eBay Collect and Remit type
-        if not car_references[tax_type]:
-            # If there isn't actually any amount on this tax type
-            # (and therefore no entry here), just continue
-            continue
-        elif len(car_references[tax_type]) != 1:
+        if tax_amount <= 0:
             raise ErpnextEbaySyncError(
-                f'Order {ebay_order_id} non-single {tax_type} reference!')
-        car_ref, = car_references[tax_type]
+                f'Order {ebay_order_id} has zero-value tax?')
         tax_desc = TAX_DESCRIPTION[tax_type]
         amt = frappe.utils.fmt_money(tax_amount, currency=currency)
-        collect_and_remit_details.append(
-            f"""<li>{tax_desc} <strong>{amt}</strong><br>{car_ref}</li>"""
-        )
+        if car_references[tax_type]:
+            # This tax has a reference
+            if len(car_references[tax_type]) != 1:
+                raise ErpnextEbaySyncError(
+                    f'Order {ebay_order_id} non-single {tax_type} reference!')
+            car_ref, = car_references[tax_type]
+            collect_and_remit_details.append(
+                f"""<li>{tax_desc} <strong>{amt}</strong><br>{car_ref}</li>"""
+            )
+        else:
+            # This tax has no references
+            collect_and_remit_details.append(
+                f"""<li>{tax_desc} <strong>{amt}</strong></li>"""
+            )
     if collect_and_remit_details:
         collect_and_remit_details = (
             '<ul>' + '\n'.join(collect_and_remit_details) + '</ul>'
