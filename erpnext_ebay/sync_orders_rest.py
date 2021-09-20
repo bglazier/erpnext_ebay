@@ -1005,9 +1005,6 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
     collect_and_remit_details = []
     for tax_type, tax_amount in car_by_type.items():
         # Add details for each eBay Collect and Remit type
-        if tax_amount <= 0:
-            raise ErpnextEbaySyncError(
-                f'Order {ebay_order_id} has zero-value tax?')
         tax_desc = TAX_DESCRIPTION[tax_type]
         amt = frappe.utils.fmt_money(tax_amount, currency=currency)
         if car_references[tax_type]:
