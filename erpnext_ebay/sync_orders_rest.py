@@ -123,7 +123,7 @@ EXTRA_COUNTRIES = {
     }
 
 COMPANY_ACRONYM = frappe.get_all('Company', fields=['abbr'])[0].abbr
-WAREHOUSE = f'Mamhilad - {COMPANY_ACRONYM}'
+WAREHOUSE = f'Main - {COMPANY_ACRONYM}'
 SHIPPING_ITEM = 'ITEM-00358'
 DEDUCT_UK_VAT = True
 
