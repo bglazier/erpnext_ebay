@@ -797,9 +797,22 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
         # necessarily exactly the eBay rate). This is so when we later
         # deduct the fees based on the foreign fees and eBay exchange rate,
         # we don't lose anything due to rounding error.
-        conversion_rate = (
-            payment_amount_home_currency / (payout_amount + fee_amount)
+        payment_amount = payout_amount + fee_amount
+        max_conversion_rate = (
+            (payment_amount_home_currency+0.00495) / payment_amount
         )
+        min_conversion_rate = (
+            (payment_amount_home_currency-0.00495) / payment_amount
+        )
+        if min_conversion_rate <= ebay_exchange_rate <= max_conversion_rate:
+            # eBay exchange rate is fine
+            conversion_rate = ebay_exchange_rate
+        elif min_conversion_rate > ebay_exchange_rate:
+            # eBay rate is too low; use minimum conversion rate
+            conversion_rate = min_conversion_rate
+        else:
+            # eBay rate is too high; use maximum conversion rate
+            conversion_rate = max_conversion_rate
 
     # Collect item eBay fees (using transaction)
     item_fee_dict = collections.defaultdict(float)
