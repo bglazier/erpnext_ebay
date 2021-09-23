@@ -40,6 +40,9 @@ maximum_address_duplicates = 4
 # Maximum number of days that can be polled
 MAX_DAYS = 90
 
+# Should we create a warranty claim with each refund?
+CREATE_WARRANTY_CLAIMS = False
+
 # EU countries
 EU_COUNTRIES = ['Austria', 'Belgium', 'Bulgaria', 'Croatia', 'Cyprus',
                 'Czech Republic', 'Denmark', 'Estonia', 'Finland', 'France',
@@ -1238,21 +1241,29 @@ def create_return_sales_invoice(order_dict, order, changes):
             # Need to adjust actual taxes
             tax_rate = round(tax.total / (tax.total - tax.tax_amount), 3)
 
-        # Adjust taxes
+        # Calculate tax amount and adjust taxes
         if tax_rate:
+            tax_amount = round(refund_total - (refund_total / tax_rate), 2)
+            ex_tax_refund = refund_total - tax_amount
             ret_tax = return_doc.taxes[0]
             ret_tax.charge_type = 'Actual'
             ret_tax.total = -refund_total
-            ret_tax.tax_amount = -(refund_total - (refund_total / tax_rate))
+            ret_tax.tax_amount = -tax_amount
+        else:
+            ex_tax_refund = refund_total
 
-        # Delete shipping items
-        return_doc.items[:] = [
-            x for x in return_doc.items if x.item_code != SHIPPING_ITEM
-        ]
+        # Delete shipping items if refund amount is less than total of
+        # other items
+        non_shipping_total = sum(x.amount for x in sinv_doc.items)
+        if ex_tax_refund < non_shipping_total:
+            # We can remove shipping items
+            return_doc.items[:] = [
+                x for x in return_doc.items if x.item_code != SHIPPING_ITEM
+            ]
 
         # Set all items to negative qty and correct rate
-        refund_part = round(refund_total / len(return_doc.items), 2)
-        refund_remainder = refund_total - (refund_part * len(return_doc.items))
+        refund_part = round(ex_tax_refund / len(return_doc.items), 2)
+        refund_remainder = ex_tax_refund - (refund_part * len(return_doc.items))
         for i, item in enumerate(return_doc.items):
             if i == 0:
                 item_refund = refund_part + refund_remainder
@@ -1265,51 +1276,53 @@ def create_return_sales_invoice(order_dict, order, changes):
         return_doc.items[:] = [
             x for x in return_doc.items if (x.rate and x.qty)
         ]
-        if sum(round(x.amount, 2) for x in return_doc.items) != -refund_total:
+        if sum(round(x.amount, 2) for x in return_doc.items) != -ex_tax_refund:
             raise ErpnextEbaySyncError('Problem calculating refund rates!')
 
     return_doc.insert()
     #return_doc.submit()
 
-    # Create a Warranty Claim for the refund, if one does not exist.
-    wc_doc = frappe.get_doc({
-        'doctype': 'Warranty Claim',
-        'status': 'Open',
-        'complaint_date': return_doc.posting_date,
-        'customer': customer,
-        'customer_name': customer_name
-    })
-    sinv_url = frappe.utils.get_url_to_form('Sales Invoice', sinv_doc.name)
-    ret_url = frappe.utils.get_url_to_form('Sales Invoice', return_doc.name)
-    sinv_name_html = frappe.utils.escape_html(sinv_doc.name)
-    ret_name_html = frappe.utils.escape_html(return_doc.name)
-    refund_html = frappe.utils.escape_html(
-        frappe.utils.fmt_money(base_refund_amount, currency=default_currency)
-    )
-    if return_doc.currency == default_currency:
-        refund_currency_html = ''
-    else:
-        cur_str = frappe.utils.fmt_money(return_doc.paid_amount,
-                                         currency=return_doc.currency)
-        refund_currency_html = frappe.utils.escape_html(f' ({cur_str})')
+    if CREATE_WARRANTY_CLAIMS:
+        # Create a Warranty Claim for the refund, if one does not exist.
+        wc_doc = frappe.get_doc({
+            'doctype': 'Warranty Claim',
+            'status': 'Open',
+            'complaint_date': return_doc.posting_date,
+            'customer': customer,
+            'customer_name': customer_name
+        })
+        sinv_url = frappe.utils.get_url_to_form('Sales Invoice', sinv_doc.name)
+        ret_url = frappe.utils.get_url_to_form('Sales Invoice', return_doc.name)
+        sinv_name_html = frappe.utils.escape_html(sinv_doc.name)
+        ret_name_html = frappe.utils.escape_html(return_doc.name)
+        refund_html = frappe.utils.escape_html(
+            frappe.utils.fmt_money(base_refund_amount,
+                                   currency=default_currency)
+        )
+        if return_doc.currency == default_currency:
+            refund_currency_html = ''
+        else:
+            cur_str = frappe.utils.fmt_money(return_doc.paid_amount,
+                                            currency=return_doc.currency)
+            refund_currency_html = frappe.utils.escape_html(f' ({cur_str})')
 
-    wc_doc.complaint = f"""
-        <p>eBay {refund_type_str} Refund</p>
-        <p>SINV <a href="{sinv_url}">{sinv_name_html}</a>;
-            Return SINV <a href="{ret_url}">{ret_name_html}</a></p>
-        <p>Refund amount: {refund_html}{refund_currency_html}</p>
-        <p>This Warranty Claim has been auto-generated in response
-        to a refund on eBay.</p>"""
-    wc_doc.insert()
+        wc_doc.complaint = f"""
+            <p>eBay {refund_type_str} Refund</p>
+            <p>SINV <a href="{sinv_url}">{sinv_name_html}</a>;
+                Return SINV <a href="{ret_url}">{ret_name_html}</a></p>
+            <p>Refund amount: {refund_html}{refund_currency_html}</p>
+            <p>This Warranty Claim has been auto-generated in response
+            to a refund on eBay.</p>"""
+        wc_doc.insert()
 
-    debug_msgprint('Adding return Sales Invoice: ' + ebay_user_id
-                   + ' : ' + return_doc.name)
-    changes.append({"ebay_change": "Adding return Sales Invoice",
-                    "ebay_user_id": ebay_user_id,
-                    "customer_name": customer_name,
-                    "customer": customer,
-                    "address": order_dict['address'],
-                    "ebay_order": ebay_order_id})
+        debug_msgprint('Adding return Sales Invoice: ' + ebay_user_id
+                       + ' : ' + return_doc.name)
+        changes.append({"ebay_change": "Adding return Sales Invoice",
+                        "ebay_user_id": ebay_user_id,
+                        "customer_name": customer_name,
+                        "customer": customer,
+                        "address": order_dict['address'],
+                        "ebay_order": ebay_order_id})
 
     # Commit changes to database
     frappe.db.commit()
