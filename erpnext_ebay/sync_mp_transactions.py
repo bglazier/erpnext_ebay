@@ -117,10 +117,13 @@ def archive_transactions(start_date, end_date):
 
 @frappe.whitelist()
 def sync_mp_transactions(num_days=None, not_today=False,
-                         start_date=None, end_date=None):
+                         start_date=None, end_date=None,
+                         payout_account=None):
     """Synchronise eBay Managed Payments transactions.
     Create Purchase Invoices that add all fees and charges to
     the eBay Managed Payment account.
+
+    Will also create Journal Entries for TRANSFER transactions.
 
     Arguments:
         num_days: Include transactions from the last num_days days.
@@ -141,6 +144,16 @@ def sync_mp_transactions(num_days=None, not_today=False,
     ebay_bank = f'eBay Managed {default_currency} - {COMPANY_ACRONYM}'
     expense_account = f'eBay Managed Fees - {COMPANY_ACRONYM}'
     today = datetime.date.today()
+    if payout_account is None:
+        payout_account = frappe.get_value(
+            'eBay Manager Settings', 'eBay Manager Settings',
+            'ebay_payout_account')
+    if not payout_account:
+        raise ErpnextEbaySyncError('No eBay payout account set!')
+    payout_currency = (
+        frappe.get_value('Account', payout_account, 'account_currency')
+        or default_currency
+    )
 
     if num_days and (start_date or end_date):
         frappe.throw('Must have num_days OR start_date/end_date, not both!')
@@ -190,6 +203,10 @@ def sync_mp_transactions(num_days=None, not_today=False,
             continue
         transactions_by_date[transaction_date].append(transaction)
 
+    # Accumulate any transfer transactions that should be dealt with
+    # separately
+    transfer_transactions = []
+
     # Create a PINV for each date with transactions
     for posting_date, transactions in transactions_by_date.items():
         pinv_doc = frappe.new_doc('Purchase Invoice').update({
@@ -205,7 +222,7 @@ def sync_mp_transactions(num_days=None, not_today=False,
         for transaction in transactions:
             try:
                 add_pinv_items(transaction, pinv_doc, default_currency,
-                               expense_account)
+                               expense_account, transfer_transactions)
             except ErpnextEbaySyncError as e:
                 # Handle this a bit better
                 print(transaction)
@@ -235,6 +252,84 @@ def sync_mp_transactions(num_days=None, not_today=False,
         pinv_doc.insert()
         if not pinv_doc.flags.do_not_submit:
             pinv_doc.submit()
+
+    # Now create Journal Entries for TRANSFER transactions
+    for t in transfer_transactions:
+        t_id = t['transaction_id']
+
+        # Check status of transfer transaction
+        t_status = t['transaction_status']
+        if t_status == 'PAYOUT':
+            # This transaction is not completed yet
+            continue
+        elif t_status == 'COMPLETED':
+            # This transaction is completed and can be added
+            pass
+        elif t_status == 'FAILED':
+            # This transaction failed, and does not need to be added
+            continue
+        else:
+            raise ErpnextEbaySyncError(
+                f'Transfer {t_id} has unhandled status {t_status}')
+        t_date = t['transaction_datetime'].date()
+
+        # Check for existing journal entry for this transaction
+        if frappe.get_all(
+                'Journal Entry',
+                filters={
+                    'cheque_no': t_id,
+                    'cheque_date': t_date,
+                    'title': ['like', 'eBay Managed Payments transfer%']
+                }):
+            continue
+        if t['amount']['currency'] != payout_currency:
+            raise ErpnextEbaySyncError(
+                'Payout account has different currency to transfer')
+
+        t_amount = float(t['amount']['value'])
+        amount_str = frappe.utils.fmt_money(
+            t_amount, currency=payout_currency)
+        credit = t['booking_entry'] == 'CREDIT'
+        details = textwrap.dedent(
+            f"""\
+            eBay Transfer transaction {t_id}
+            Transfer date: {t['transaction_datetime']}
+            {t['transaction_memo']}
+            Transfer from {'seller to eBay' if credit else 'eBay to seller'}
+            Payout ID: {t['payout_id']}
+            Value: {amount_str}"""
+        )
+
+        if credit:
+            from_acct = payout_account
+            to_acct = ebay_bank
+        else:
+            from_acct = ebay_bank
+            to_acct = payout_account
+
+        # Create Journal Entry
+        je_doc = frappe.get_doc({
+            'doctype': 'Journal Entry',
+            'title': f'eBay Managed Payments transfer {t_date}',
+            'posting_date': t_date,
+            'user_remark': details,
+            'cheque_no': t_id,
+            'cheque_date': t_date,
+            'accounts': [
+                {
+                    'account': to_acct,
+                    'debit': t_amount,
+                    'debit_in_account_currency': t_amount
+                },
+                {
+                    'account': from_acct,
+                    'credit': t_amount,
+                    'credit_in_account_currency': t_amount
+                }
+            ]
+        })
+        je_doc.insert()
+        je_doc.submit()
 
     frappe.msgprint('Finished.')
 
@@ -347,12 +442,17 @@ def sync_mp_payouts(num_days=None, payout_account=None):
     return
 
 
-def add_pinv_items(transaction, pinv_doc, default_currency, expense_account):
+def add_pinv_items(transaction, pinv_doc, default_currency, expense_account,
+                   transfer_transactions):
     """Add a PINV item or PINV items as required to the PINV doc supplied,
     based on the supplier transaction.
 
     Note - transaction['transaction_datetime'] must have been added
     with a datetime object representation of transaction['transaction_date'].
+
+    Any transactions with a type of 'TRANSFER' are not added to a PINV,
+    but are instead appended to transfer_transactions, as these should
+    instead create Journal Entries.
     """
 
     t = transaction  # Shorthand
@@ -566,8 +666,10 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account):
         pinv_item.qty = 1
         pinv_item.rate = fee * multiplier
         pinv_item.description = details
-    #elif t_type == 'TRANSFER':
-        #pass
+    elif t_type == 'TRANSFER':
+        # This transaction cannot be processed as a PINV item, and
+        # must instead be passed to sync_mp_payouts.
+        transfer_transactions.append(t)
     else:
         print(t)
         raise ErpnextEbaySyncError(
