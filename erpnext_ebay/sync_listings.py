@@ -7,7 +7,7 @@ import bleach
 
 import frappe
 
-from .ebay_requests import get_seller_list, get_item, get_shipping_details
+from .ebay_get_requests import get_seller_list, get_item, get_shipping_details
 from .ebay_constants import (LISTING_DURATION_TOKEN_DICT, EBAY_SITE_IDS,
                              EBAY_TRANSACTION_SITE_NAMES,
                              EBAY_SITE_DOMAINS, HOME_SITE_ID)

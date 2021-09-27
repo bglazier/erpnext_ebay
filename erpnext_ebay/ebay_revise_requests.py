@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-"""eBay requests which are not read-only, and cab affect live eBay data."""
+"""eBay requests which are not read-only, and can affect live eBay data."""
 
 from ebaysdk.exception import ConnectionError
 
 from erpnext_ebay.ebay_constants import HOME_SITE_ID
-from erpnext_ebay.ebay_requests import (
+from erpnext_ebay.ebay_get_requests import (
     ebay_logger, get_trading_api, handle_ebay_error, test_for_message)
 
 

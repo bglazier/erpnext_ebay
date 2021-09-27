@@ -11,7 +11,7 @@ from erpnext import get_default_currency
 
 from ebay_rest.error import Error as eBayRestError
 
-from .ebay_requests import get_item as get_item_trading, ConnectionError
+from .ebay_get_requests import get_item as get_item_trading, ConnectionError
 from .ebay_requests_rest import get_transactions, get_order, get_payouts
 from .sync_orders_rest import divide_rounded, ErpnextEbaySyncError, VAT_RATES
 

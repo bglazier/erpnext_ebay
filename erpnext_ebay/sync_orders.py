@@ -17,7 +17,7 @@ from frappe.utils import cstr, strip_html
 from erpnext import get_default_currency
 from erpnext.setup.utils import get_exchange_rate
 
-from .ebay_requests import get_orders
+from .ebay_get_requests import get_orders
 from .ebay_constants import EBAY_TRANSACTION_SITE_IDS
 
 # Option to use eBay shipping address name as customer name.

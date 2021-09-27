@@ -9,7 +9,9 @@ import collections
 import frappe
 from frappe import msgprint
 
-from .ebay_requests import get_categories_versions, get_categories, get_features
+from .ebay_get_requests import (
+    get_categories_versions, get_categories, get_features
+)
 from .ebay_constants import *
 
 

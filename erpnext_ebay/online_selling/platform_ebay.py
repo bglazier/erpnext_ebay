@@ -4,7 +4,7 @@
 import frappe
 
 from erpnext_ebay.ebay_constants import EBAY_TRANSACTION_SITE_NAMES
-from erpnext_ebay.ebay_requests import get_seller_list, get_item
+from erpnext_ebay.ebay_get_requests import get_seller_list, get_item
 from erpnext_ebay.sync_listings import (create_ebay_online_selling_item,
                                         OUTPUT_SELECTOR)
 from erpnext_ebay.online_selling.platform_base import OnlineSellingPlatformClass
