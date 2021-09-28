@@ -259,11 +259,10 @@ def sync_mp_transactions(num_days=None, not_today=False,
 
         # Check status of transfer transaction
         t_status = t['transaction_status']
-        if t_status == 'PAYOUT':
-            # This transaction is not completed yet
-            continue
-        elif t_status == 'COMPLETED':
+        if t_status in ('COMPLETED', 'PAYOUT'):
             # This transaction is completed and can be added
+            # (transactions do not appear to progress from
+            # Payout to Completed)
             pass
         elif t_status == 'FAILED':
             # This transaction failed, and does not need to be added
