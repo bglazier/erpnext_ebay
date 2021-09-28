@@ -4,6 +4,7 @@
 import datetime
 import json
 import operator
+from collections import defaultdict
 
 import frappe
 from erpnext import get_default_currency
@@ -463,10 +464,6 @@ def execute(filters=None):
             'item_codes': None
         })
 
-    # Check if values are matched
-    for t in data:
-        t['matched'] = t['amount'] == t['link_amount']
-
     # Sort data into datetime order
     data.sort(key=operator.itemgetter('transaction_datetime'))
 
@@ -479,10 +476,48 @@ def execute(filters=None):
     for t in data:
         item_codes = t['item_codes'] or []
         links = [frappe.utils.get_link_to_form('Item', x) for x in item_codes]
-        t['item_codes'] = ', '.join(links) + '&nbsp;&nbsp;'
+        t['item_codes'] = ', '.join(links)
+
+    # Check for multiple refunds
+    linked_refunds = defaultdict(list)
+    for t in data:
+        if t['transaction_type'] != 'REFUND':
+            # Only do this for refunds
+            continue
+        if not (t['link_docname'] and t['link_amount']):
+            # Don't fix unsubmitted links
+            continue
+        linked_refunds[t['link_docname']].append(t)
+    for docname, t_list in linked_refunds.items():
+        # Check for multiple links
+        if len(t_list) <= 1:
+            continue
+        # Get link amount
+        link_amounts = {t['link_amount'] for t in t_list}
+        if len(link_amounts) != 1:
+            raise ValueError('Link amounts are inconsistent!')
+        link_amount = t_list[0]['link_amount']
+        # Check sum of all links adds to sum of transaction amounts
+        amount = sum(t['amount'] for t in t_list)
+        if link_amount == amount:
+            # Total works so set link_amount = amount
+            for t in t_list:
+                t['link_amount'] = t['amount']
+                t['item_codes'] += '&nbsp;(partial allocation)'
+        else:
+            # Only allocate to first entry
+            for t in t_list[1:]:
+                t['link_amount'] == 0.0
+
+    # Check if values are matched
+    for t in data:
+        t['matched'] = t['amount'] == t['link_amount']
 
     # If only showing mismatches, filter data
     if only_mismatches:
         data = [x for x in data if not x['matched']]
+
+    for t in data:
+        t['item_codes'] += '&nbsp;&nbsp;'
 
     return COLUMNS, data
