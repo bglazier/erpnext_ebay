@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
-"""eBay requests which are not read-only, and can affect live eBay data."""
+"""eBay requests related to revising item data. These are not read-only, and
+will affect live eBay data.
+"""
 
 from ebaysdk.exception import ConnectionError
 
 from erpnext_ebay.ebay_constants import HOME_SITE_ID
 from erpnext_ebay.ebay_get_requests import (
     ebay_logger, get_trading_api, handle_ebay_error, test_for_message)
+from erpnext_ebay.ebay_do_requests import trading_api_call
 
 
 def revise_inventory_status(items, site_id=HOME_SITE_ID):
@@ -52,6 +55,29 @@ def relist_item(ebay_id, site_id=HOME_SITE_ID, item_dict=None):
     return response_dict
 
 
+def revise_item(ebay_id, site_id=HOME_SITE_ID, item_dict=None):
+    """Perform a ReviseItem call."""
+
+    revise_dict = {'Item': item_dict or {}}
+    revise_dict['Item']['ItemID'] = ebay_id
+
+    try:
+        # Initialize TradingAPI; default timeout is 20.
+        api = get_trading_api(site_id=site_id, api_call='ReviseItem',
+                              warnings=True, timeout=20)
+        ebay_logger().info(f'Revising item: {revise_dict}')
+
+        response = api.execute('ReviseItem', revise_dict)
+
+    except ConnectionError as e:
+        handle_ebay_error(e, revise_dict)
+
+    response_dict = response.dict()
+    test_for_message(response_dict)
+
+    return response_dict
+
+
 def end_items(items, site_id=HOME_SITE_ID):
     """Perform an EndItems call."""
 
@@ -75,21 +101,3 @@ def end_items(items, site_id=HOME_SITE_ID):
     test_for_message(response_dict)
 
     return response_dict
-
-
-def trading_api_call(api_call, input_dict, site_id=HOME_SITE_ID,
-                     force_sandbox_value=None, escape_xml=True):
-    """Perform a TradingAPI call with an input dictionary."""
-
-    try:
-        api = get_trading_api(site_id=site_id, api_call=api_call,
-                              warnings=True, timeout=20,
-                              force_sandbox_value=force_sandbox_value,
-                              escape_xml=escape_xml)
-
-        response = api.execute(api_call, input_dict)
-
-    except ConnectionError as e:
-        handle_ebay_error(e, input_dict)
-
-    return response.dict()
