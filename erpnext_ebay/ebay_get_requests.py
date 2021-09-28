@@ -348,8 +348,9 @@ def get_active_listings():
 
 def get_seller_list(item_codes=None, site_id=HOME_SITE_ID,
                     output_selector=None, granularity_level='Coarse',
-                    days_before=0, days_after=119, active_only=True,
-                    force_sandbox_value=None, print=ebay_logger().info):
+                    detail_level=None, days_before=0, days_after=119,
+                    active_only=True, force_sandbox_value=None,
+                    print=ebay_logger().info):
     """Runs GetSellerList to obtain a list of items.
     Note that this call does NOT filter by SiteID, but does return it.
     Items are returned ending between days_before now and days_after now, with
@@ -359,6 +360,10 @@ def get_seller_list(item_codes=None, site_id=HOME_SITE_ID,
 
     # eBay has a limit of 300 calls in 15 seconds
     MAX_REQUESTS = {'time': 15, 'n_requests': 300}
+
+    # Must not use DetailLevel and GranularityLevel
+    if granularity_level and detail_level:
+        raise ValueError('Do not use both GranularityLevel and DetailLevel!')
 
     # Create eBay acceptable datetime stamps for EndTimeTo and EndTimeFrom
     if (days_before < 0) or (days_after < 0):
@@ -398,11 +403,15 @@ def get_seller_list(item_codes=None, site_id=HOME_SITE_ID,
         api_dict = {
             'EndTimeTo': end_to,
             'EndTimeFrom': end_from,
-            'GranularityLevel': granularity_level,
             'Pagination': {
                 'EntriesPerPage': 100,
-                'PageNumber': page},
-            }
+                'PageNumber': page
+            },
+        }
+        if granularity_level:
+            api_dict['GranularityLevel'] = granularity_level
+        if detail_level:
+            api_dict['DetailLevel'] = detail_level
         if output_selector:
             api_dict['OutputSelector'] = [
                 'ItemID', 'ItemArray.Item.Site',
