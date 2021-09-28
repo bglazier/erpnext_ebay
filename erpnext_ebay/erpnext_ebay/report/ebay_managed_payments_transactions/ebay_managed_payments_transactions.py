@@ -331,7 +331,7 @@ def execute(filters=None):
             t['link_amount'] = cur_flt(payment_value)
             if payment_value:
                 linked_documents.add(('Sales Invoice', sinv.name))
-        elif t_type == 'PAYOUT':
+        elif t_type in ('PAYOUT', 'TRANSFER'):
             # Find a Journal Entry with this payout ID
             je = frappe.get_all(
                 'Journal Entry',
@@ -362,7 +362,9 @@ def execute(filters=None):
             # Note this entry in the JE is for money moving _from_ eBay
             # (another entry will be the money moving _to_ a bank account)
             payout_value = jea[0].credit - jea[0].debit
-            if payout_value < 0:
+            # True payout should be positive, but transfer is 
+            # typically negative
+            if t_type == 'PAYOUT' and payout_value < 0:
                 frappe.throw('Negative payout amount!')
             # Now add link
             t['link_doctype'] = 'Journal Entry'
