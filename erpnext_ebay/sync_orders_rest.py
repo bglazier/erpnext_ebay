@@ -166,7 +166,7 @@ def debug_msgprint(message):
 
 
 @frappe.whitelist()
-def sync_orders(num_days=None):
+def sync_orders(num_days=None, sandbox=False):
     """
     Pulls the latest orders from eBay. Creates Sales Invoices for sold items.
 
@@ -198,7 +198,7 @@ def sync_orders(num_days=None):
     if num_days is None:
         num_days = int(frappe.get_value(
             'eBay Manager Settings', filters=None, fieldname='ebay_sync_days'))
-    orders = get_orders(min(num_days, MAX_DAYS))
+    orders = get_orders(min(num_days, MAX_DAYS), sandbox=sandbox)
 
     # Get earliest creation date
     creation_dates = []
@@ -211,7 +211,7 @@ def sync_orders(num_days=None):
 
     # Load transactions from eBay
     transactions = get_transactions(start_date=trans_start_date,
-                                    end_date=trans_end_date)
+                                    end_date=trans_end_date, sandbox=sandbox)
     trans_by_order = collections.defaultdict(list)
     for transaction in transactions:
         order_id = transaction['order_id']

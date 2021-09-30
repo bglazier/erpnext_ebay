@@ -69,9 +69,9 @@ def check_for_warnings(api_response):
     ebay_logger().warning(messages_str)
 
 
-def single_api_call(api_call, *args, **kwargs):
+def single_api_call(api_call, sandbox=False, *args, **kwargs):
     """Make a non-paged API call. Handles warnings and errors."""
-    api = get_api(sandbox=False, marketplace_id=HOME_GLOBAL_ID)
+    api = get_api(sandbox=sandbox, marketplace_id=HOME_GLOBAL_ID)
     call = getattr(api, api_call)
     try:
         result = call(*args, **kwargs)
@@ -83,9 +83,9 @@ def single_api_call(api_call, *args, **kwargs):
     return result
 
 
-def paged_api_call(api_call, record_field, *args, **kwargs):
+def paged_api_call(api_call, record_field, sandbox=False, *args, **kwargs):
     """Make a paged API call. Handles warnings and errors."""
-    api = get_api(sandbox=False, marketplace_id=HOME_GLOBAL_ID)
+    api = get_api(sandbox=sandbox, marketplace_id=HOME_GLOBAL_ID)
     call = getattr(api, api_call)
     try:
         # Make calls and load all pages immediately
@@ -102,13 +102,13 @@ def paged_api_call(api_call, record_field, *args, **kwargs):
     return records
 
 
-def get_order(order_id):
+def get_order(order_id, sandbox=False):
     """Get a single order using the Sell Fulfillment API."""
     return single_api_call('sell_fulfillment_get_order', order_id=order_id,
-                           field_groups='TAX_BREAKDOWN')
+                           field_groups='TAX_BREAKDOWN', sandbox=sandbox)
 
 
-def get_orders(num_days=None, order_ids=None):
+def get_orders(num_days=None, order_ids=None, sandbox=False, **kwargs):
     """Get orders using the Sell Fulfillment API.
 
     If num_days is supplied, only orders modified in the last num_days
@@ -131,12 +131,14 @@ def get_orders(num_days=None, order_ids=None):
 
     # Make API call
     return paged_api_call('sell_fulfillment_get_orders', 'orders',
-                          field_groups='TAX_BREAKDOWN', **kwargs)
+                          field_groups='TAX_BREAKDOWN', sandbox=sandbox,
+                          **kwargs)
 
 
 def get_transactions(num_days=None, buyer_username=None, payout_id=None,
                      transaction_id=None, transaction_type=None,
-                     order_id=None, start_date=None, end_date=None):
+                     order_id=None, start_date=None, end_date=None,
+                     sandbox=False, **kwargs):
     """Get transactions using the Sell Finances API.
 
     Arguments
@@ -193,11 +195,12 @@ def get_transactions(num_days=None, buyer_username=None, payout_id=None,
 
     # Make API call
     return paged_api_call(
-        'sell_finances_get_transactions', 'transactions', **kwargs)
+        'sell_finances_get_transactions', 'transactions',
+        sandbox=sandbox, **kwargs)
 
 
 def get_payouts(num_days=None, payout_status=None,
-                start_date=None, end_date=None):
+                start_date=None, end_date=None, sandbox=False, **kwargs):
     """Get payout using the Sell Finances API.
 
     Arguments
@@ -239,10 +242,10 @@ def get_payouts(num_days=None, payout_status=None,
 
     # Make API call
     return paged_api_call(
-        'sell_finances_get_payouts', 'payouts', **kwargs)
+        'sell_finances_get_payouts', 'payouts', sandbox=sandbox, **kwargs)
 
 
-def get_item(item_id, *args, **kwargs):
+def get_item(item_id, *args, sandbox=False, **kwargs):
     """Retrieve a single item using the Buy Browse API.
 
     Arguments
@@ -250,10 +253,10 @@ def get_item(item_id, *args, **kwargs):
     """
 
     return single_api_call('buy_browse_get_item', item_id=item_id,
-                           *args, **kwargs)
+                           sandbox=sandbox, *args, **kwargs)
 
 
-def get_items(item_ids):
+def get_items(item_ids, sandbox=False, **kwargs):
     """Retrieve up to 20 items at once using the Buy Browse API.
 
     Arguments
@@ -264,4 +267,4 @@ def get_items(item_ids):
 
     # Make API call
     return paged_api_call(
-        'buy_browse_get_items', 'items', **kwargs)
+        'buy_browse_get_items', 'items', sandbox=sandbox, **kwargs)
