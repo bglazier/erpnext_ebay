@@ -30,6 +30,29 @@ def trading_api_call(api_call, input_dict, site_id=HOME_SITE_ID,
     return response.dict()
 
 
+def AddMemberMessageAAQToPartner(user_id, item_id, body, subject,
+                                 message_details=None):
+    """Send a message to a buyer or seller."""
+
+    if message_details is None:
+        message_details = {}
+
+    message_dict = {
+        'ItemID': item_id,
+        'MemberMessage': {
+            'Body': body,
+            'QuestionType': 'Shipping',
+            'RecipientID': user_id,
+            'Subject': subject
+        },
+    }
+
+    message_dict['MemberMessage'].update(message_details)
+
+    return trading_api_call('AddMemberMessageAAQToPartner', message_dict,
+                            force_sandbox_value=True)
+
+
 def add_item(item_code, item_details=None):
     """Add an item for testing purposes."""
 
