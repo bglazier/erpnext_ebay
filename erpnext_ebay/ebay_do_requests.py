@@ -30,9 +30,13 @@ def trading_api_call(api_call, input_dict, site_id=HOME_SITE_ID,
     return response.dict()
 
 
-def AddMemberMessageAAQToPartner(user_id, item_id, body, subject,
-                                 message_details=None):
-    """Send a message to a buyer or seller."""
+def ebay_message_to_partner(user_id, item_id, body, subject,
+                            message_details=None):
+    """Send a message to a buyer or seller using
+    the AddMemberMessageAAQToPartner call.
+
+    Note that HTML cannot be used in the body of this message.
+    """
 
     if message_details is None:
         message_details = {}
@@ -49,8 +53,7 @@ def AddMemberMessageAAQToPartner(user_id, item_id, body, subject,
 
     message_dict['MemberMessage'].update(message_details)
 
-    return trading_api_call('AddMemberMessageAAQToPartner', message_dict,
-                            force_sandbox_value=True)
+    return trading_api_call('AddMemberMessageAAQToPartner', message_dict)
 
 
 def add_item(item_code, item_details=None):
@@ -66,7 +69,7 @@ def add_item(item_code, item_details=None):
     item_dict = {
         'Country': 'GB',
         'Currency': 'GBP',
-        'Description': '<p>This is a test item.</p>',
+        'Description': '<![CDATA[<p>This is a test item.</p>]]>',
         'DispatchTimeMax': 3,
         'ListingDuration': 'GTC',
         'ListingType': 'FixedPriceItem',
