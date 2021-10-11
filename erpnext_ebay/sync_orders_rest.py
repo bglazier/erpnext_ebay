@@ -1111,6 +1111,7 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
     sinv = frappe.get_doc(sinv_dict)
     sinv.run_method('erpnext_ebay_before_insert')
     sinv.insert()
+    sinv.run_method('erpnext_ebay_after_insert')
 
     if sinv.outstanding_amount:
         debug_msgprint(f'Sales Invoice: {sinv.name} has an outstanding amount!')
