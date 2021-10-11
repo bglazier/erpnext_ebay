@@ -134,7 +134,8 @@ TAX_DESCRIPTION = {
     'STATE_SALES_TAX': 'US state sales tax',
     'GST': 'AU/NZ Goods and Services Tax',
     'UK_VAT': 'UK VAT',
-    'EU_VAT': 'EU VAT'
+    'EU_VAT': 'EU VAT',
+    'NOR_VAT': 'Norwegian VAT'
 }
 
 VAT_RATES = {
@@ -358,6 +359,10 @@ def extract_customer(order):
             start, sep, last_word = address_line2.rpartition(' ')
             if is_ebay_evtn(last_word):
                 address_line2 = start
+
+    # Strip out Norwegian VAT declaration, if present
+    if db_country == 'Norway' and address_line2 == 'VOEC NO:2024926 Code:Paid':
+        address_line2 = ''
 
     # Tidy up full name, if entirely lower/upper case and not
     # a single word
@@ -892,6 +897,28 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
             tax_type = tax_item['tax_type']
             if tax_type in ('STATE_SALES_TAX', 'GST', 'VAT'):
                 continue  # Appear in eBay Collect and Remit section
+            original_address2 = (
+                order['fulfillment_start_instructions'][0]['shipping_step']
+                ['ship_to']['contact_address']['address_line2']
+            )
+            norwegian_vat = (
+                tax_type is None and country == 'Norway'
+                and original_address2 == 'VOEC NO:2024926 Code:Paid'
+            )
+            if norwegian_vat:
+                # Special-case Norwegian VAT - build CAR reference
+                if line_item['ebay_collect_and_remit_taxes']:
+                    raise ErpnextEbaySyncError(
+                        f'Order {ebay_order_id} has Norwegian VAT and '
+                        + 'Collect and Remit items!')
+                line_item['ebay_collect_and_remit_taxes'] = [{
+                    'tax_type': 'NOR_VAT',
+                    'amount': tax_item['amount'],
+                    'ebay_reference': {
+                        'name': 'VOEC NO',
+                        'value': '2024926 Code:Paid'
+                    }
+                }]
             else:
                 raise ErpnextEbaySyncError(
                     f'Order {ebay_order_id} has unhandled tax {tax_type}')
@@ -899,7 +926,7 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
         # Check for Collect and Remit taxes
         for car_item in line_item['ebay_collect_and_remit_taxes'] or []:
             tax_type = car_item['tax_type']
-            if tax_type not in ('STATE_SALES_TAX', 'GST', 'VAT'):
+            if tax_type not in ('STATE_SALES_TAX', 'GST', 'VAT', 'NOR_VAT'):
                 raise ErpnextEbaySyncError(
                     f'Order {ebay_order_id} has unhandled CAR tax {tax_type}')
             if tax_type == 'VAT':
