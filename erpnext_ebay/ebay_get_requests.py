@@ -163,15 +163,18 @@ def get_trading_api(site_id=HOME_SITE_ID, warnings=True, timeout=20,
         return Trading(**trading_kwargs)
 
 
-def get_orders(order_status='All', include_final_value_fees=True):
-    """Returns a list of recent orders from the eBay TradingAPI.
+def get_orders(order_status='All', include_final_value_fees=True,
+               num_days=None):
+    """Returns a tuple of a list of, and the number of, recent orders
+    from the eBay TradingAPI.
 
     This list is NOT filtered by a siteid as the API call does not filter
     by siteid.
     """
 
-    num_days = int(frappe.get_value(
-        'eBay Manager Settings', filters=None, fieldname='ebay_sync_days'))
+    if num_days is None:
+        num_days = int(frappe.get_value(
+            'eBay Manager Settings', filters=None, fieldname='ebay_sync_days'))
 
     try:
         if num_days < 1:
