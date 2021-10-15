@@ -1259,7 +1259,7 @@ def create_return_sales_invoice(order_dict, order, changes):
     if order['order_payment_status'] == 'PARTIALLY_REFUNDED':
         # Adjust quantities and rates on return
         exc_rate = return_doc.conversion_rate
-        refund_total = base_refund_amount / exc_rate
+        refund_total = round(base_refund_amount / exc_rate, 2)
 
         # Adjust payment
         return_doc.payments[0].amount = -refund_total
