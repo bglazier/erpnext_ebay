@@ -202,6 +202,13 @@ def sync(site_id=None):
                         'WARNING: unable to identify site ID from:'
                         + '\n{}\n{}'.format(
                             order['TransactionArray'], str(e)))
+                    if ebay_site_id:
+                        # Skip this order if we are filtering by site_id
+                        continue
+                else:
+                    # If we have a site_id, skip if not this site_id
+                    if ebay_site_id and (ebay_site_id != site_id_order):
+                        continue
 
                 # Create/update Customer
                 cust_details, address_details = extract_customer(order)
@@ -213,8 +220,8 @@ def sync(site_id=None):
                 create_ebay_order(order_details, changes, order)
 
                 # Create/update Sales Invoice
-                create_sales_invoice(order_details, order, ebay_site_id,
-                                     site_id_order, msgprint_log, changes)
+                create_sales_invoice(order_details, order, site_id_order,
+                                     msgprint_log, changes)
             except ErpnextEbaySyncError as e:
                 # Continue to next order
                 frappe.db.rollback()
@@ -691,7 +698,7 @@ def create_ebay_order(order_dict, changes, order):
     return None
 
 
-def create_sales_invoice(order_dict, order, ebay_site_id, site_id_order,
+def create_sales_invoice(order_dict, order, site_id_order,
                          msgprint_log, changes):
     """
     Create a Sales Invoice from the eBay order.

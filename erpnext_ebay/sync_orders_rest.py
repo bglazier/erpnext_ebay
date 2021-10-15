@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+"""Synchronize completed orders and refunds to Sales Invoices
+using the REST API (Sell-Fulfillment and Sell-Finances).
+"""
 
 import collections
 import datetime
@@ -7,7 +10,6 @@ import operator
 import re
 import sys
 import traceback
-from types import MethodType
 
 from .country_data import lowercase_country_dict
 from iso3166 import countries, countries_by_name
@@ -15,7 +17,6 @@ from iso3166 import countries, countries_by_name
 import frappe
 
 from erpnext import get_default_currency
-from erpnext.setup.utils import get_exchange_rate
 from erpnext.controllers.sales_and_purchase_return import make_return_doc
 
 from .ebay_constants import EBAY_MARKETPLACE_IDS
