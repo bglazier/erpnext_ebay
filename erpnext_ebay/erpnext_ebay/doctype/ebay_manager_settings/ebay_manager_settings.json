@@ -7,6 +7,7 @@
  "engine": "InnoDB",
  "field_order": [
   "ebay_sync_days",
+  "ebay_pending_sync_days",
   "ebay_image_size",
   "ebay_thumbnail_size",
   "ebay_price_list",
@@ -72,10 +73,17 @@
    "fieldtype": "Link",
    "label": "eBay Managed Payments payout account",
    "options": "Account"
+  },
+  {
+   "default": "30",
+   "fieldname": "ebay_pending_sync_days",
+   "fieldtype": "Int",
+   "label": "eBay Pending Order sync days",
+   "reqd": 1
   }
  ],
  "issingle": 1,
- "modified": "2021-07-06 10:04:41.008856",
+ "modified": "2021-10-15 14:22:03.037856",
  "modified_by": "Administrator",
  "module": "Erpnext Ebay",
  "name": "eBay Manager Settings",

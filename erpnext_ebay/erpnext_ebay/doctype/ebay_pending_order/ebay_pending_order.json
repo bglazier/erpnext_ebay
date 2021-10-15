@@ -1,0 +1,145 @@
+{
+ "autoname": "field:ebay_order_id",
+ "creation": "2021-10-15 10:56:25.010493",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "last_modified",
+  "created_time",
+  "ebay_order_id",
+  "ebay_site",
+  "buyer_username",
+  "shipping_address",
+  "country",
+  "currency",
+  "shipping_type",
+  "shipping_cost",
+  "total_cost",
+  "items"
+ ],
+ "fields": [
+  {
+   "fieldname": "ebay_order_id",
+   "fieldtype": "Data",
+   "label": "Order ID",
+   "read_only": 1,
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "buyer_username",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Buyer Username",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "shipping_address",
+   "fieldtype": "Small Text",
+   "label": "Shipping address",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "country",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Shipping country",
+   "options": "Country",
+   "read_only": 1
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "label": "Items",
+   "options": "eBay Pending Order Item",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "shipping_type",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Shipping type",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "last_modified",
+   "fieldtype": "Datetime",
+   "label": "Last Modified",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "created_time",
+   "fieldtype": "Datetime",
+   "label": "Created Time",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "total_cost",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Total cost",
+   "options": "currency",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "ebay_site",
+   "fieldtype": "Data",
+   "label": "eBay Site",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "shipping_cost",
+   "fieldtype": "Currency",
+   "label": "Shipping cost",
+   "options": "currency",
+   "read_only": 1,
+   "reqd": 1
+  }
+ ],
+ "in_create": 1,
+ "modified": "2021-10-15 16:01:40.921889",
+ "modified_by": "Administrator",
+ "module": "Erpnext Ebay",
+ "name": "eBay Pending Order",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "eBay Administrator",
+   "share": 1
+  }
+ ],
+ "quick_entry": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}
