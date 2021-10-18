@@ -3,9 +3,12 @@
 will affect live eBay data.
 """
 
+import redo
+
 from ebaysdk.exception import ConnectionError
 
-from erpnext_ebay.ebay_constants import HOME_SITE_ID
+from erpnext_ebay.ebay_constants import (
+    HOME_SITE_ID, REDO_ATTEMPTS, REDO_SLEEPTIME, REDO_SLEEPSCALE)
 from erpnext_ebay.ebay_get_requests import (
     ebay_logger, get_trading_api, handle_ebay_error, test_for_message)
 from erpnext_ebay.ebay_do_requests import trading_api_call
@@ -14,19 +17,23 @@ from erpnext_ebay.ebay_do_requests import trading_api_call
 def revise_inventory_status(items, site_id=HOME_SITE_ID):
     """Perform a ReviseInventoryStatus call."""
 
-    api_dict = {'InventoryStatus': items}
+    api_options = {'InventoryStatus': items}
     try:
         # Initialize TradingAPI; default timeout is 20.
         api = get_trading_api(site_id=site_id, api_call='ReviseInventoryStatus',
                               warnings=True, timeout=20)
         ebay_logger().info(f'Relisting inventory: {items}')
 
-        response = api.execute('ReviseInventoryStatus', api_dict)
+        redo.retry(
+            api.execute, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
+            sleepscale=REDO_SLEEPSCALE, retry_exceptions=(ConnectionError,),
+            args=('ReviseInventoryStatus', api_options)
+        )
 
     except ConnectionError as e:
-        handle_ebay_error(e, api_dict)
+        handle_ebay_error(e, api_options)
 
-    response_dict = response.dict()
+    response_dict = api.response.dict()
     test_for_message(response_dict)
 
     return response_dict
@@ -44,12 +51,16 @@ def relist_item(ebay_id, site_id=HOME_SITE_ID, item_dict=None):
                               warnings=True, timeout=20)
         ebay_logger().info(f'Relisting item: {relist_dict}')
 
-        response = api.execute('RelistItem', relist_dict)
+        redo.retry(
+            api.execute, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
+            sleepscale=REDO_SLEEPSCALE, retry_exceptions=(ConnectionError,),
+            args=('RelistItem', relist_dict)
+        )
 
     except ConnectionError as e:
         handle_ebay_error(e, relist_dict)
 
-    response_dict = response.dict()
+    response_dict = api.response.dict()
     test_for_message(response_dict)
 
     return response_dict
@@ -67,12 +78,16 @@ def revise_item(ebay_id, site_id=HOME_SITE_ID, item_dict=None):
                               warnings=True, timeout=20)
         ebay_logger().info(f'Revising item: {revise_dict}')
 
-        response = api.execute('ReviseItem', revise_dict)
+        redo.retry(
+            api.execute, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
+            sleepscale=REDO_SLEEPSCALE, retry_exceptions=(ConnectionError,),
+            args=('ReviseItem', revise_dict)
+        )
 
     except ConnectionError as e:
         handle_ebay_error(e, revise_dict)
 
-    response_dict = response.dict()
+    response_dict = api.response.dict()
     test_for_message(response_dict)
 
     return response_dict
@@ -85,19 +100,23 @@ def end_items(items, site_id=HOME_SITE_ID):
     # this call (per request container), so add it
     for item in items:
         item['MessageID'] = item['ItemID']
-    api_dict = {'EndItemRequestContainer': items}
+    api_options = {'EndItemRequestContainer': items}
 
     try:
         # Initialize TradingAPI; default timeout is 20.
         api = get_trading_api(site_id=site_id, warnings=True, timeout=20)
         ebay_logger().info(f'Ending items {[x["ItemID"] for x in items]}')
 
-        response = api.execute('EndItems', api_dict)
+        redo.retry(
+            api.execute, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
+            sleepscale=REDO_SLEEPSCALE, retry_exceptions=(ConnectionError,),
+            args=('EndItems', api_options)
+        )
 
     except ConnectionError as e:
-        handle_ebay_error(e, api_dict)
+        handle_ebay_error(e, api_options)
 
-    response_dict = response.dict()
+    response_dict = api.response.dict()
     test_for_message(response_dict)
 
     return response_dict

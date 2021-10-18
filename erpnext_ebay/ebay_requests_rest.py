@@ -4,11 +4,15 @@
 import datetime
 import json
 
+import redo
+
 from ebay_rest.error import Error as eBayRestError
 
 import frappe
 
-from .ebay_constants import HOME_GLOBAL_ID
+from .ebay_constants import (
+    HOME_GLOBAL_ID, REDO_ATTEMPTS, REDO_SLEEPTIME, REDO_SLEEPSCALE
+)
 from .ebay_tokens import get_api
 
 
@@ -74,7 +78,11 @@ def single_api_call(api_call, sandbox=False, *args, **kwargs):
     api = get_api(sandbox=sandbox, marketplace_id=HOME_GLOBAL_ID)
     call = getattr(api, api_call)
     try:
-        result = call(*args, **kwargs)
+        result = redo.retry(
+            call, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
+            sleepscale=REDO_SLEEPSCALE, retry_exceptions=(eBayRestError,),
+            args=args, kwargs=kwargs
+        )
     except eBayRestError as e:
         handle_ebay_error(e)
     # Check for warnings
@@ -87,9 +95,17 @@ def paged_api_call(api_call, record_field, sandbox=False, *args, **kwargs):
     """Make a paged API call. Handles warnings and errors."""
     api = get_api(sandbox=sandbox, marketplace_id=HOME_GLOBAL_ID)
     call = getattr(api, api_call)
+
+    def get_pages(*args, **kwargs):
+        return list(call(*args, **kwargs))
+
     try:
         # Make calls and load all pages immediately
-        pages = list(call(*args, **kwargs))
+        pages = redo.retry(
+            get_pages, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
+            sleepscale=REDO_SLEEPSCALE, retry_exceptions=(eBayRestError,),
+            args=args, kwargs=kwargs
+        )
     except eBayRestError as e:
         handle_ebay_error(e)
     # Check for warnings

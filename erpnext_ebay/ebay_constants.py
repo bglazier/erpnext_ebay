@@ -2,6 +2,11 @@
 
 import frappe
 
+# Redo parameters for retrying transactions
+REDO_ATTEMPTS = 3
+REDO_SLEEPTIME = 3.0
+REDO_SLEEPSCALE = 1.5
+
 # Maximum number of eBay images per listing
 MAX_EBAY_IMAGES = 12
 

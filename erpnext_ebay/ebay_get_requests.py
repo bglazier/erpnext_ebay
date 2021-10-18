@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+import redo
 import requests
 
 import frappe
@@ -20,7 +21,10 @@ from ebaysdk.response import Response
 from ebaysdk.exception import ConnectionError
 from ebaysdk.trading import Connection as Trading
 
-from .ebay_constants import EBAY_SITE_NAMES, HOME_SITE_ID
+from erpnext_ebay.ebay_constants import (
+    EBAY_SITE_NAMES, HOME_SITE_ID,
+    REDO_ATTEMPTS, REDO_SLEEPTIME, REDO_SLEEPSCALE
+)
 from erpnext_ebay.erpnext_ebay.doctype.ebay_manager_settings.ebay_manager_settings\
     import use_sandbox
 
@@ -209,7 +213,11 @@ def get_orders(order_status='All', include_final_value_fees=True,
             if include_final_value_fees:
                 api_options['IncludeFinalValueFee'] = 'true'
 
-            api.execute('GetOrders', api_options)
+            redo.retry(
+                api.execute, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
+                sleepscale=REDO_SLEEPSCALE, retry_exceptions=(ConnectionError,),
+                args=('GetOrders', api_options)
+            )
 
             orders_api = api.response.dict()
             test_for_message(orders_api)
@@ -277,7 +285,11 @@ def get_my_ebay_selling(listings_type='Summary', api_options=None,
                 api_options[listings_type]['Pagination'] = {
                     'EntriesPerPage': 100, 'PageNumber': page}
 
-            api.execute('GetMyeBaySelling', api_options)
+            redo.retry(
+                api.execute, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
+                sleepscale=REDO_SLEEPSCALE, retry_exceptions=(ConnectionError,),
+                args=('GetMyeBaySelling', api_options)
+            )
 
             listings_api = api.response.dict()
             test_for_message(listings_api)
@@ -392,7 +404,7 @@ def get_seller_list(item_codes=None, site_id=HOME_SITE_ID,
         item_codes = [x[0:50] for x in item_codes]
 
     api = None
-    api_dict = {}
+    api_options = {}
     try:
         # Initialize TradingAPI; default timeout is 20.
 
@@ -403,7 +415,7 @@ def get_seller_list(item_codes=None, site_id=HOME_SITE_ID,
         n_pages = None
         page = 1
         futures = []
-        api_dict = {
+        api_options = {
             'EndTimeTo': end_to,
             'EndTimeFrom': end_from,
             'Pagination': {
@@ -412,24 +424,29 @@ def get_seller_list(item_codes=None, site_id=HOME_SITE_ID,
             },
         }
         if granularity_level:
-            api_dict['GranularityLevel'] = granularity_level
+            api_options['GranularityLevel'] = granularity_level
         if detail_level:
-            api_dict['DetailLevel'] = detail_level
+            api_options['DetailLevel'] = detail_level
         if output_selector:
-            api_dict['OutputSelector'] = [
+            api_options['OutputSelector'] = [
                 'ItemID', 'ItemArray.Item.Site',
                 'ItemArray.Item.SellingStatus.ListingStatus',
                 'PaginationResult', 'ReturnedItemCountActual',
                 ] + output_selector
             for field in output_selector:
                 if 'WatchCount' in field:
-                    api_dict['IncludeWatchCount'] = True
+                    api_options['IncludeWatchCount'] = True
                     break
         if item_codes is not None:
-            api_dict['SKUArray'] = {'SKU': item_codes}
+            api_options['SKUArray'] = {'SKU': item_codes}
 
         # First call to get number of pages
-        api.execute('GetSellerList', api_dict)
+        redo.retry(
+            api.execute, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
+            sleepscale=REDO_SLEEPSCALE, retry_exceptions=(ConnectionError,),
+            args=('GetSellerList', api_options)
+        )
+
         response = api.future.result()
 
         listings_api = response.dict()
@@ -461,8 +478,13 @@ def get_seller_list(item_codes=None, site_id=HOME_SITE_ID,
                 n_requests = 0
                 start_time = time.monotonic()
 
-            api_dict['Pagination']['PageNumber'] = page
-            api.execute('GetSellerList', api_dict)
+            api_options['Pagination']['PageNumber'] = page
+            redo.retry(
+                api.execute, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
+                sleepscale=REDO_SLEEPSCALE, retry_exceptions=(ConnectionError,),
+                args=('GetSellerList', api_options)
+            )
+
             api.future.page_number = page
             futures.append(api.future)
             n_requests += 1
@@ -487,7 +509,7 @@ def get_seller_list(item_codes=None, site_id=HOME_SITE_ID,
             frappe.db.commit()
 
     except ConnectionError as e:
-        handle_ebay_error(e, api_dict)
+        handle_ebay_error(e, api_options)
 
     finally:
         executor.shutdown()
@@ -510,26 +532,31 @@ def get_item(item_id=None, item_code=None, site_id=HOME_SITE_ID,
     if not (item_code or item_id):
         raise ValueError('No item_code or item_id passed to get_item!')
 
-    api_dict = {'IncludeWatchCount': True}
+    api_options = {'IncludeWatchCount': True}
     if output_selector:
-        api_dict['OutputSelector'] = ['ItemID', 'Item.Site'] + output_selector
+        api_options['OutputSelector'] = (
+            ['ItemID', 'Item.Site'] + output_selector)
     if item_code:
-        api_dict['SKU'] = item_code
+        api_options['SKU'] = item_code
     if item_id:
-        api_dict['ItemID'] = item_id
+        api_options['ItemID'] = item_id
     try:
         # Initialize TradingAPI; default timeout is 20.
 
         api = get_trading_api(site_id=site_id, warnings=True, timeout=20,
                               api_call='GetItem')
 
-        api.execute('GetItem', api_dict)
+        redo.retry(
+            api.execute, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
+            sleepscale=REDO_SLEEPSCALE, retry_exceptions=(ConnectionError,),
+            args=('GetItem', api_options)
+        )
 
         listing = api.response.dict()
         test_for_message(listing)
 
     except ConnectionError as e:
-        handle_ebay_error(e, api_dict)
+        handle_ebay_error(e, api_options)
 
     return listing['Item']
 
@@ -544,11 +571,21 @@ def get_categories_versions(site_id=HOME_SITE_ID):
         api = get_trading_api(site_id=site_id, warnings=True, timeout=20,
                               api_call='GetCategories')
 
-        response1 = api.execute('GetCategories', {'LevelLimit': 1,
-                                                  'ViewAllNodes': False})
+        api_options = {'LevelLimit': 1, 'ViewAllNodes': False}
+        redo.retry(
+            api.execute, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
+            sleepscale=REDO_SLEEPSCALE, retry_exceptions=(ConnectionError,),
+            args=('GetCategories', api_options)
+        )
+        response1 = api.response
         test_for_message(response1.dict())
 
-        response2 = api.execute('GetCategoryFeatures', {})
+        redo.retry(
+            api.execute, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
+            sleepscale=REDO_SLEEPSCALE, retry_exceptions=(ConnectionError,),
+            args=('GetCategoryFeatures', {})
+        )
+        response2 = api.response
         test_for_message(response2.dict())
 
     except ConnectionError as e:
@@ -569,13 +606,18 @@ def get_categories(site_id=HOME_SITE_ID):
         api = get_trading_api(site_id=site_id, warnings=True, timeout=60,
                               api_call='GetCategories')
 
-        response = api.execute('GetCategories', {'DetailLevel': 'ReturnAll',
-                                                 'ViewAllNodes': 'true'})
+        api_options = {'DetailLevel': 'ReturnAll', 'ViewAllNodes': 'true'}
+
+        redo.retry(
+            api.execute, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
+            sleepscale=REDO_SLEEPSCALE, retry_exceptions=(ConnectionError,),
+            args=('GetCategories', api_options)
+        )
 
     except ConnectionError as e:
         handle_ebay_error(e)
 
-    categories_data = response.dict()
+    categories_data = api.response.dict()
 
     # Process the remaining categories data
     cl = categories_data['CategoryArray']['Category']
@@ -664,20 +706,26 @@ def get_features(site_id=HOME_SITE_ID):
         category_level = int(category['CategoryLevel'])
         sub_string = 'sub' * (category_level-1)
         print(f'Loading for {substring}category {category_id}...')
-        options = {'CategoryID': category_id,
-                   'DetailLevel': 'ReturnAll',
-                   'ViewAllNodes': 'true'}
+        api_options = {
+            'CategoryID': category_id,
+            'DetailLevel': 'ReturnAll',
+            'ViewAllNodes': 'true'
+        }
         # BEGIN DUBIOUS WORKAROUND
         # Only look at the top level for this category
         if category_id in problematic_categories:
-            options['LevelLimit'] = 1
+            api_options['LevelLimit'] = 1
         # END DUBIOUS WORKAROUND
 
         try:
-            response = api.execute('GetCategoryFeatures', options)
+            redo.retry(
+                api.execute, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
+                sleepscale=REDO_SLEEPSCALE, retry_exceptions=(ConnectionError,),
+                args=('GetCategoryFeatures', api_options)
+            )
         except ConnectionError as e:
             handle_ebay_error(e)
-        response_dict = response.dict()
+        response_dict = api.response.dict()
         test_for_message(response_dict)
 
         if features_data is None:
@@ -743,7 +791,7 @@ def get_features(site_id=HOME_SITE_ID):
     return features_version, features_data
 
 
-def get_eBay_details(site_id=HOME_SITE_ID, detail_name=None):
+def get_ebay_details(site_id=HOME_SITE_ID, detail_name=None):
     """Perform a GeteBayDetails call.
     """
 
@@ -756,25 +804,29 @@ def get_eBay_details(site_id=HOME_SITE_ID, detail_name=None):
         if detail_name is not None:
             api_options['DetailName'] = detail_name
 
-        response = api.execute('GeteBayDetails', api_options)
+        redo.retry(
+            api.execute, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
+            sleepscale=REDO_SLEEPSCALE, retry_exceptions=(ConnectionError,),
+            args=('GeteBayDetails', api_options)
+        )
 
     except ConnectionError as e:
         handle_ebay_error(e)
 
-    response_dict = response.dict()
+    response_dict = api.response.dict()
     test_for_message(response_dict)
 
     return response_dict
 
 
-def get_eBay_details_to_file(site_id=HOME_SITE_ID):
+def get_ebay_details_to_file(site_id=HOME_SITE_ID):
     """Perform a GeteBayDetails call and save the output in geteBayDetails.txt
     in the site root directory.
     """
     filename = os.path.join(frappe.utils.get_site_path(),
                             'GeteBayDetails.txt')
 
-    response_dict = get_eBay_details(site_id)
+    response_dict = get_ebay_details(site_id)
 
     with open(filename, 'wt') as f:
         f.write(repr(response_dict))
@@ -795,7 +847,7 @@ def get_shipping_details(site_id=HOME_SITE_ID):
             return shipping_details
     # Either there is no cache, or it is out of date
     # Get a new entry
-    shipping_details = get_eBay_details(
+    shipping_details = get_ebay_details(
         site_id=site_id, detail_name='ShippingServiceDetails')
 
     # Calculate shipping name translation table

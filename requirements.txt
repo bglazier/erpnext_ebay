@@ -3,5 +3,6 @@ ebaysdk
 ebay_rest
 ecdsa
 jpegtran-cffi
+redo
 frappe
 erpnext

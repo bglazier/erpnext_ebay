@@ -3,9 +3,12 @@
 Excludes item revision calls.
 """
 
+import redo
+
 from ebaysdk.exception import ConnectionError
 
-from erpnext_ebay.ebay_constants import HOME_SITE_ID
+from erpnext_ebay.ebay_constants import (
+    HOME_SITE_ID, REDO_ATTEMPTS, REDO_SLEEPTIME, REDO_SLEEPSCALE)
 from erpnext_ebay.ebay_get_requests import (
     ebay_logger, get_trading_api, handle_ebay_error, test_for_message)
 from erpnext_ebay.erpnext_ebay.doctype.ebay_manager_settings.ebay_manager_settings\
@@ -22,12 +25,16 @@ def trading_api_call(api_call, input_dict, site_id=HOME_SITE_ID,
                               force_sandbox_value=force_sandbox_value,
                               escape_xml=escape_xml)
 
-        response = api.execute(api_call, input_dict)
+        redo.retry(
+            api.execute, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
+            sleepscale=REDO_SLEEPSCALE, retry_exceptions=(ConnectionError,),
+            args=(api_call, input_dict)
+        )
 
     except ConnectionError as e:
         handle_ebay_error(e, input_dict)
 
-    return response.dict()
+    return api.response.dict()
 
 
 def ebay_message_to_partner(user_id, item_id, body, subject,

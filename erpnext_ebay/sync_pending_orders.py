@@ -23,7 +23,7 @@ ADDRESS_FIELDS = ('Name', 'Street1', 'Street2', 'CityName',
                   'StateOrProvince', 'PostalCode', 'CountryName')
 
 @frappe.whitelist()
-def sync(site_id=None, num_days=None):
+def sync_pending_orders(site_id=None, num_days=None):
     """
     Pulls the latest orders from eBay. Creates 'eBay Pending Order' for
     incomplete orders (OrderStatus 'Active'). These are orders that
