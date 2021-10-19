@@ -197,11 +197,32 @@ def get_api(sandbox=False, *args, **kwargs):
     refresh_token_expiry = (
         frappe.utils.get_datetime(refresh_token_expiry)
         - datetime.timedelta(minutes=5)
-    ).astimezone(datetime.timezone.utc)
+    )
     scopes = scopes.strip().split()
-    API.set_credentials(
-        sandbox, app_id, cert_id, dev_id, ru_name=ru_name, scopes=scopes,
-        refresh_token=refresh_token, refresh_token_expiry=refresh_token_expiry,
-        allow_get_user_consent=False)
+    application = {
+        'app_id': app_id,
+        'cert_id': cert_id,
+        'redirect_uri': ru_name
+    }
+    user = {
+        'email_or_username': 'NONE',
+        'password': 'NONE',
+        'scopes': scopes,
+        'refresh_token': refresh_token,
+        'refresh_token_expiry':
+            refresh_token_expiry.isoformat(timespec='milliseconds') + 'Z'
+    }
+    header = {
+        "accept_language": "en-GB",
+        "affiliate_campaign_id": "",
+        "affiliate_reference_id": "",
+        "content_language": "en-GB",
+        "country": "GB",
+        "currency": "GBP",
+        "device_id": "",
+        "marketplace_id": "EBAY_GB",
+        "zip": "SW1A 1AA"
+    }
+    header.update(kwargs)
 
-    return API(sandbox, *args, **kwargs)
+    return API(application=application, user=user, header=header)
