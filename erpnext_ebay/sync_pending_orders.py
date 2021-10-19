@@ -11,7 +11,9 @@ import frappe
 
 from .ebay_get_requests import (
     get_orders, get_shipping_details, ConnectionError)
-from .ebay_constants import EBAY_TRANSACTION_SITE_IDS
+from .ebay_constants import (
+    EBAY_TRANSACTION_SITE_IDS, EBAY_TRANSACTION_SITE_NAMES
+)
 from .sync_orders_rest import sanitize_country_code
 
 
@@ -39,10 +41,10 @@ def sync_pending_orders(site_id=None, num_days=None):
 
     # Prepare parameters
     if site_id is None or int(site_id) == -1:
-        ebay_site_id = None
+        ebay_site_name = None
     else:
         site_id = int(site_id)
-        ebay_site_id = EBAY_TRANSACTION_SITE_IDS[site_id]
+        ebay_site_name = EBAY_TRANSACTION_SITE_IDS[site_id]
 
     if num_days is None:
         num_days = int(
@@ -51,8 +53,6 @@ def sync_pending_orders(site_id=None, num_days=None):
         )
 
     frappe.msgprint('Syncing eBay orders...')
-    # Get shipping strings
-    shipping_strings = get_shipping_details()['ShippingOptionDescriptions']
 
     # Load orders from Ebay (retry up to three times)
     for i in range(3):
@@ -77,10 +77,10 @@ def sync_pending_orders(site_id=None, num_days=None):
     for order in orders:
         # Identify the eBay site on which the item was listed.
         # Filter if we have a site_id set.
-        site_id_order = order[
+        order_site_name = order[
             'TransactionArray']['Transaction'][0]['Item']['Site']
         # If we have a site_id, skip if not this site_id
-        if ebay_site_id and (ebay_site_id != site_id_order):
+        if ebay_site_name and (ebay_site_name != order_site_name):
             continue
 
         ebay_order_id = order['OrderID']
@@ -96,6 +96,12 @@ def sync_pending_orders(site_id=None, num_days=None):
                     (ship_add.get(k) or '')
                     for k in ADDRESS_FIELDS if ship_add.get(k))
 
+        # Get shipping strings
+        order_site_id = EBAY_TRANSACTION_SITE_NAMES[order_site_name]
+        shipping_strings = (
+            get_shipping_details(order_site_id)['ShippingOptionDescriptions']
+        )
+
         order_dict = {
             'last_modified': datetime.datetime.strptime(
                 order['CheckoutStatus']['LastModifiedTime'],
@@ -103,7 +109,7 @@ def sync_pending_orders(site_id=None, num_days=None):
             'created_time': datetime.datetime.strptime(
                 order['CreatedTime'], '%Y-%m-%dT%H:%M:%S.%fZ'),
             'ebay_order_id': ebay_order_id,
-            'ebay_site': site_id_order,
+            'ebay_site': order_site_name,
             'buyer_username': order['BuyerUserID'],
             'shipping_address': shipping_address,
             'country': sanitize_country_code(ship_add.get('Country')),
