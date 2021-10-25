@@ -142,7 +142,7 @@ TAX_DESCRIPTION = {
 VAT_RATES = {
     f'Sales - {COMPANY_ACRONYM}': 0.2,
     f'Sales EU - {COMPANY_ACRONYM}': 0.0,
-    f'Sales Non EU - {COMPANY_ACRONYM}': 0.0
+    f'Sales Non-EU - {COMPANY_ACRONYM}': 0.0
 }
 VAT_PERCENT = {k: 100*v for k, v in VAT_RATES.items()}
 
@@ -1398,7 +1398,7 @@ def determine_income_accounts(country):
         )
 
     return (
-        f'Sales Non EU - {COMPANY_ACRONYM}',
+        f'Sales Non-EU - {COMPANY_ACRONYM}',
         f'Shipping Non-EU (Sales) - {COMPANY_ACRONYM}',
         f'Sales Tax Non-EU - {COMPANY_ACRONYM}'
     )
