@@ -324,7 +324,8 @@ def extract_customer(order):
     The second dictionary could be replaced by None if there is no address.
     """
 
-    ebay_user_id = order['buyer']['username']
+    buyer = order['buyer']
+    ebay_user_id = buyer['username']
     order_id = order['order_id']
 
     fulfillment = order['fulfillment_start_instructions'][0]
@@ -341,6 +342,30 @@ def extract_customer(order):
 
     email = ship_to['email']
     phone_number = ship_to['primary_phone']['phone_number']
+
+    tax_address = buyer.get('tax_address')
+    if tax_address:
+        tax_country = sanitize_country_code(tax_address["country_code"]) or "None"
+        customer_details = '\n'.join([
+            'eBay Tax address details:',
+            f'Postal code: {tax_address.get("postal_code", "None")}',
+            f'City: {tax_address.get("city", "None")}',
+            f'State or province: {tax_address.get("start_or_province", "None")}',
+            f'Country: {tax_country}'
+        ])
+    else:
+        customer_details = None
+
+    tax_identifier = buyer.get('tax_identifier')
+    if tax_identifier:
+        tax_details = [
+            tax_identifier.get("tax_identifier_type", ""),
+            tax_identifier.get("taxpayer_id", ""),
+            tax_identifier.get("issuing_country", "")
+        ]
+        tax_id = ' '.join(x for x in tax_details if x)
+    else:
+        tax_id = None
 
     # Find the system name for the country_name
     db_country = sanitize_country_code(country_code)
@@ -380,8 +405,10 @@ def extract_customer(order):
         "doctype": "Customer",
         "customer_name": customer_name,
         "ebay_user_id": ebay_user_id,
+        "tax_id": tax_id,
         "customer_group": "Individual",
         "territory": determine_territory(db_country),
+        "customer_details": customer_details,
         "customer_type": "Individual"}
 
     # Rest of the information
@@ -920,6 +947,9 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
                         'value': '2024926 Code:Paid'
                     }
                 }]
+            elif (tax_type is None) and not float(tax_item['amount']['value']):
+                # Tax amount is zero
+                pass
             else:
                 raise ErpnextEbaySyncError(
                     f'Order {ebay_order_id} has unhandled tax {tax_type}')
