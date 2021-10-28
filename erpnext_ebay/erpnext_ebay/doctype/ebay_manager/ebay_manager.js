@@ -64,6 +64,18 @@ frappe.ui.form.on('eBay Manager', {
         });
     },
 
+    sync_shipping_carriers_button(frm) {
+        frappe.call({
+            method: "erpnext_ebay.erpnext_ebay.doctype.ebay_shipping_carrier."
+            + "ebay_shipping_carrier.client_sync_shipping_carriers",
+            args: {
+                site_id: 3
+            },
+            freeze: true,
+            freeze_message: "Loading eBay UK shipping carriers..."
+        });
+    },
+
     update_ebay_data(frm) {
         frappe.call({
             method: "erpnext_ebay.ebay_active_listings.update_ebay_data",

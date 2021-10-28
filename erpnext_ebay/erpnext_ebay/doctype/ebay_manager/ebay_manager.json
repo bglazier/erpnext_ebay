@@ -11,6 +11,7 @@
   "sync_payouts_button",
   "sync_listings_button",
   "sync_categories_button",
+  "sync_shipping_carriers_button",
   "column_break_1",
   "update_ebay_data"
  ],
@@ -67,10 +68,17 @@
    "fieldname": "sync_payouts_button",
    "fieldtype": "Button",
    "label": "Sync eBay Payouts"
+  },
+  {
+   "bold": 1,
+   "fieldname": "sync_shipping_carriers_button",
+   "fieldtype": "Button",
+   "label": "Load Shipping Carriers",
+   "permlevel": 1
   }
  ],
  "issingle": 1,
- "modified": "2021-08-13 18:18:08.221142",
+ "modified": "2021-10-28 17:13:50.640188",
  "modified_by": "Administrator",
  "module": "Erpnext Ebay",
  "name": "eBay Manager",
