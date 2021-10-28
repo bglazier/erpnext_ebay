@@ -834,7 +834,8 @@ def get_ebay_details_to_file(site_id=HOME_SITE_ID):
     return None
 
 
-def get_details(details_key, site_id=HOME_SITE_ID):
+def get_cached_ebay_details(details_key, site_id=HOME_SITE_ID,
+                            force_update=False):
     """Return the selected eBay Details for the selected site_id.
     Cache for efficiency.
     """
@@ -853,7 +854,12 @@ def get_details(details_key, site_id=HOME_SITE_ID):
         frappe.throw(f'Details key {key} not permitted!')
 
     cache_key = f'eBay{details_key}_{site_id}'
-    details = frappe.cache().get_value(cache_key)
+    if force_update:
+        # Don't load from cache
+        details = None
+    else:
+        details = frappe.cache().get_value(cache_key)
+
     if details is not None:
         cache_date = datetime.datetime.fromisoformat(details['Timestamp'][:-1])
         cache_age = (datetime.datetime.utcnow() - cache_date).days
@@ -883,7 +889,9 @@ def get_shipping_service_descriptions(site_id=HOME_SITE_ID):
             return ssd['trans_table']
 
     # We must regenerate the translation table
-    shipping_service_details = get_details('ShippingServiceDetails', site_id)
+    shipping_service_details = get_cached_ebay_details(
+        'ShippingServiceDetails', site_id
+    )
 
     # Calculate shipping name translation table
     shipping_option_dict = {}
