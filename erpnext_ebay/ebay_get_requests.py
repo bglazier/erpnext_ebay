@@ -7,7 +7,7 @@ import time
 import threading
 import operator
 
-from datetime import datetime, timedelta
+import datetime
 from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -386,11 +386,11 @@ def get_seller_list(item_codes=None, site_id=HOME_SITE_ID,
     if (days_before + days_after) >= 120:
         frappe.throw('Can only search a total date range of less than 120 days')
     end_from = (
-        datetime.utcnow() - timedelta(days=days_before)
+        datetime.datetime.utcnow() - datetime.timedelta(days=days_before)
     ).isoformat(timespec='milliseconds') + 'Z'
     end_to = (
-        datetime.utcnow() + timedelta(days=days_after)
-    ).isoformat(timespec='milliseconds')[:-3] + 'Z'
+        datetime.datetime.utcnow() + datetime.timedelta(days=days_after)
+    ).isoformat(timespec='milliseconds') + 'Z'
 
     listings = []
 
@@ -834,31 +834,69 @@ def get_ebay_details_to_file(site_id=HOME_SITE_ID):
     return None
 
 
-def get_shipping_details(site_id=HOME_SITE_ID):
-    """Cache the eBay Shipping Details entries."""
-    cache_key = 'eBayShippingDetails_{}'.format(site_id)
-    shipping_details = frappe.cache().get_value(cache_key)
-    if shipping_details is not None:
-        timestamp = shipping_details['Timestamp'][0:-5]
-        cache_date = datetime.strptime(timestamp, '%Y-%m-%dT%H:%M:%S')
-        age = (datetime.utcnow() - cache_date).days
-        if age == 0:
+def get_details(details_key, site_id=HOME_SITE_ID):
+    """Return the selected eBay Details for the selected site_id.
+    Cache for efficiency.
+    """
+    ALLOWED_DETAILS_KEYS = (
+        'CountryDetails', 'CurrencyDetails', 'DispatchTimeMaxDetails',
+        'PaymentOptionDetails', 'RegionDetails', 'ShippingLocationDetails',
+        'ShippingServiceDetails', 'SiteDetails', 'URLDetails',
+        'TimeZoneDetails', 'ItemSpecificDetails', 'RegionOfOriginDetails',
+        'ShippingCarrierDetails', 'ReturnPolicyDetails',
+        'ListingStartPriceDetails', 'BuyerRequirementDetails',
+        'ListingFeatureDetails', 'VariationDetails',
+        'ExcludeShippingLocationDetails', 'UpdateTime',
+        'RecoupmentPolicyDetails', 'ShippingCategoryDetails', 'ProductDetails'
+    )
+    if details_key not in ALLOWED_DETAILS_KEYS:
+        frappe.throw(f'Details key {key} not permitted!')
+
+    cache_key = f'eBay{details_key}_{site_id}'
+    details = frappe.cache().get_value(cache_key)
+    if details is not None:
+        cache_date = datetime.datetime.fromisoformat(details['Timestamp'][:-1])
+        cache_age = (datetime.datetime.utcnow() - cache_date).days
+        if cache_age == 0:
             # Our cache is still acceptable
-            return shipping_details
+            return details[details_key]
     # Either there is no cache, or it is out of date
     # Get a new entry
-    shipping_details = get_ebay_details(
-        site_id=site_id, detail_name='ShippingServiceDetails')
+    details = get_ebay_details(
+        site_id=site_id, detail_name=details_key)
+
+    # Store the new values in the cache and return
+    frappe.cache().set_value(cache_key, details)
+
+    return details[details_key]
+
+
+def get_shipping_service_descriptions(site_id=HOME_SITE_ID):
+    """Cache the eBay Shipping Details descriptions as a dictionary."""
+    # Check the timestamp of the current ShippingServiceDetailsTrans cache
+    cache_key = f'eBayShippingServiceDetailsTrans_{site_id}'
+    ssd = frappe.cache().get_value(cache_key)
+    if ssd:
+        cache_age = (datetime.datetime.utcnow() - ssd['datetime']).days
+        if cache_age == 0:
+            # The cache is still valid
+            return ssd['trans_table']
+
+    # We must regenerate the translation table
+    shipping_service_details = get_details('ShippingServiceDetails', site_id)
 
     # Calculate shipping name translation table
     shipping_option_dict = {}
-    for shipping_option in shipping_details['ShippingServiceDetails']:
+    for shipping_option in shipping_service_details:
         shipping_option_dict[shipping_option['ShippingService']] = (
             shipping_option['Description'])
 
-    shipping_details['ShippingOptionDescriptions'] = shipping_option_dict
+    ssd = {
+        'datetime': datetime.datetime.utcnow(),
+        'trans_table': shipping_option_dict
+    }
 
     # Store the new values in the cache and return
-    frappe.cache().set_value(cache_key, shipping_details)
+    frappe.cache().set_value(cache_key, ssd)
 
-    return shipping_details
+    return shipping_option_dict

@@ -7,7 +7,8 @@ import bleach
 
 import frappe
 
-from .ebay_get_requests import get_seller_list, get_item, get_shipping_details
+from .ebay_get_requests import (
+    get_seller_list, get_item, get_shipping_service_descriptions)
 from .ebay_constants import (LISTING_DURATION_TOKEN_DICT, EBAY_SITE_IDS,
                              EBAY_TRANSACTION_SITE_NAMES,
                              EBAY_SITE_DOMAINS, HOME_SITE_ID)
@@ -153,9 +154,8 @@ def format_shipping_services(site_id, shipping):
 
     shipping_strings = []
 
-    shipping_details = get_shipping_details(site_id=site_id)
-    shipping_option_descriptions = shipping_details[
-        'ShippingOptionDescriptions']
+    shipping_option_descriptions = get_shipping_service_descriptions(
+        site_id=site_id)
 
     # Standard shipping services
     shipping_strings.append('Standard shipping services (priority order):')

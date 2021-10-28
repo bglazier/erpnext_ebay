@@ -10,7 +10,7 @@ import operator
 import frappe
 
 from .ebay_get_requests import (
-    get_orders, get_shipping_details, ConnectionError)
+    get_orders, get_shipping_service_descriptions, ConnectionError)
 from .ebay_constants import (
     EBAY_TRANSACTION_SITE_IDS, EBAY_TRANSACTION_SITE_NAMES
 )
@@ -99,7 +99,7 @@ def sync_pending_orders(site_id=None, num_days=None):
         # Get shipping strings
         order_site_id = EBAY_TRANSACTION_SITE_NAMES[order_site_name]
         shipping_strings = (
-            get_shipping_details(order_site_id)['ShippingOptionDescriptions']
+            get_shipping_service_descriptions(order_site_id)
         )
 
         order_dict = {
