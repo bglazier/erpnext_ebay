@@ -860,21 +860,29 @@ def get_cached_ebay_details(details_key, site_id=HOME_SITE_ID,
     else:
         details = frappe.cache().get_value(cache_key)
 
+    # If we have cached details, check if the cache is valid
     if details is not None:
         cache_date = datetime.datetime.fromisoformat(details['Timestamp'][:-1])
         cache_age = (datetime.datetime.utcnow() - cache_date).days
-        if cache_age == 0:
-            # Our cache is still acceptable
-            return details[details_key]
-    # Either there is no cache, or it is out of date
-    # Get a new entry
-    details = get_ebay_details(
-        site_id=site_id, detail_name=details_key)
+        if cache_age != 0:
+            # Our cache is too old
+            details = None
 
-    # Store the new values in the cache and return
-    frappe.cache().set_value(cache_key, details)
+    if details is None:
+        # Either there is no cache, or it is out of date
+        # Get a new entry
+        details = get_ebay_details(
+            site_id=site_id, detail_name=details_key)
 
-    return details[details_key]
+        # Store the new values in the cache and return
+        frappe.cache().set_value(cache_key, details)
+
+    # Ensure returned details is a sequence
+    details_seq = details.get(details_key, [])
+    if not isinstance(details_seq, Sequence):
+        details_seq = [details_seq]
+
+    return details_seq
 
 
 def get_shipping_service_descriptions(site_id=HOME_SITE_ID):

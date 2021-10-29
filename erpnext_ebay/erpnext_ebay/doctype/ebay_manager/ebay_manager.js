@@ -69,10 +69,10 @@ frappe.ui.form.on('eBay Manager', {
             method: "erpnext_ebay.erpnext_ebay.doctype.ebay_shipping_carrier."
             + "ebay_shipping_carrier.client_sync_shipping_carriers",
             args: {
-                site_id: 3
+                'force_update': true
             },
             freeze: true,
-            freeze_message: "Loading eBay UK shipping carriers..."
+            freeze_message: "Loading all eBay shipping carriers..."
         });
     },
 
