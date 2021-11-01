@@ -107,7 +107,7 @@ def sync_shipping_carriers(site_ids=EBAY_SITE_IDS.keys(), force_update=False):
             }
             for ebay_key, sys_key in ENTRY_MAPPING.items():
                 esc_dict[sys_key] = entry[ebay_key]
-            frappe.get_doc(esc_dict).insert()
+            frappe.get_doc(esc_dict).insert(ignore_permissions=True)
 
     # Disable all remaining entries
     for old_entry in current_entries_dict.values():
