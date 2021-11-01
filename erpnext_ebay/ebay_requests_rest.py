@@ -10,10 +10,12 @@ from ebay_rest.error import Error as eBayRestError
 
 import frappe
 
-from .ebay_constants import (
+from erpnext_ebay.ebay_constants import (
     HOME_GLOBAL_ID, REDO_ATTEMPTS, REDO_SLEEPTIME, REDO_SLEEPSCALE
 )
-from .ebay_tokens import get_api
+from erpnext_ebay.ebay_tokens import get_api
+from erpnext_ebay.erpnext_ebay.doctype.ebay_manager_settings.ebay_manager_settings\
+    import use_sandbox
 
 
 def ebay_logger():
@@ -58,6 +60,9 @@ def handle_ebay_error(e):
 def check_for_warnings(api_response):
     """Test for warning messages."""
 
+    if not (hasattr(api_response, 'get') and callable(api_response.get)):
+        # Return value is probably a single value rather than a dictionary
+        return
     warnings = api_response.get('warnings', [])
     if not warnings:
         return
@@ -284,3 +289,30 @@ def get_items(item_ids, sandbox=False, **kwargs):
     # Make API call
     return paged_api_call(
         'buy_browse_get_items', 'items', sandbox=sandbox, **kwargs)
+
+
+def create_shipping_fulfillment(order_id, shipping_fulfillment):
+    """Submit a shipping fulfillment to eBay.
+
+    Arguments:
+        order_id: eBay order ID that the shipping fulfillment is for
+        shipping_fulfillment: A dictionary containing the shipping fulfillment.
+
+    The shipping fulfillment should include:
+        - shippedDate: eBay format datetime for shipping
+        - shippingCarrierCode (opt): eBay carrier code for the carrier
+        - trackingNumber: Tracking number for the shipment
+        - lineItems: list of dicts for each line item in the shipment.
+          > lineItems.lineItemId: eBay line item ID
+          > lineItems.quantity: Quantity shipped in this shipment
+
+    Either both or none of the shippingCarrierCode and trackingNumber
+    must be supplied.
+    """
+
+    API_CALL = 'sell_fulfillment_create_shipping_fulfillment'
+
+    return single_api_call(
+        API_CALL, use_sandbox(API_CALL),
+        body=shipping_fulfillment, order_id=order_id
+    )
