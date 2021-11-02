@@ -291,6 +291,31 @@ def get_items(item_ids, sandbox=False, **kwargs):
         'buy_browse_get_items', 'items', sandbox=sandbox, **kwargs)
 
 
+def get_shipping_fulfillments(order_id):
+    """Get all shipping fulfillments for an eBay order.
+
+    Arguments:
+        order_id: eBay order ID
+
+    Returns:
+        A list of fulfillment dictionaries with the format:
+            - fulfillmentID: Unique ID for the fulfillment
+            - shipmentTrackingNumber: Tracking number
+            - shippingCarrierCode: Shipping Carrier code (where available)
+            - shippedDate: eBay datetime string for date of shipping
+            - lineItems: list of dicts for each line item in the shipping
+              > lineItemId: eBay line item ID
+              > quantity: Quantity in this shipment (not currently returned)
+    """
+
+    API_CALL = 'sell_fulfillment_get_shipping_fulfillments'
+
+    return single_api_call(
+        API_CALL, use_sandbox(API_CALL),
+        order_id=order_id
+    ).get('fulfillments', [])
+
+
 def create_shipping_fulfillment(order_id, shipping_fulfillment):
     """Submit a shipping fulfillment to eBay.
 
@@ -303,8 +328,8 @@ def create_shipping_fulfillment(order_id, shipping_fulfillment):
         - shippingCarrierCode (opt): eBay carrier code for the carrier
         - trackingNumber: Tracking number for the shipment
         - lineItems: list of dicts for each line item in the shipment.
-          > lineItems.lineItemId: eBay line item ID
-          > lineItems.quantity: Quantity shipped in this shipment
+          > lineItemId: eBay line item ID
+          > quantity: Quantity shipped in this shipment
 
     Either both or none of the shippingCarrierCode and trackingNumber
     must be supplied.
