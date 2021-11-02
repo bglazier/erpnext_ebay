@@ -862,7 +862,9 @@ def get_cached_ebay_details(details_key, site_id=HOME_SITE_ID,
 
     # If we have cached details, check if the cache is valid
     if details is not None:
-        cache_date = datetime.datetime.fromisoformat(details['Timestamp'][:-1])
+        cache_date = datetime.datetime.strptime(
+            details['Timestamp'][:-1], '%Y-%m-%dT%H:%M:%S.%f'
+        )
         cache_age = (datetime.datetime.utcnow() - cache_date).days
         if cache_age != 0:
             # Our cache is too old
