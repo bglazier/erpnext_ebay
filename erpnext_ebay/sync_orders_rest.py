@@ -1417,7 +1417,7 @@ def determine_income_accounts(country):
         return (
             f'Sales - {COMPANY_ACRONYM}',
             f'Shipping (Sales) - {COMPANY_ACRONYM}',
-            f'Shipping Tax UK - {COMPANY_ACRONYM}'
+            f'Sales Tax UK - {COMPANY_ACRONYM}'
         )
 
     if country in EU_COUNTRIES:
