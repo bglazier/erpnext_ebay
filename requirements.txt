@@ -1,6 +1,6 @@
 iso3166
 ebaysdk
-ebay_rest
+#ebay_rest
 ecdsa
 jpegtran-cffi
 redo
