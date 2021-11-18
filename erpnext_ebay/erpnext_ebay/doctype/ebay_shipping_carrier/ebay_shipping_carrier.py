@@ -55,7 +55,7 @@ def sync_shipping_carriers(site_ids=EBAY_SITE_IDS.keys(), force_update=False):
             'description': 'GENERIC',
             'shipping_carrier_id': -1,
             'site_codes': '[]'
-        }).insert()
+        }).insert(ignore_permissions=True)
 
     # Get entries from eBay
     new_entries = {}
