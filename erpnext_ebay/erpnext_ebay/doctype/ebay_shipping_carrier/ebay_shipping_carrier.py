@@ -44,6 +44,19 @@ def sync_shipping_carriers(site_ids=EBAY_SITE_IDS.keys(), force_update=False):
     All other eBay Shipping Carrier documents are disabled.
     """
 
+    # Add 'GENERIC' entry now, if it does not already exist
+    # Not a real shipping carrier, but returned from some eBay sites
+    # Disabled so it can't be used for input
+    if not frappe.db.exists('eBay Shipping Carrier', 'GENERIC'):
+        frappe.get_doc({
+            'doctype': 'eBay Shipping Carrier',
+            'disabled': True,
+            'shipping_carrier': 'GENERIC',
+            'description': 'GENERIC',
+            'shipping_carrier_id': -1,
+            'site_codes': '[]'
+        }).insert()
+
     # Get entries from eBay
     new_entries = {}
     for site_id in site_ids:
