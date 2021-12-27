@@ -29,16 +29,15 @@ fixtures = [
 
 # Add custom scripts
 doctype_js = {
-    "Item": "custom_scripts/item.js",
-    "Website Slideshow": "custom_scripts/website_slideshow.js"
+    "Item": "custom_scripts/item.js"
 }
 
 # Includes in <head>
 # ------------------
 
 # include js, css files in header of desk.html
-app_include_css = "/assets/erpnext_ebay/css/erpnext_ebay.css"
-app_include_js = "/assets/erpnext_ebay/js/erpnext_ebay.js"
+#app_include_css = "/assets/erpnext_ebay/css/erpnext_ebay.css"
+#app_include_js = "/assets/erpnext_ebay/js/erpnext_ebay.js"
 
 # include js, css files in header of web template
 # web_include_css = "/assets/erpnext_ebay/css/erpnext_ebay.css"
@@ -102,17 +101,8 @@ doc_events = {
             "erpnext_ebay.custom_methods.item_methods.item_onload",
         "before_save":
             "erpnext_ebay.custom_methods.item_methods.item_before_save"
-    },
-    "Website Slideshow": {
-        "validate":
-            "erpnext_ebay.custom_methods.website_slideshow_methods.website_slideshow_validate"
     }
 }
-
-# Override the 'write_file' event so that we can modify images as
-# they are uploaded
-
-write_file = "erpnext_ebay.utils.slideshow_utils.erpnext_ebay_save_file_on_filesystem_hook"
 
 # Scheduled Tasks
 # ---------------
