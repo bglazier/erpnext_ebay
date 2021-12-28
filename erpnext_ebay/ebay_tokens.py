@@ -19,6 +19,7 @@ import redo
 import requests
 
 from ebay_rest import API
+from frappe.utils.password import get_decrypted_password
 
 from erpnext_ebay.ebay_constants import (
     REDO_ATTEMPTS, REDO_SLEEPTIME, REDO_SLEEPSCALE, REDO_EXCEPTIONS
@@ -201,12 +202,10 @@ def get_api(sandbox=False, *args, **kwargs):
     prefix = 'sandbox' if sandbox else 'production'
     dt = 'eBay API Settings'
     app_id = frappe.get_value(dt, dt, f'{prefix}_app_id')
-    cert_id = frappe.utils.password.get_decrypted_password(
-        dt, dt, f'{prefix}_cert_id')
+    cert_id = get_decrypted_password(dt, dt, f'{prefix}_cert_id')
     dev_id = None
     ru_name = frappe.get_value(dt, dt, f'{prefix}_ru_name')
-    refresh_token = frappe.utils.password.get_decrypted_password(
-        dt, dt, f'{prefix}_refresh_token')
+    refresh_token = get_decrypted_password(dt, dt, f'{prefix}_refresh_token')
     refresh_token_expiry = frappe.get_value(dt, dt, f'{prefix}_refresh_expiry')
     scopes = frappe.get_value(dt, dt, f'{prefix}_scopes')
     if not (app_id and cert_id and ru_name and scopes):
