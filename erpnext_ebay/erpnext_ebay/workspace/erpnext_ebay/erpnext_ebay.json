@@ -1,0 +1,63 @@
+{
+ "category": "Modules",
+ "charts": [],
+ "creation": "2021-12-27 15:09:27.129940",
+ "developer_mode_only": 0,
+ "disable_user_customization": 1,
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "extends_another_page": 0,
+ "hide_custom": 0,
+ "icon": "setting",
+ "idx": 0,
+ "is_default": 0,
+ "is_standard": 1,
+ "label": "ERPNext eBay",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Online Selling Platform",
+   "link_to": "Online Selling Platform",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Online Selling Subtype",
+   "link_to": "Online Selling Subtype",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2021-12-27 15:11:21.398171",
+ "modified_by": "Administrator",
+ "module": "Erpnext Ebay",
+ "name": "ERPNext eBay",
+ "owner": "Administrator",
+ "pin_to_bottom": 0,
+ "pin_to_top": 1,
+ "shortcuts": [
+  {
+   "doc_view": "List",
+   "label": "Item Group eBay",
+   "link_to": "Item Group eBay",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "",
+   "label": "eBay Manager",
+   "link_to": "eBay Manager",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "",
+   "label": "eBay Manager Settings",
+   "link_to": "eBay Manager Settings",
+   "type": "DocType"
+  }
+ ]
+}
