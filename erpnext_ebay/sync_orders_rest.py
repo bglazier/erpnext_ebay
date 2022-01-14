@@ -1336,16 +1336,48 @@ def create_return_sales_invoice(order_dict, order, changes):
                 x for x in return_doc.items if x.item_code != SHIPPING_ITEM
             ]
 
-        # Set all items to negative qty and correct rate
-        refund_part = round(ex_tax_refund / len(return_doc.items), 2)
-        refund_remainder = ex_tax_refund - (refund_part * len(return_doc.items))
-        for i, item in enumerate(return_doc.items):
-            if i == 0:
-                item_refund = refund_part + refund_remainder
+        # Get return items in quantity order
+        return_items = [x for x in return_doc.items]
+        return_items.sort(key=operator.attrgetter('qty'), reverse=True)
+
+        # Divide refund across items proportionally
+        refund_frac = (
+            ex_tax_refund / sum(-x.amount for x in return_items)
+        )
+        original_rates = [x.rate for x in return_items]
+        for i, item in enumerate(return_items):
+            item.rate = min(item.rate, round(item.rate * refund_frac, 2))
+            item.amount = item.rate * item.qty
+        refund_remainder = (
+            ex_tax_refund
+            - sum(-x.amount for x in return_items)
+        )
+
+        for i, item in enumerate(return_items):
+            if abs(refund_remainder) < 0.005:
+                # Done
+                break
+            if refund_remainder > 0:
+                # Must add more refund to item
+                possible_refund = (original_rates[i] - item.rate) * -item.qty
+                amount_change = min(refund_remainder, possible_refund)
             else:
-                item_refund = refund_part
-            item.rate = item_refund / -item.qty
-            item.amount = -item_refund
+                # Must remove refund (all quantities negative)
+                # max() returns value closer to zero here
+                amount_change = max(refund_remainder, item.amount)
+            item.rate = min(
+                original_rates[i],
+                round(item.rate + (amount_change / -item.qty), 2)
+            )
+            item.amount = item.qty * item.rate
+            refund_remainder = (
+                ex_tax_refund
+                - sum(-x.amount for x in return_items)
+            )
+
+        if refund_remainder:
+            raise ErpnextEbaySyncError(
+                'Refund allocation algorithm insufficiently clever')
 
         # Delete items that have zero value or qty
         return_doc.items[:] = [
