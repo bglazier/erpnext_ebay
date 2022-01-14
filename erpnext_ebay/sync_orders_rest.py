@@ -1326,7 +1326,10 @@ def create_return_sales_invoice(order_dict, order, changes):
 
         # Delete shipping items if refund amount is less than total of
         # other items
-        non_shipping_total = sum(x.amount for x in sinv_doc.items)
+        non_shipping_total = sum(
+            x.amount for x in sinv_doc.items
+            if x.item_code != SHIPPING_ITEM
+        )
         if ex_tax_refund < non_shipping_total:
             # We can remove shipping items
             return_doc.items[:] = [
