@@ -123,7 +123,7 @@ def revise_ebay_inventory(item_data, print=print, error_log=None,
             try:
                 revise_inventory_status(chunked_items)
             except Exception as e:
-                error_log.append('revise_ebay_inventory exception: {e}')
+                error_log.append(f'revise_ebay_inventory exception: {e}')
             else:
                 # Success
                 break
