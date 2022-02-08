@@ -22,8 +22,8 @@ from ebaysdk.exception import ConnectionError
 from ebaysdk.trading import Connection as Trading
 
 from erpnext_ebay.ebay_constants import (
-    EBAY_SITE_NAMES, HOME_SITE_ID,
-    REDO_ATTEMPTS, REDO_SLEEPTIME, REDO_SLEEPSCALE
+    EBAY_TIMEOUT, EBAY_WORKERS, EBAY_SITE_NAMES, HOME_SITE_ID,
+    REDO_ATTEMPTS, REDO_SLEEPTIME, REDO_SLEEPSCALE, REDO_EXCEPTIONS
 )
 from erpnext_ebay.erpnext_ebay.doctype.ebay_manager_settings.ebay_manager_settings\
     import use_sandbox
@@ -134,7 +134,7 @@ def test_for_message(api_dict):
     ebay_logger().warning(messages_str)
 
 
-def get_trading_api(site_id=HOME_SITE_ID, warnings=True, timeout=20,
+def get_trading_api(site_id=HOME_SITE_ID, warnings=True, timeout=EBAY_TIMEOUT,
                     force_sandbox_value=None, api_call=None, executor=None,
                     **kwargs):
     """Get a TradingAPI instance which can be reused.
@@ -191,13 +191,13 @@ def get_orders(order_status='All', include_final_value_fees=True,
 
     api_options = {}
     try:
-        # Initialize TradingAPI; default timeout is 20.
+        # Initialize TradingAPI
 
         # Always use the US site for GetOrders as it returns fields we need
         # (which the UK site, for example, doesn't) and it doesn't filter by
         # siteID anyway
 
-        api = get_trading_api(site_id=0, warnings=True, timeout=20,
+        api = get_trading_api(site_id=0, warnings=True, timeout=EBAY_TIMEOUT,
                               api_call='GetOrders')
 
         while True:
@@ -215,7 +215,7 @@ def get_orders(order_status='All', include_final_value_fees=True,
 
             redo.retry(
                 api.execute, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
-                sleepscale=REDO_SLEEPSCALE, retry_exceptions=(ConnectionError,),
+                sleepscale=REDO_SLEEPSCALE, retry_exceptions=REDO_EXCEPTIONS,
                 args=('GetOrders', api_options)
             )
 
@@ -274,9 +274,10 @@ def get_my_ebay_selling(listings_type='Summary', api_options=None,
         api_options[listings_type] = api_inner_options
 
     try:
-        # Initialize TradingAPI; default timeout is 20.
+        # Initialize TradingAPI
 
-        api = get_trading_api(site_id=site_id, warnings=True, timeout=20,
+        api = get_trading_api(site_id=site_id, warnings=True,
+                              timeout=EBAY_TIMEOUT,
                               api_call='GetMyeBaySelling')
         while True:
             # TradingAPI results are often paginated, so loop until
@@ -287,7 +288,7 @@ def get_my_ebay_selling(listings_type='Summary', api_options=None,
 
             redo.retry(
                 api.execute, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
-                sleepscale=REDO_SLEEPSCALE, retry_exceptions=(ConnectionError,),
+                sleepscale=REDO_SLEEPSCALE, retry_exceptions=REDO_EXCEPTIONS,
                 args=('GetMyeBaySelling', api_options)
             )
 
@@ -395,7 +396,7 @@ def get_seller_list(item_codes=None, site_id=HOME_SITE_ID,
     listings = []
 
     # Create executor for futures
-    executor = ThreadPoolExecutor(max_workers=50)
+    executor = ThreadPoolExecutor(max_workers=EBAY_WORKERS)
 
     # If item codes is passed, trim to 50 characters maximum
     if item_codes:
@@ -406,9 +407,10 @@ def get_seller_list(item_codes=None, site_id=HOME_SITE_ID,
     api = None
     api_options = {}
     try:
-        # Initialize TradingAPI; default timeout is 20.
+        # Initialize TradingAPI
 
-        api = get_trading_api(site_id=site_id, warnings=True, timeout=20,
+        api = get_trading_api(site_id=site_id, warnings=True,
+                              timeout=EBAY_TIMEOUT,
                               force_sandbox_value=force_sandbox_value,
                               api_call='GetSellerList', executor=executor)
 
@@ -443,7 +445,7 @@ def get_seller_list(item_codes=None, site_id=HOME_SITE_ID,
         # First call to get number of pages
         redo.retry(
             api.execute, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
-            sleepscale=REDO_SLEEPSCALE, retry_exceptions=(ConnectionError,),
+            sleepscale=REDO_SLEEPSCALE, retry_exceptions=REDO_EXCEPTIONS,
             args=('GetSellerList', api_options)
         )
 
@@ -481,7 +483,7 @@ def get_seller_list(item_codes=None, site_id=HOME_SITE_ID,
             api_options['Pagination']['PageNumber'] = page
             redo.retry(
                 api.execute, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
-                sleepscale=REDO_SLEEPSCALE, retry_exceptions=(ConnectionError,),
+                sleepscale=REDO_SLEEPSCALE, retry_exceptions=REDO_EXCEPTIONS,
                 args=('GetSellerList', api_options)
             )
 
@@ -541,14 +543,14 @@ def get_item(item_id=None, item_code=None, site_id=HOME_SITE_ID,
     if item_id:
         api_options['ItemID'] = item_id
     try:
-        # Initialize TradingAPI; default timeout is 20.
+        # Initialize TradingAPI
 
-        api = get_trading_api(site_id=site_id, warnings=True, timeout=20,
-                              api_call='GetItem')
+        api = get_trading_api(site_id=site_id, warnings=True,
+                              timeout=EBAY_TIMEOUT, api_call='GetItem')
 
         redo.retry(
             api.execute, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
-            sleepscale=REDO_SLEEPSCALE, retry_exceptions=(ConnectionError,),
+            sleepscale=REDO_SLEEPSCALE, retry_exceptions=REDO_EXCEPTIONS,
             args=('GetItem', api_options)
         )
 
@@ -567,14 +569,15 @@ def get_categories_versions(site_id=HOME_SITE_ID):
     """
 
     try:
-        # Initialize TradingAPI; default timeout is 20.
-        api = get_trading_api(site_id=site_id, warnings=True, timeout=20,
+        # Initialize TradingAPI
+        api = get_trading_api(site_id=site_id, warnings=True,
+                              timeout=EBAY_TIMEOUT,
                               api_call='GetCategories')
 
         api_options = {'LevelLimit': 1, 'ViewAllNodes': False}
         redo.retry(
             api.execute, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
-            sleepscale=REDO_SLEEPSCALE, retry_exceptions=(ConnectionError,),
+            sleepscale=REDO_SLEEPSCALE, retry_exceptions=REDO_EXCEPTIONS,
             args=('GetCategories', api_options)
         )
         response1 = api.response
@@ -582,7 +585,7 @@ def get_categories_versions(site_id=HOME_SITE_ID):
 
         redo.retry(
             api.execute, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
-            sleepscale=REDO_SLEEPSCALE, retry_exceptions=(ConnectionError,),
+            sleepscale=REDO_SLEEPSCALE, retry_exceptions=REDO_EXCEPTIONS,
             args=('GetCategoryFeatures', {})
         )
         response2 = api.response
@@ -602,15 +605,16 @@ def get_categories(site_id=HOME_SITE_ID):
     """
 
     try:
-        # Initialize TradingAPI; default timeout is 20.
-        api = get_trading_api(site_id=site_id, warnings=True, timeout=60,
+        # Initialize TradingAPI; default timeout is twice default.
+        api = get_trading_api(site_id=site_id, warnings=True,
+                              timeout=EBAY_TIMEOUT * 2,
                               api_call='GetCategories')
 
         api_options = {'DetailLevel': 'ReturnAll', 'ViewAllNodes': 'true'}
 
         redo.retry(
             api.execute, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
-            sleepscale=REDO_SLEEPSCALE, retry_exceptions=(ConnectionError,),
+            sleepscale=REDO_SLEEPSCALE, retry_exceptions=REDO_EXCEPTIONS,
             args=('GetCategories', api_options)
         )
 
@@ -663,8 +667,9 @@ def get_features(site_id=HOME_SITE_ID):
     """
 
     try:
-        # Initialize TradingAPI; default timeout is 20.
-        api = get_trading_api(site_id=site_id, warnings=True, timeout=60,
+        # Initialize TradingAPI; default timeout is twice default.
+        api = get_trading_api(site_id=site_id, warnings=True,
+                              timeout=EBAY_TIMEOUT * 2,
                               api_call='GetCategoryFeatures')
 
     except ConnectionError as e:
@@ -720,7 +725,7 @@ def get_features(site_id=HOME_SITE_ID):
         try:
             redo.retry(
                 api.execute, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
-                sleepscale=REDO_SLEEPSCALE, retry_exceptions=(ConnectionError,),
+                sleepscale=REDO_SLEEPSCALE, retry_exceptions=REDO_EXCEPTIONS,
                 args=('GetCategoryFeatures', api_options)
             )
         except ConnectionError as e:
@@ -796,8 +801,9 @@ def get_ebay_details(site_id=HOME_SITE_ID, detail_name=None):
     """
 
     try:
-        # Initialize TradingAPI; default timeout is 20.
-        api = get_trading_api(site_id=site_id, warnings=True, timeout=20,
+        # Initialize TradingAPI
+        api = get_trading_api(site_id=site_id, warnings=True,
+                              timeout=EBAY_TIMEOUT,
                               api_call='GeteBayDetails')
 
         api_options = {}
@@ -806,7 +812,7 @@ def get_ebay_details(site_id=HOME_SITE_ID, detail_name=None):
 
         redo.retry(
             api.execute, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
-            sleepscale=REDO_SLEEPSCALE, retry_exceptions=(ConnectionError,),
+            sleepscale=REDO_SLEEPSCALE, retry_exceptions=REDO_EXCEPTIONS,
             args=('GeteBayDetails', api_options)
         )
 

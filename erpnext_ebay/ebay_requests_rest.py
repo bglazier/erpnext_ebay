@@ -11,7 +11,8 @@ from ebay_rest.error import Error as eBayRestError
 import frappe
 
 from erpnext_ebay.ebay_constants import (
-    HOME_GLOBAL_ID, REDO_ATTEMPTS, REDO_SLEEPTIME, REDO_SLEEPSCALE
+    HOME_GLOBAL_ID, REDO_ATTEMPTS, REDO_SLEEPTIME,
+    REDO_SLEEPSCALE, REDO_EXCEPTIONS
 )
 from erpnext_ebay.ebay_tokens import get_api
 from erpnext_ebay.erpnext_ebay.doctype.ebay_manager_settings.ebay_manager_settings\
@@ -85,7 +86,7 @@ def single_api_call(api_call, sandbox=False, *args, **kwargs):
     try:
         result = redo.retry(
             call, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
-            sleepscale=REDO_SLEEPSCALE, retry_exceptions=(eBayRestError,),
+            sleepscale=REDO_SLEEPSCALE, retry_exceptions=REDO_EXCEPTIONS,
             args=args, kwargs=kwargs
         )
     except eBayRestError as e:
@@ -108,7 +109,7 @@ def paged_api_call(api_call, record_field, sandbox=False, *args, **kwargs):
         # Make calls and load all pages immediately
         pages = redo.retry(
             get_pages, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
-            sleepscale=REDO_SLEEPSCALE, retry_exceptions=(eBayRestError,),
+            sleepscale=REDO_SLEEPSCALE, retry_exceptions=REDO_EXCEPTIONS,
             args=args, kwargs=kwargs
         )
     except eBayRestError as e:

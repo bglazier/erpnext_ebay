@@ -8,7 +8,9 @@ import redo
 from ebaysdk.exception import ConnectionError
 
 from erpnext_ebay.ebay_constants import (
-    HOME_SITE_ID, REDO_ATTEMPTS, REDO_SLEEPTIME, REDO_SLEEPSCALE)
+    EBAY_TIMEOUT, HOME_SITE_ID, REDO_ATTEMPTS, REDO_SLEEPTIME,
+    REDO_SLEEPSCALE, REDO_EXCEPTIONS
+)
 from erpnext_ebay.ebay_get_requests import (
     ebay_logger, get_trading_api, handle_ebay_error, test_for_message)
 from erpnext_ebay.ebay_do_requests import trading_api_call
@@ -19,14 +21,14 @@ def revise_inventory_status(items, site_id=HOME_SITE_ID):
 
     api_options = {'InventoryStatus': items}
     try:
-        # Initialize TradingAPI; default timeout is 20.
+        # Initialize TradingAPI
         api = get_trading_api(site_id=site_id, api_call='ReviseInventoryStatus',
-                              warnings=True, timeout=20)
+                              warnings=True, timeout=EBAY_TIMEOUT)
         ebay_logger().info(f'Relisting inventory: {items}')
 
         redo.retry(
             api.execute, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
-            sleepscale=REDO_SLEEPSCALE, retry_exceptions=(ConnectionError,),
+            sleepscale=REDO_SLEEPSCALE, retry_exceptions=REDO_EXCEPTIONS,
             args=('ReviseInventoryStatus', api_options)
         )
 
@@ -46,14 +48,14 @@ def relist_item(ebay_id, site_id=HOME_SITE_ID, item_dict=None):
     relist_dict['Item']['ItemID'] = ebay_id
 
     try:
-        # Initialize TradingAPI; default timeout is 20.
+        # Initialize TradingAPI
         api = get_trading_api(site_id=site_id, api_call='RelistItem',
-                              warnings=True, timeout=20)
+                              warnings=True, timeout=EBAY_TIMEOUT)
         ebay_logger().info(f'Relisting item: {relist_dict}')
 
         redo.retry(
             api.execute, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
-            sleepscale=REDO_SLEEPSCALE, retry_exceptions=(ConnectionError,),
+            sleepscale=REDO_SLEEPSCALE, retry_exceptions=REDO_EXCEPTIONS,
             args=('RelistItem', relist_dict)
         )
 
@@ -73,14 +75,14 @@ def revise_item(ebay_id, site_id=HOME_SITE_ID, item_dict=None):
     revise_dict['Item']['ItemID'] = ebay_id
 
     try:
-        # Initialize TradingAPI; default timeout is 20.
+        # Initialize TradingAPI
         api = get_trading_api(site_id=site_id, api_call='ReviseItem',
-                              warnings=True, timeout=20)
+                              warnings=True, timeout=EBAY_TIMEOUT)
         ebay_logger().info(f'Revising item: {revise_dict}')
 
         redo.retry(
             api.execute, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
-            sleepscale=REDO_SLEEPSCALE, retry_exceptions=(ConnectionError,),
+            sleepscale=REDO_SLEEPSCALE, retry_exceptions=REDO_EXCEPTIONS,
             args=('ReviseItem', revise_dict)
         )
 
@@ -103,13 +105,14 @@ def end_items(items, site_id=HOME_SITE_ID):
     api_options = {'EndItemRequestContainer': items}
 
     try:
-        # Initialize TradingAPI; default timeout is 20.
-        api = get_trading_api(site_id=site_id, warnings=True, timeout=20)
+        # Initialize TradingAPI
+        api = get_trading_api(site_id=site_id, warnings=True,
+                              timeout=EBAY_TIMEOUT)
         ebay_logger().info(f'Ending items {[x["ItemID"] for x in items]}')
 
         redo.retry(
             api.execute, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
-            sleepscale=REDO_SLEEPSCALE, retry_exceptions=(ConnectionError,),
+            sleepscale=REDO_SLEEPSCALE, retry_exceptions=REDO_EXCEPTIONS,
             args=('EndItems', api_options)
         )
 

@@ -8,7 +8,9 @@ import redo
 from ebaysdk.exception import ConnectionError
 
 from erpnext_ebay.ebay_constants import (
-    HOME_SITE_ID, REDO_ATTEMPTS, REDO_SLEEPTIME, REDO_SLEEPSCALE)
+    EBAY_TIMEOUT, HOME_SITE_ID, REDO_ATTEMPTS, REDO_SLEEPTIME,
+    REDO_SLEEPSCALE, REDO_EXCEPTIONS
+)
 from erpnext_ebay.ebay_get_requests import (
     ebay_logger, get_trading_api, handle_ebay_error, test_for_message)
 from erpnext_ebay.erpnext_ebay.doctype.ebay_manager_settings.ebay_manager_settings\
@@ -21,13 +23,13 @@ def trading_api_call(api_call, input_dict, site_id=HOME_SITE_ID,
 
     try:
         api = get_trading_api(site_id=site_id, api_call=api_call,
-                              warnings=True, timeout=20,
+                              warnings=True, timeout=EBAY_TIMEOUT,
                               force_sandbox_value=force_sandbox_value,
                               escape_xml=escape_xml)
 
         redo.retry(
             api.execute, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
-            sleepscale=REDO_SLEEPSCALE, retry_exceptions=(ConnectionError,),
+            sleepscale=REDO_SLEEPSCALE, retry_exceptions=REDO_EXCEPTIONS,
             args=(api_call, input_dict)
         )
 

@@ -1,11 +1,18 @@
 """A module of eBay constants"""
 
 import frappe
+from ebaysdk.exception import ConnectionError
+from ebay_rest.error import Error as eBayRestError
+
+# Default eBay timeout and maximum workers
+EBAY_TIMEOUT = 30
+EBAY_WORKERS = 50
 
 # Redo parameters for retrying transactions
-REDO_ATTEMPTS = 3
+REDO_ATTEMPTS = 5
 REDO_SLEEPTIME = 3.0
 REDO_SLEEPSCALE = 1.5
+REDO_EXCEPTIONS = (ConnectionError, eBayRestError)
 
 # Maximum number of eBay images per listing
 MAX_EBAY_IMAGES = 12

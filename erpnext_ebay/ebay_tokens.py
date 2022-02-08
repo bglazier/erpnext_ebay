@@ -15,9 +15,14 @@ import json
 import secrets
 import urllib.parse
 
+import redo
 import requests
 
 from ebay_rest import API
+
+from erpnext_ebay.ebay_constants import (
+    REDO_ATTEMPTS, REDO_SLEEPTIME, REDO_SLEEPSCALE, REDO_EXCEPTIONS
+)
 
 
 def oauth_basic_authentication(app_id, cert_id):
@@ -177,6 +182,20 @@ def accept_consent_token():
     )
 
 
+@redo.retriable(attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
+                sleepscale=REDO_SLEEPSCALE, retry_exceptions=REDO_EXCEPTIONS)
+def _get_api(sandbox, app_id, cert_id, dev_id, ru_name, scopes,
+             refresh_token, refresh_token_expiry, allow_get_user_consent,
+             *args, **kwargs):
+    """Get and return an API. Retriable function."""
+    API.set_credentials(
+        sandbox, app_id, cert_id, dev_id, ru_name=ru_name, scopes=scopes,
+        refresh_token=refresh_token, refresh_token_expiry=refresh_token_expiry,
+        allow_get_user_consent=False)
+
+    return API(sandbox, *args, **kwargs)
+
+
 def get_api(sandbox=False, *args, **kwargs):
     """Get an ebay_rest API that we have preloaded with credentials."""
     prefix = 'sandbox' if sandbox else 'production'
@@ -199,9 +218,6 @@ def get_api(sandbox=False, *args, **kwargs):
         - datetime.timedelta(minutes=5)
     ).astimezone(datetime.timezone.utc)
     scopes = scopes.strip().split()
-    API.set_credentials(
-        sandbox, app_id, cert_id, dev_id, ru_name=ru_name, scopes=scopes,
-        refresh_token=refresh_token, refresh_token_expiry=refresh_token_expiry,
-        allow_get_user_consent=False)
-
-    return API(sandbox, *args, **kwargs)
+    return _get_api(
+        sandbox, app_id, cert_id, dev_id, ru_name, scopes, refresh_token,
+        refresh_token_expiry, allow_get_user_consent=False, *args, **kwargs)
