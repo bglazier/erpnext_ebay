@@ -44,6 +44,9 @@ class ParallelTrading(Trading):
         self.error_check_lock = threading.Lock()
         super().__init__(**kwargs)
 
+    @redo.retriable(
+        attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
+        sleepscale=REDO_SLEEPSCALE, retry_exceptions=REDO_EXCEPTIONS)
     def _execute_request_thread(self, r):
         response = requests.request(
             r.method, r.url, data=r.body, headers=r.headers, verify=True,
@@ -213,11 +216,8 @@ def get_orders(order_status='All', include_final_value_fees=True,
             if include_final_value_fees:
                 api_options['IncludeFinalValueFee'] = 'true'
 
-            redo.retry(
-                api.execute, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
-                sleepscale=REDO_SLEEPSCALE, retry_exceptions=REDO_EXCEPTIONS,
-                args=('GetOrders', api_options)
-            )
+            # Retry is built-in for ParallelTrading
+            api.execute('GetOrders', api_options)
 
             orders_api = api.response.dict()
             test_for_message(orders_api)
