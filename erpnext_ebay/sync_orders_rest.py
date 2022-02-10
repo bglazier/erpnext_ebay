@@ -134,6 +134,7 @@ DEDUCT_UK_VAT = True
 TAX_DESCRIPTION = {
     'STATE_SALES_TAX': 'US state sales tax',
     'GST': 'AU/NZ Goods and Services Tax',
+    'IMPORT_VAT': 'French import VAT',
     'UK_VAT': 'UK VAT',
     'EU_VAT': 'EU VAT',
     'NOR_VAT': 'Norwegian VAT'
@@ -923,7 +924,7 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
         # Check for unhandled taxes
         for tax_item in line_item['taxes'] or []:
             tax_type = tax_item['tax_type']
-            if tax_type in ('STATE_SALES_TAX', 'GST', 'VAT'):
+            if tax_type in ('STATE_SALES_TAX', 'GST', 'VAT', 'IMPORT_VAT'):
                 continue  # Appear in eBay Collect and Remit section
             original_address2 = (
                 order['fulfillment_start_instructions'][0]['shipping_step']
@@ -957,7 +958,8 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
         # Check for Collect and Remit taxes
         for car_item in line_item['ebay_collect_and_remit_taxes'] or []:
             tax_type = car_item['tax_type']
-            if tax_type not in ('STATE_SALES_TAX', 'GST', 'VAT', 'NOR_VAT'):
+            if tax_type not in (
+                    'STATE_SALES_TAX', 'GST', 'VAT', 'NOR_VAT', 'IMPORT_VAT'):
                 raise ErpnextEbaySyncError(
                     f'Order {ebay_order_id} has unhandled CAR tax {tax_type}')
             if tax_type == 'VAT':
