@@ -11,7 +11,7 @@ function get_online_selling_items(frm, item_code) {
     }).then(({message: osi_list}) => {
         // Add Online Selling Items, but don't dirty the form
         if (!(osi_list && osi_list.length)) {
-            frm.get_field('online_selling_section').collapse(true);
+            //frm.get_field('online_selling_section').collapse(true);
             frappe.ui.form.trigger("Item", "online_selling_async_complete");
             return;
         }
@@ -25,7 +25,7 @@ function get_online_selling_items(frm, item_code) {
             child.idx = index + 1;
         });
         frm.refresh_field('online_selling_items');
-        frm.get_field('online_selling_section').collapse(false);
+        //frm.get_field('online_selling_section').collapse(false);
         frm.dirty = frm._dirty;
         // Delay the trigger so that updates have occurred first
         // following a save or similar (e.g. from after_save event)
