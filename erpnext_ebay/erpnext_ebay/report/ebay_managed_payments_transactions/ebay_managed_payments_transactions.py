@@ -316,16 +316,34 @@ def execute(filters=None):
                         'account': ebay_bank
                     }
                 )
-                if not gl_entries:
-                    payment_value = None
-                elif len(gl_entries) != 1:
+                if len(gl_entries) == 1:
+                    payment_value = gl_entries[0].credit - gl_entries[0].debit
+                elif len(gl_entries) > 1:
                     frappe.throw(
                         f"""Transaction {t_id}
                         Sales invoice {sinv.name}
                         Wrong GL entries?"""
                     )
                 else:
-                    payment_value = gl_entries[0].credit - gl_entries[0].debit
+                    # Search for linked submitted Payment Entries
+                    pe_list = frappe.get_all(
+                        'Payment Entry Reference',
+                        fields=['parent', 'allocated_amount'],
+                        filters={
+                            'docstatus': 1,
+                            'reference_doctype': 'Sales Invoice',
+                            'reference_name': sinv.name
+                        }
+                    )
+                    amount = 0.0
+                    for pe in pe_list:
+                        if frappe.get_value('Payment Entry', pe.parent,
+                                            'paid_to', ebay_bank):
+                            amount += pe.allocated_amount
+                            linked_documents.add(('Payment Entry', pe.parent))
+
+                    payment_value = amount or None
+
             # Now add link
             t['link_doctype'] = 'Sales Invoice'
             t['link_docname'] = sinv.name
