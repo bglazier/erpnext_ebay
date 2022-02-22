@@ -337,8 +337,9 @@ def execute(filters=None):
                     )
                     amount = 0.0
                     for pe in pe_list:
-                        if frappe.get_value('Payment Entry', pe.parent,
-                                            'paid_to', ebay_bank):
+                        paid_to = frappe.get_value('Payment Entry', pe.parent,
+                                                   'paid_to')
+                        if paid_to == ebay_bank:
                             amount += pe.allocated_amount
                             linked_documents.add(('Payment Entry', pe.parent))
 
