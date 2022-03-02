@@ -164,7 +164,7 @@ def debug_msgprint(message):
 
     Doesn't msgprint if msgprint_debug is not true.
     """
-    ebay_logger.info(message)
+    ebay_logger().debug(message)
     if msgprint_debug:
         frappe.msgprint(message)
 
@@ -287,12 +287,12 @@ def sync_orders(num_days=None, sandbox=False):
                 # Continue to next order
                 frappe.db.rollback()
                 msgprint_log.append(str(e))
-                ebay_logger.error('Sync order failed', exc_info=e)
+                ebay_logger().error('Sync order failed', exc_info=e)
             except Exception as e:
                 # Continue to next order
                 frappe.db.rollback()
                 err_msg = traceback.format_exc()
-                ebay_logger.error('ORDER FAILED', exc_info=e)
+                ebay_logger().error('ORDER FAILED', exc_info=e)
                 if not continue_on_error:
                     frappe.msgprint('ORDER FAILED')
                     raise

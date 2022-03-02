@@ -138,7 +138,7 @@ def debug_msgprint(message):
 
     Doesn't msgprint if msgprint_debug is not true.
     """
-    ebay_logger.debug(message)
+    ebay_logger().debug(message)
     if msgprint_debug:
         msgprint(message)
 
