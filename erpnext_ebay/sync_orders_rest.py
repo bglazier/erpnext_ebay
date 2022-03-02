@@ -287,12 +287,14 @@ def sync_orders(num_days=None, sandbox=False):
                 # Continue to next order
                 frappe.db.rollback()
                 msgprint_log.append(str(e))
-                ebay_logger().error('Sync order failed', exc_info=e)
+                ebay_logger().error(
+                    f'Sync order {order.get("order_id")} failed', exc_info=e)
             except Exception as e:
                 # Continue to next order
                 frappe.db.rollback()
                 err_msg = traceback.format_exc()
-                ebay_logger().error('ORDER FAILED', exc_info=e)
+                ebay_logger().error(
+                    f'ORDER FAILED {order.get("order_id")}', exc_info=e)
                 if not continue_on_error:
                     frappe.msgprint('ORDER FAILED')
                     raise
