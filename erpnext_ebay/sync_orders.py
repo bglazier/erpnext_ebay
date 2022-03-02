@@ -17,7 +17,7 @@ from frappe.utils import cstr, strip_html
 from erpnext import get_default_currency
 from erpnext.setup.utils import get_exchange_rate
 
-from .ebay_get_requests import get_orders
+from .ebay_get_requests import ebay_logger, get_orders
 from .ebay_constants import EBAY_TRANSACTION_SITE_IDS
 
 # Option to use eBay shipping address name as customer name.
@@ -138,7 +138,7 @@ def debug_msgprint(message):
 
     Doesn't msgprint if msgprint_debug is not true.
     """
-    print(message)
+    ebay_logger.debug(message)
     if msgprint_debug:
         msgprint(message)
 
@@ -225,13 +225,13 @@ def sync(site_id=None):
             except ErpnextEbaySyncError as e:
                 # Continue to next order
                 frappe.db.rollback()
+                ebay_logger().error('Sync eBay order failed', exc_info=e)
                 msgprint_log.append(str(e))
-                print(e)
             except Exception as e:
                 # Continue to next order
                 frappe.db.rollback()
                 err_msg = traceback.format_exc()
-                print(err_msg)
+                ebay_logger().error('ORDER FAILED', exc_info=e)
                 if not continue_on_error:
                     msgprint('ORDER FAILED')
                     raise

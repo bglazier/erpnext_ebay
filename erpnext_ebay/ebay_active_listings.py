@@ -10,7 +10,7 @@ from ebaysdk.exception import ConnectionError
 from ebaysdk.trading import Connection as Trading
 
 from .ebay_constants import EBAY_TRANSACTION_SITE_IDS, HOME_SITE_ID
-from .ebay_get_requests import get_seller_list, PATH_TO_YAML
+from .ebay_get_requests import ebay_logger, get_seller_list, PATH_TO_YAML
 
 from erpnext_ebay.erpnext_ebay.doctype.ebay_manager_settings.ebay_manager_settings import (
     use_sandbox)
@@ -23,7 +23,7 @@ OUTPUT_SELECTOR = [
 
 
 @frappe.whitelist()
-def generate_active_ebay_data(print=print, multiple_error_sites=None,
+def generate_active_ebay_data(print=None, multiple_error_sites=None,
                               extra_output_selector=None,
                               multiple_skip_only=False):
     """Get all the active eBay listings for the selected eBay site
@@ -35,6 +35,9 @@ def generate_active_ebay_data(print=print, multiple_error_sites=None,
 
     Data in the table will not be over-written in the event of error.
     """
+
+    if print is None:
+        print = ebay_logger().debug
 
     # This is a whitelisted function; check permissions.
     if not frappe.has_permission('eBay Manager'):

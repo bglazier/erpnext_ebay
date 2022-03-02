@@ -366,13 +366,16 @@ def get_seller_list(item_codes=None, site_id=HOME_SITE_ID,
                     output_selector=None, granularity_level='Coarse',
                     detail_level=None, days_before=0, days_after=119,
                     active_only=True, force_sandbox_value=None,
-                    print=ebay_logger().info):
+                    print=None):
     """Runs GetSellerList to obtain a list of items.
     Note that this call does NOT filter by SiteID, but does return it.
     Items are returned ending between days_before now and days_after now, with
     defaults of 0 days before and 119 days after, respectively.
     If active_only is True (the default), only 'Active' items are returns.
     """
+
+    if print is None:
+        print = ebay_logger().debug
 
     # eBay has a limit of 300 calls in 15 seconds
     MAX_REQUESTS = {'time': 15, 'n_requests': 300}
@@ -710,7 +713,9 @@ def get_features(site_id=HOME_SITE_ID):
         category_id = category['CategoryID']
         category_level = int(category['CategoryLevel'])
         sub_string = 'sub' * (category_level-1)
-        print(f'Loading for {substring}category {category_id}...')
+        ebay_logger().debug(
+            f'Loading for {substring}category {category_id}...'
+        )
         api_options = {
             'CategoryID': category_id,
             'DetailLevel': 'ReturnAll',

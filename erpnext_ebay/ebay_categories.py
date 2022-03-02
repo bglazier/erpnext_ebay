@@ -10,7 +10,7 @@ import frappe
 from frappe import msgprint
 
 from .ebay_get_requests import (
-    get_categories_versions, get_categories, get_features
+    ebay_logger, get_categories_versions, get_categories, get_features
 )
 from .ebay_constants import *
 
@@ -550,11 +550,8 @@ def create_ebay_features_cache(features_data):
                         not isinstance(value, str)
                         or len(key) > EBAY_ATTR_LEN
                         or len(value) > EBAY_VALUE_LEN):
-                    print('Unsupported eBay attribute/value: {} : {}'.format(
-                        key, value))
-                    frappe.log(
-                        'Unsupported eBay attribute/value: {} : {}'.format(
-                            key, value))
+                    ebay_logger().debug(
+                        f'Unsupported eBay attribute/value: {key} : {value}')
                     local_unsupported.append(key)
                     raise ValueError('Fancy unsupported data type!')
                 frappe.db.sql("""

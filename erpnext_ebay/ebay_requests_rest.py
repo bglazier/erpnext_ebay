@@ -14,14 +14,10 @@ from erpnext_ebay.ebay_constants import (
     HOME_GLOBAL_ID, REDO_ATTEMPTS, REDO_SLEEPTIME,
     REDO_SLEEPSCALE, REDO_EXCEPTIONS
 )
+from erpnext_ebay.ebay_get_requests import ebay_logger
 from erpnext_ebay.ebay_tokens import get_api
 from erpnext_ebay.erpnext_ebay.doctype.ebay_manager_settings.ebay_manager_settings\
     import use_sandbox
-
-
-def ebay_logger():
-    """Return the frappe Logger instance for the eBay logger."""
-    return frappe.logger('erpnext_ebay.ebay')
 
 
 def handle_ebay_error(e):

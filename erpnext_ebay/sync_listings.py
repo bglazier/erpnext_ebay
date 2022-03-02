@@ -8,7 +8,8 @@ import bleach
 import frappe
 
 from .ebay_get_requests import (
-    get_seller_list, get_item, get_shipping_service_descriptions)
+    ebay_logger, get_seller_list, get_item, get_shipping_service_descriptions
+)
 from .ebay_constants import (LISTING_DURATION_TOKEN_DICT, EBAY_SITE_IDS,
                              EBAY_TRANSACTION_SITE_NAMES,
                              EBAY_SITE_DOMAINS, HOME_SITE_ID)
@@ -291,7 +292,7 @@ def sync(site_id=HOME_SITE_ID, update_ebay_id=False):
 
     messages = '\n'.join(messages)
     frappe.msgprint(messages)
-    print(messages)
+    ebay_logger().debug(messages)
 
     frappe.db.commit()
 

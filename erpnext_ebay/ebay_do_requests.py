@@ -12,7 +12,7 @@ from erpnext_ebay.ebay_constants import (
     REDO_SLEEPSCALE, REDO_EXCEPTIONS
 )
 from erpnext_ebay.ebay_get_requests import (
-    ebay_logger, get_trading_api, handle_ebay_error, test_for_message)
+    get_trading_api, handle_ebay_error, test_for_message)
 from erpnext_ebay.erpnext_ebay.doctype.ebay_manager_settings.ebay_manager_settings\
     import use_sandbox
 

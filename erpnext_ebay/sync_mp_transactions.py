@@ -11,7 +11,9 @@ from erpnext import get_default_currency
 
 from ebay_rest.error import Error as eBayRestError
 
-from .ebay_get_requests import get_item as get_item_trading, ConnectionError
+from .ebay_get_requests import (
+    ebay_logger, get_item as get_item_trading, ConnectionError
+)
 from .ebay_requests_rest import get_transactions, get_order, get_payouts
 from .sync_orders_rest import divide_rounded, ErpnextEbaySyncError, VAT_RATES
 
@@ -225,7 +227,7 @@ def sync_mp_transactions(num_days=None, not_today=False,
                                expense_account, transfer_transactions)
             except ErpnextEbaySyncError as e:
                 # Handle this a bit better
-                print(transaction)
+                ebay_logger().error(str(transaction), exc_info=e)
                 frappe.throw(f'Transaction sync error! {e}', exc=e)
         if not getattr(pinv_doc, 'items', None):
             # If there are no PINV items added, go to next date
@@ -670,7 +672,8 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account,
         # must instead be passed to sync_mp_payouts.
         transfer_transactions.append(t)
     else:
-        print(t)
+        ebay_logger().error('Transaction {t_id} has unhandled type {t_type}!')
+        ebay_logger().debug(str(t))
         raise ErpnextEbaySyncError(
             f'Transaction {t_id} has unhandled type {t_type}!')
 
