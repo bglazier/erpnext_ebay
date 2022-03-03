@@ -51,7 +51,7 @@ class UGSCalculateTaxesAndTotals(calculate_taxes_and_totals):
             self.doc.conversion_rate * amount_total,
             self.doc.precision('base_total')
         )
-        if base_amount_total = sum(x.base_amount for x in items):
+        if base_amount_total == sum(x.base_amount for x in items):
             # Sum of item base_amounts equals converted sum of amounts
             return
         # Fudge base_amounts so they add up properly
