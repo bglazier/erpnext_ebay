@@ -10,6 +10,7 @@ import operator
 import re
 import sys
 import traceback
+import types
 
 from .country_data import lowercase_country_dict
 from iso3166 import countries, countries_by_name
@@ -22,6 +23,9 @@ from erpnext.controllers.sales_and_purchase_return import make_return_doc
 from .ebay_constants import EBAY_MARKETPLACE_IDS
 from .ebay_get_requests import ebay_logger
 from .ebay_requests_rest import get_orders, get_transactions
+from erpnext_ebay.custom_methods.sales_invoice_methods import (
+    calculate_taxes_and_totals
+)
 
 # Option to use eBay shipping address name as customer name.
 # eBay does not normally provide buyer name.
@@ -1172,6 +1176,8 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
     }
 
     sinv = frappe.get_doc(sinv_dict)
+    sinv.calculate_taxes_and_totals = types.MethodType(
+        calculate_taxes_and_totals, sinv)
     sinv.run_method('erpnext_ebay_before_insert')
     sinv.insert()
     sinv.run_method('erpnext_ebay_after_insert')
@@ -1391,6 +1397,8 @@ def create_return_sales_invoice(order_dict, order, changes):
         if sum(round(x.amount, 2) for x in return_doc.items) != -ex_tax_refund:
             raise ErpnextEbaySyncError('Problem calculating refund rates!')
 
+    return_doc.calculate_taxes_and_totals = types.MethodType(
+        calculate_taxes_and_totals, return_doc)
     return_doc.insert()
     #return_doc.submit()
 
