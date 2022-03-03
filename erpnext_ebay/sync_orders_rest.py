@@ -10,7 +10,6 @@ import operator
 import re
 import sys
 import traceback
-import types
 
 from .country_data import lowercase_country_dict
 from iso3166 import countries, countries_by_name
@@ -1177,8 +1176,6 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
     }
 
     sinv = frappe.get_doc(sinv_dict)
-    sinv.calculate_taxes_and_totals = types.MethodType(
-        calculate_taxes_and_totals, sinv)
     sinv.run_method('erpnext_ebay_before_insert')
     sinv.insert()
     sinv.run_method('erpnext_ebay_after_insert')
@@ -1398,8 +1395,6 @@ def create_return_sales_invoice(order_dict, order, changes):
         if sum(round(x.amount, 2) for x in return_doc.items) != -ex_tax_refund:
             raise ErpnextEbaySyncError('Problem calculating refund rates!')
 
-    return_doc.calculate_taxes_and_totals = types.MethodType(
-        calculate_taxes_and_totals, return_doc)
     return_doc.insert()
     #return_doc.submit()
 

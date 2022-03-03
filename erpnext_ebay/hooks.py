@@ -94,7 +94,9 @@ doctype_js = {
 doc_events = {
     "Sales Invoice": {
         "before_insert":
-            "erpnext_ebay.custom_methods.sales_invoice_methods.sales_invoice_before_insert"
+            "erpnext_ebay.custom_methods.sales_invoice_methods.sales_invoice_before_insert",
+        "before_validate":
+            "erpnext_ebay.custom_methods.sales_invoice_methods.sales_invoice_before_validate"
     },
     "Item": {
         "onload":

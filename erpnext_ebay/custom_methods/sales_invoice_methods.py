@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import types
+
 import frappe
 from frappe.utils import flt
 
@@ -8,10 +10,17 @@ from erpnext.controllers.taxes_and_totals import calculate_taxes_and_totals
 from erpnext_ebay.utils.general_utils import divide_rounded
 
 
-def sales_invoice_before_insert(self, method):
+def sales_invoice_before_validate(doc, _method):
+    """For eBay SINVs, use the alternative taxes and totals."""
+    if doc.is_pos and doc.pos_profile and doc.pos_profile.startswith('eBay'):
+        doc.calculate_taxes_and_totals = types.MethodType(
+            calculate_taxes_and_totals, doc)
+
+
+def sales_invoice_before_insert(doc, _method):
     """Remove the ebay_order_id when amending this Sales Invoice"""
-    if self.get("amended_from"):
-        self.ebay_order_id = None
+    if doc.get("amended_from"):
+        doc.ebay_order_id = None
 
 ##########################################################
 # Override various taxes and totals stuff for eBay SINVs #
