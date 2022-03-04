@@ -135,7 +135,7 @@ def format_shipping_options(options, shipping_option_descriptions):
             days = ''
         # Construct text for option
         text = "{desc}{extra}: {cost}{addt_cost}{days}".format(
-            desc=shipping_option_descriptions[shipping_code],
+            desc=shipping_option_descriptions.get(shipping_code, shipping_code),
             extra=extra_opt_text, cost=cost, addt_cost=addt_cost,
             days=days)
 
