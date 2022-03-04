@@ -872,20 +872,37 @@ def get_cached_ebay_details(details_key, site_id=HOME_SITE_ID,
         details = frappe.cache().get_value(cache_key)
 
     # If we have cached details, check if the cache is valid
+    # Empty cache suggests failure to load details, so reload sooner
     if details is not None:
         cache_date = datetime.datetime.strptime(
             details['Timestamp'][:-1], '%Y-%m-%dT%H:%M:%S.%f'
         )
-        cache_age = (datetime.datetime.utcnow() - cache_date).days
-        if cache_age != 0:
+        if details.get(details_key):
+            # Store 'real' cache for one day
+            cache_age = (datetime.datetime.utcnow() - cache_date).days
+        else:
+            # Store empty cache for less time (10 minutes)
+            cache_age = int(
+                (datetime.datetime.utcnow() - cache_date).total_seconds()
+                / 600
+            )
+        if cache_age > 0:
             # Our cache is too old
             details = None
 
     if details is None:
         # Either there is no cache, or it is out of date
         # Get a new entry
-        details = get_ebay_details(
-            site_id=site_id, detail_name=details_key)
+        try:
+            details = get_ebay_details(
+                site_id=site_id, detail_name=details_key)
+        except ConnectionError:
+            if details_key == 'ShippingServiceDetails' and site_id == 15:
+                # Why is this a problem? Who knows. It just is.
+                now = datetime.datetime.utcnow()
+                details = {'Timestamp': now.strftime('%Y-%m-%dT%H:%M:%S.%fZ')}
+            else:
+                raise
 
         # Store the new values in the cache and return
         frappe.cache().set_value(cache_key, details)
