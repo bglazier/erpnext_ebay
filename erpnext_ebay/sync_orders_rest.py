@@ -1268,8 +1268,7 @@ def create_return_sales_invoice(order_dict, order, changes):
 
     # Need to create return SINV - gather info and run checks
     if len(order['payment_summary']['refunds']) != 1:
-        frappe.throw(f'Order {ebay_order_id} has multiple refunds!',
-                     exc=ErpnextEbaySyncError)
+        frappe.msgprint(f'Warning: Order {ebay_order_id} has multiple refunds')
     refund = order['payment_summary']['refunds'][0]
 
     default_currency = get_default_currency()
