@@ -25,6 +25,6 @@ frappe.ui.form.on("Sales Invoice", {
         }
         frm.cscript.calculate_taxes_and_totals = monkey_patch_calculate_taxes_and_totals;
     }
-}
+});
 
 }  // End whole-file block
