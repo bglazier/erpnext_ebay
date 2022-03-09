@@ -29,7 +29,8 @@ fixtures = [
 
 # Add custom scripts
 doctype_js = {
-    "Item": "custom_scripts/item.js"
+    "Item": "custom_scripts/item.js",
+    "Sales Invoice": "custom_scripts/sales_invoice.js"
 }
 
 # Includes in <head>
