@@ -1397,7 +1397,9 @@ def create_return_sales_invoice(order_dict, order, changes):
         if sum(round(x.amount, 2) for x in return_doc.items) != -ex_tax_refund:
             raise ErpnextEbaySyncError('Problem calculating refund rates!')
 
+    return_doc.run_method('erpnext_ebay_before_insert')
     return_doc.insert()
+    return_doc.run_method('erpnext_ebay_after_insert')
     #return_doc.submit()
 
     if CREATE_WARRANTY_CLAIMS:
