@@ -1267,7 +1267,10 @@ def create_return_sales_invoice(order_dict, order, changes):
         return
 
     # Need to create return SINV - gather info and run checks
-    if len(order['payment_summary']['refunds']) != 1:
+    if not order['payment_summary']['refunds']:
+        frappe.throw(f'Order {ebay_order_id} missing refund info?',
+                     exc=ErpnextEbaySyncError)
+    elif len(order['payment_summary']['refunds']) > 1:
         frappe.msgprint(f'Warning: Order {ebay_order_id} has multiple refunds')
     refund = order['payment_summary']['refunds'][0]
 
