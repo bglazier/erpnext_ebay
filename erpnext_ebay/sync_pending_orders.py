@@ -98,8 +98,8 @@ def sync_pending_orders(site_id=None, num_days=None):
 
         # Get shipping strings
         order_site_id = EBAY_TRANSACTION_SITE_NAMES[order_site_name]
-        shipping_strings = (
-            get_shipping_service_descriptions(order_site_id)
+        shipping_string = get_shipping_service_descriptions(order_site_id).get(
+            shipping['ShippingService'], shipping['ShippingService']
         )
 
         order_dict = {
@@ -114,7 +114,7 @@ def sync_pending_orders(site_id=None, num_days=None):
             'shipping_address': shipping_address,
             'country': sanitize_country_code(ship_add.get('Country')),
             'currency': order['AmountPaid']['_currencyID'],
-            'shipping_type': shipping_strings[shipping['ShippingService']],
+            'shipping_type': shipping_string,
             'shipping_cost': float(shipping['ShippingServiceCost']['value']),
             'total_cost': float(order['Total']['value']),
         }
