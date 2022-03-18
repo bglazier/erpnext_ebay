@@ -9,6 +9,7 @@ from collections.abc import Sequence
 
 import frappe
 
+from erpnext_ebay.utils.general_utils import chunker
 from erpnext_ebay.ebay_revise_requests import (
     revise_inventory_status, relist_item, end_items)
 
@@ -18,13 +19,6 @@ from ebaysdk.trading import Connection as Trading
 
 class eBayPartialFailure(frappe.ValidationError):
     pass
-
-
-def chunker(seq, size):
-    """Collect data into fixed-length chunks. From answer by nosklo in
-    https://stackoverflow.com/questions/434287/
-    """
-    return (seq[pos:pos + size] for pos in range(0, len(seq), size))
 
 
 def revise_ebay_prices(price_data, print=print, **kwargs):

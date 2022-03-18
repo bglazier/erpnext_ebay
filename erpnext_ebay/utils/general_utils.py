@@ -1,6 +1,13 @@
 import operator
 
 
+def chunker(seq, size):
+    """Collect data into fixed-length chunks. From answer by nosklo in
+    https://stackoverflow.com/questions/434287/
+    """
+    return (seq[pos:pos + size] for pos in range(0, len(seq), size))
+
+
 def divide_rounded(input_dict, total, dp=2):
     """Divides quantities into a specified total, rounding to a specified
     number of d.p. while ensuring that the sum of the quantities equals
