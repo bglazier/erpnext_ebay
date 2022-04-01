@@ -19,7 +19,7 @@ import frappe
 from erpnext import get_default_currency
 from erpnext.controllers.sales_and_purchase_return import make_return_doc
 
-from .ebay_constants import EBAY_MARKETPLACE_IDS
+from .ebay_constants import EBAY_MARKETPLACE_IDS, EU_COUNTRIES
 from .ebay_get_requests import ebay_logger
 from .ebay_requests_rest import get_orders, get_transactions
 from erpnext_ebay.custom_methods.sales_invoice_methods import (
@@ -48,14 +48,6 @@ MAX_DAYS = 90
 
 # Should we create a warranty claim with each refund?
 CREATE_WARRANTY_CLAIMS = False
-
-# EU countries
-EU_COUNTRIES = ['Austria', 'Belgium', 'Bulgaria', 'Croatia', 'Cyprus',
-                'Czech Republic', 'Denmark', 'Estonia', 'Finland', 'France',
-                'Germany', 'Greece', 'Hungary', 'Ireland', 'Italy', 'Latvia',
-                'Lithuania', 'Luxembourg', 'Malta', 'Netherlands', 'Poland',
-                'Portugal', 'Romania', 'Slovakia', 'Slovenia', 'Spain',
-                'Sweden']
 
 EBAY_ID_NAMES = {'Customer': 'ebay_user_id',
                  'Address': 'ebay_address_id',

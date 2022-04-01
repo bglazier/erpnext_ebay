@@ -18,7 +18,7 @@ from erpnext import get_default_currency
 from erpnext.setup.utils import get_exchange_rate
 
 from .ebay_get_requests import ebay_logger, get_orders
-from .ebay_constants import EBAY_TRANSACTION_SITE_IDS
+from .ebay_constants import EBAY_TRANSACTION_SITE_IDS, EU_COUNTRIES
 
 # Option to use eBay shipping address name as customer name.
 # eBay does not normally provide buyer name.
@@ -35,14 +35,6 @@ continue_on_error = True
 
 # Maximum number of attempts to add duplicate address (by adding -1, -2 etc)
 maximum_address_duplicates = 4
-
-# EU countries
-EU_COUNTRIES = ['Austria', 'Belgium', 'Bulgaria', 'Croatia', 'Cyprus',
-                'Czech Republic', 'Denmark', 'Estonia', 'Finland', 'France',
-                'Germany', 'Greece', 'Hungary', 'Ireland', 'Italy', 'Latvia',
-                'Lithuania', 'Luxembourg', 'Malta', 'Netherlands', 'Poland',
-                'Portugal', 'Romania', 'Slovakia', 'Slovenia', 'Spain',
-                'Sweden']
 
 EBAY_ID_NAMES = {'Customer': 'ebay_user_id',
                  'Address': 'ebay_address_id',

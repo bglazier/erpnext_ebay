@@ -4,6 +4,14 @@ import frappe
 from ebaysdk.exception import ConnectionError
 from ebay_rest.error import Error as eBayRestError
 
+# EU countries
+EU_COUNTRIES = ['Austria', 'Belgium', 'Bulgaria', 'Croatia', 'Cyprus',
+                'Czech Republic', 'Denmark', 'Estonia', 'Finland', 'France',
+                'Germany', 'Greece', 'Hungary', 'Ireland', 'Italy', 'Latvia',
+                'Lithuania', 'Luxembourg', 'Malta', 'Netherlands', 'Poland',
+                'Portugal', 'Romania', 'Slovakia', 'Slovenia', 'Spain',
+                'Sweden']
+
 # Default eBay timeout and maximum workers
 EBAY_TIMEOUT = 30
 EBAY_WORKERS = 50
