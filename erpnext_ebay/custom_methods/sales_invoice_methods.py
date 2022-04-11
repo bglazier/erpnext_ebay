@@ -14,7 +14,7 @@ def sales_invoice_before_validate(doc, _method):
     """For eBay SINVs, use the alternative taxes and totals."""
     if doc.is_pos and doc.pos_profile and doc.pos_profile.startswith('eBay'):
         doc.calculate_taxes_and_totals = types.MethodType(
-            ugs_calculate_taxes_and_totals, doc)
+            custom_calculate_taxes_and_totals, doc)
 
 
 def sales_invoice_before_insert(doc, _method):
@@ -27,7 +27,7 @@ def sales_invoice_before_insert(doc, _method):
 ##########################################################
 
 
-class UGSCalculateTaxesAndTotals(calculate_taxes_and_totals):
+class CustomCalculateTaxesAndTotals(calculate_taxes_and_totals):
     """Extended version of calculate_taxes_and_totals that can be patched
     into SINVs for eBay.
     For SINVs only!
@@ -77,10 +77,10 @@ class UGSCalculateTaxesAndTotals(calculate_taxes_and_totals):
             item.base_net_amount = item.base_amount
 
 
-def ugs_calculate_taxes_and_totals(self):
+def custom_calculate_taxes_and_totals(self):
     """Replacement for calculate_taxes_and_totals on SINV."""
     from erpnext.controllers.taxes_and_totals import calculate_taxes_and_totals
 
-    UGSCalculateTaxesAndTotals(self)
+    CustomCalculateTaxesAndTotals(self)
     self.calculate_commission()
     self.calculate_contribution()
