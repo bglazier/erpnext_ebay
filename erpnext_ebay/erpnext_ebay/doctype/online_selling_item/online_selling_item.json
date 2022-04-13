@@ -1,4 +1,5 @@
 {
+ "actions": [],
  "allow_copy": 1,
  "autoname": "format:{selling_platform}-{selling_id}-{#####}",
  "creation": "2019-02-27 16:48:53.800650",
@@ -21,7 +22,6 @@
   "end_datetime",
   "title",
   "ebay_listing_duration",
-  "ebay_hit_count",
   "ebay_watch_count",
   "ebay_question_count",
   "selling_url",
@@ -127,13 +127,6 @@
   },
   {
    "depends_on": "eval:doc.selling_platform=='eBay'",
-   "fieldname": "ebay_hit_count",
-   "fieldtype": "Int",
-   "label": "Hit count",
-   "read_only": 1
-  },
-  {
-   "depends_on": "eval:doc.selling_platform=='eBay'",
    "fieldname": "ebay_watch_count",
    "fieldtype": "Int",
    "label": "Watch count",
@@ -176,7 +169,8 @@
  ],
  "in_create": 1,
  "istable": 1,
- "modified": "2021-02-23 15:18:42.041624",
+ "links": [],
+ "modified": "2022-04-13 15:55:42.376752",
  "modified_by": "Administrator",
  "module": "Erpnext Ebay",
  "name": "Online Selling Item",

@@ -17,7 +17,6 @@ from .ebay_constants import (LISTING_DURATION_TOKEN_DICT, EBAY_SITE_IDS,
 from collections.abc import Sequence
 
 OUTPUT_SELECTOR = [
-    'ItemArray.Item.HitCount',
     'ItemArray.Item.ListingDetails.StartTime',
     'ItemArray.Item.ListingDetails.EndTime',
     'ItemArray.Item.ListingDetails.ViewItemURL',
@@ -358,7 +357,6 @@ def create_ebay_online_selling_item(listing, item_code,
 
     # Create listing
     # QuestionCount not available through GetSellerList
-    # HitCount not avaiable through GetMyeBaySelling
     new_listing = frappe.get_doc({
         'doctype': 'Online Selling Item',
         'parent': item_code,
@@ -379,7 +377,6 @@ def create_ebay_online_selling_item(listing, item_code,
         'ebay_listing_duration': duration_description,
         'ebay_watch_count': int(listing.get('WatchCount', 0)),
         'ebay_question_count': int(listing.get('QuestionCount', 0)),
-        'ebay_hit_count': int(listing.get('HitCount', 0)),
         'selling_url': selling_url,
         'shipping_options': shipping_string})
 
