@@ -10,7 +10,7 @@ from ebaysdk.exception import ConnectionError
 from ebaysdk.trading import Connection as Trading
 
 from .ebay_constants import EBAY_TRANSACTION_SITE_IDS, HOME_SITE_ID
-from .ebay_get_requests import ebay_logger, get_seller_list, PATH_TO_YAML
+from .ebay_get_requests import ebay_logger, get_seller_list
 
 from erpnext_ebay.erpnext_ebay.doctype.ebay_manager_settings.ebay_manager_settings import (
     use_sandbox)

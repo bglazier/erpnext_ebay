@@ -28,9 +28,13 @@ from erpnext_ebay.ebay_constants import (
 from erpnext_ebay.erpnext_ebay.doctype.ebay_manager_settings.ebay_manager_settings\
     import use_sandbox
 
-PATH_TO_YAML = os.path.join(
-    os.sep, frappe.utils.get_bench_path(), 'sites',
-    frappe.get_site_path(), 'ebay.yaml')
+
+def get_path_to_yaml():
+    """Return the current path to the YAML configuration file."""
+    return os.path.join(
+        os.sep, frappe.utils.get_bench_path(), 'sites',
+        frappe.get_site_path(), 'ebay.yaml'
+    )
 
 
 def ebay_logger():
@@ -157,7 +161,7 @@ def get_trading_api(site_id=HOME_SITE_ID, warnings=True, timeout=EBAY_TIMEOUT,
 
     trading_kwargs = {
         'domain': domain,
-        'config_file': PATH_TO_YAML,
+        'config_file': get_path_to_yaml(),
         'siteid': site_id,
         'warnings': warnings,
         'timeout': timeout
