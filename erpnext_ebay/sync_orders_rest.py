@@ -296,10 +296,10 @@ def sync_orders(num_days=None, sandbox=False, print_func=MSGPRINT_DEBUG):
                 ebay_logger().error(
                     f'ORDER FAILED {order.get("order_id")}', exc_info=e)
                 if not continue_on_error:
-                    frappe.msgprint('ORDER FAILED')
+                    print_func(f'ORDER FAILED {order.get("order_id")}')
                     raise
                 else:
-                    msgprint_log.append('ORDER FAILED:\n{}'.format(err_msg))
+                    msgprint_log.append(f'ORDER FAILED:\n{err_msg}')
 
     finally:
         # Save the log, regardless of how far we got
@@ -313,7 +313,7 @@ def sync_orders(num_days=None, sandbox=False, print_func=MSGPRINT_DEBUG):
             del log
         frappe.db.commit()
     msgprint_log.append('Finished.')
-    frappe.msgprint(msgprint_log)
+    print_func('\n'.join(msgprint_log))
     return
 
 
@@ -1332,7 +1332,7 @@ def create_return_sales_invoice(order_dict, order, changes, print_func=None):
         # Calculate tax amount and adjust taxes
         if tax_rate:
             tax_amount = round(refund_total - (refund_total / tax_rate), 2)
-            ex_tax_refund = refund_total - tax_amount
+            ex_tax_refund = round(refund_total - tax_amount, 2)
             ret_tax = return_doc.taxes[0]
             ret_tax.charge_type = 'Actual'
             ret_tax.total = -refund_total
@@ -1372,6 +1372,7 @@ def create_return_sales_invoice(order_dict, order, changes, print_func=None):
         for i, item in enumerate(return_items):
             if abs(refund_remainder) < 0.005:
                 # Done
+                refund_remainder = 0
                 break
             if refund_remainder > 0:
                 # Must add more refund to item
