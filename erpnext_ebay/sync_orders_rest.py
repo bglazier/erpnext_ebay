@@ -31,8 +31,9 @@ from erpnext_ebay.utils.general_utils import divide_rounded
 # eBay does not normally provide buyer name.
 assume_shipping_name_is_ebay_name = True
 
-# Should we print debugging messages?
-msgprint_debug = False
+# Output function (or None) for debugging messages (in addition
+# to erpnext_ebay logger)
+MSGPRINT_DEBUG = None
 
 # Should we log changes?
 use_sync_log = True
@@ -155,18 +156,18 @@ class ErpnextEbaySyncError(Exception):
     pass
 
 
-def debug_msgprint(message):
-    """Simple wrapper for msgprint that also prints to the console.
+def debug_msgprint(message, msgprint=None):
+    """Simple wrapper for a debug printing function
 
-    Doesn't msgprint if msgprint_debug is not true.
+    Doesn't msgprint if msgprint is not true.
     """
     ebay_logger().debug(message)
-    if msgprint_debug:
-        frappe.msgprint(message)
+    if msgprint:
+        msgprint(message)
 
 
 @frappe.whitelist()
-def sync_orders(num_days=None, sandbox=False):
+def sync_orders(num_days=None, sandbox=False, print_func=MSGPRINT_DEBUG):
     """
     Pulls the latest orders from eBay. Creates Sales Invoices for sold items.
 
@@ -263,21 +264,24 @@ def sync_orders(num_days=None, sandbox=False):
                 # Create/update Customer
                 cust_details, address_details = extract_customer(order)
                 db_cust_name, db_address_name = create_customer(
-                    cust_details, address_details, changes)
+                    cust_details, address_details, changes, print_func)
 
                 # Create/update eBay Order
                 order_details, payment_status = extract_order_info(
                     order, db_cust_name, db_address_name, changes)
-                create_ebay_order(order_details, payment_status, changes)
+                create_ebay_order(order_details, payment_status,
+                                  changes, print_func)
 
                 # Create Sales Invoice
                 create_sales_invoice(
                     order_details, order, listing_site, purchase_site,
-                    trans_by_order, changes
+                    trans_by_order, changes, print_func
                 )
 
                 # Create Sales Invoice refund
-                create_return_sales_invoice(order_details, order, changes)
+                create_return_sales_invoice(
+                    order_details, order, changes, print_func
+                )
 
             except ErpnextEbaySyncError as e:
                 # Continue to next order
@@ -440,7 +444,7 @@ def extract_customer(order):
     return customer_dict, address_dict
 
 
-def create_customer(customer_dict, address_dict, changes=None):
+def create_customer(customer_dict, address_dict, changes=None, print_func=None):
     """Process an order and add the customer; add customer address.
     Does not duplicate entries where possible.
 
@@ -471,10 +475,12 @@ def create_customer(customer_dict, address_dict, changes=None):
         cust_doc = frappe.get_doc(customer_dict)
         cust_doc.insert()
         db_cust_name = cust_doc.name
-        frappe.db.set_value('Customer', db_cust_name, 'represents_company', None)  # Workaround
+        frappe.db.set_value('Customer', db_cust_name,
+                            'represents_company', None)  # Workaround
         updated_db = True
-        debug_msgprint('Adding a user: ' + ebay_user_id +
-                       ' : ' + customer_dict['customer_name'])
+        debug_msgprint(
+            f'Adding a user: {ebay_user_id} : {customer_dict["customer_name"]}',
+            print_func)
         changes.append({"ebay_change": "Adding a user",
                         "ebay_user_id": ebay_user_id,
                         "customer_name": customer_dict['customer_name'],
@@ -485,8 +491,9 @@ def create_customer(customer_dict, address_dict, changes=None):
         # We have a customer with a matching ebay_user_id
         db_cust_name = cust_fields['name']
         db_cust_customer_name = cust_fields['customer_name']
-        debug_msgprint('User already exists: ' + ebay_user_id +
-                       ' : ' + db_cust_customer_name)
+        debug_msgprint(
+            f'User already exists: {ebay_user_id} : {db_cust_customer_name}',
+            print_func)
         changes.append({"ebay_change": "User already exists",
                         "ebay_user_id": ebay_user_id,
                         "customer_name": db_cust_customer_name,
@@ -612,7 +619,7 @@ def extract_order_info(order, db_cust_name, db_address_name, changes=None):
     return order_dict, payment_status
 
 
-def create_ebay_order(order_dict, payment_status, changes):
+def create_ebay_order(order_dict, payment_status, changes, print_func):
     """Process an eBay order and add eBay order document.
     Does not duplicate entries where possible.
 
@@ -633,8 +640,8 @@ def create_ebay_order(order_dict, payment_status, changes):
     ebay_user_id = order_dict['ebay_user_id']
 
     if payment_status in ('FAILED', 'PENDING'):
-        debug_msgprint('Order not complete: ' + ebay_user_id +
-                       ' : ' + ebay_order_id)
+        debug_msgprint(f'Order not complete: {ebay_user_id} : {ebay_order_id}',
+                       print_func)
         return
 
     order_fields = db_get_ebay_doc(
@@ -650,8 +657,8 @@ def create_ebay_order(order_dict, payment_status, changes):
 
         order_doc = frappe.get_doc(order_dict)
         order_doc.insert(ignore_permissions=True)
-        debug_msgprint('Adding eBay order: ' + ebay_user_id + ' : ' +
-                       ebay_order_id)
+        debug_msgprint(f'Adding eBay order: {ebay_user_id} : {ebay_order_id}',
+                       print_func)
         changes.append({"ebay_change": "Adding eBay order",
                         "ebay_user_id": ebay_user_id,
                         "customer_name": cust_fields['customer_name'],
@@ -665,8 +672,9 @@ def create_ebay_order(order_dict, payment_status, changes):
         cust_fields = db_get_ebay_doc(
             "Customer", ebay_user_id, fields=["name", "customer_name"],
             log=changes, none_ok=False)
-        debug_msgprint('eBay order already exists: ' + ebay_user_id + ' : ' +
-                       ebay_order_id)
+        debug_msgprint(
+            f'eBay order already exists: {ebay_user_id} : {ebay_order_id}',
+            print_func)
         changes.append({"ebay_change": "eBay order already exists",
                         "ebay_user_id": ebay_user_id,
                         "customer_name": cust_fields["customer_name"],
@@ -682,7 +690,7 @@ def create_ebay_order(order_dict, payment_status, changes):
 
 
 def create_sales_invoice(order_dict, order, listing_site, purchase_site,
-                         trans_by_order, changes):
+                         trans_by_order, changes, print_func):
     """
     Create a Sales Invoice from the eBay order.
     """
@@ -704,8 +712,9 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
 
     if sinv_fields is not None:
         # Linked sales invoice exists
-        debug_msgprint('Sales Invoice already exists: '
-                       + ebay_user_id + ' : ' + sinv_fields['name'])
+        debug_msgprint(
+            'Sales Invoice already exists: '
+            + f'{ebay_user_id} : {sinv_fields["name"]}', print_func)
         changes.append({"ebay_change": "Sales Invoice already exists",
                         "ebay_user_id": ebay_user_id,
                         "customer_name": order_dict['customer_name'],
@@ -722,8 +731,9 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
             f"Multiple Sales Invoices with title {test_title}!")
     if len(query) == 1:
         # Old sales invoice without link - don't interfere
-        debug_msgprint('Old Sales Invoice exists: '
-                       + ebay_user_id + ' : ' + query[0]['name'])
+        debug_msgprint(
+            f'Old Sales Invoice exists: {ebay_user_id} : {query[0]["name"]}',
+            print_func)
         changes.append({"ebay_change": "Old Sales Invoice exists",
                         "ebay_user_id": ebay_user_id,
                         "customer_name": order_dict['customer_name'],
@@ -891,16 +901,16 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
         sku = line_item['sku']
         if not sku:
             debug_msgprint(
-                f'Order {ebay_order_id} failed: Item without SKU'
+                f'Order {ebay_order_id} failed: Item without SKU', print_func
             )
             sync_error(changes, 'An item did not have an SKU',
                        ebay_user_id, customer_name=db_cust_name)
             raise ErpnextEbaySyncError(
                 f'An item did not have an SKU for user {ebay_user_id}')
         if not frappe.db.exists('Item', sku):
-            debug_msgprint('Item not found?')
+            debug_msgprint('Item not found?', print_func)
             raise ErpnextEbaySyncError(
-                f'Item {sku} not found for user {ebay_user_id}')
+                f'Item {sku} not found for user {ebay_user_id}', print_func)
         sku_list.append(sku)
 
         # Get qty and description
@@ -1173,13 +1183,16 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
     sinv.run_method('erpnext_ebay_after_insert')
 
     if sinv.outstanding_amount:
-        debug_msgprint(f'Sales Invoice: {sinv.name} has an outstanding amount!')
+        debug_msgprint(
+            f'Sales Invoice: {sinv.name} has an outstanding amount!',
+            print_func)
     elif submit_on_pay:
         # This is an order which adds up and has an approved payment method
         # Submit immediately
         sinv.submit()
 
-    debug_msgprint('Adding Sales Invoice: ' + ebay_user_id + ' : ' + sinv.name)
+    debug_msgprint(f'Adding Sales Invoice: {ebay_user_id} : {sinv.name}',
+                   print_func)
     changes.append({"ebay_change": "Adding Sales Invoice",
                     "ebay_user_id": ebay_user_id,
                     "customer_name": customer_name,
@@ -1193,7 +1206,7 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
     return
 
 
-def create_return_sales_invoice(order_dict, order, changes):
+def create_return_sales_invoice(order_dict, order, changes, print_func=None):
     """
     If the order has been refunded, Create a Sales Invoice return from
     the eBay order.
@@ -1427,8 +1440,9 @@ def create_return_sales_invoice(order_dict, order, changes):
             to a refund on eBay.</p>"""
         wc_doc.insert()
 
-        debug_msgprint('Adding return Sales Invoice: ' + ebay_user_id
-                       + ' : ' + return_doc.name)
+        debug_msgprint(
+            f'Adding return Sales Invoice: {ebay_user_id} : {return_doc.name}',
+            print_func)
         changes.append({"ebay_change": "Adding return Sales Invoice",
                         "ebay_user_id": ebay_user_id,
                         "customer_name": customer_name,
