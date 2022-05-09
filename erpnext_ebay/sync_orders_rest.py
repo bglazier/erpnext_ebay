@@ -34,6 +34,7 @@ assume_shipping_name_is_ebay_name = True
 # Output function (or None) for debugging messages (in addition
 # to erpnext_ebay logger)
 MSGPRINT_DEBUG = None
+MSGPRINT_MAIN = frappe.msgprint
 
 # Should we log changes?
 use_sync_log = True
@@ -167,7 +168,8 @@ def debug_msgprint(message, msgprint=None):
 
 
 @frappe.whitelist()
-def sync_orders(num_days=None, sandbox=False, print_func=MSGPRINT_DEBUG):
+def sync_orders(num_days=None, sandbox=False, debug_print=MSGPRINT_DEBUG,
+                main_print=MSGPRINT_MAIN):
     """
     Pulls the latest orders from eBay. Creates Sales Invoices for sold items.
 
@@ -264,23 +266,23 @@ def sync_orders(num_days=None, sandbox=False, print_func=MSGPRINT_DEBUG):
                 # Create/update Customer
                 cust_details, address_details = extract_customer(order)
                 db_cust_name, db_address_name = create_customer(
-                    cust_details, address_details, changes, print_func)
+                    cust_details, address_details, changes, debug_print)
 
                 # Create/update eBay Order
                 order_details, payment_status = extract_order_info(
                     order, db_cust_name, db_address_name, changes)
                 create_ebay_order(order_details, payment_status,
-                                  changes, print_func)
+                                  changes, debug_print)
 
                 # Create Sales Invoice
                 create_sales_invoice(
                     order_details, order, listing_site, purchase_site,
-                    trans_by_order, changes, print_func
+                    trans_by_order, changes, debug_print
                 )
 
                 # Create Sales Invoice refund
                 create_return_sales_invoice(
-                    order_details, order, changes, print_func
+                    order_details, order, changes, debug_print
                 )
 
             except ErpnextEbaySyncError as e:
@@ -296,7 +298,7 @@ def sync_orders(num_days=None, sandbox=False, print_func=MSGPRINT_DEBUG):
                 ebay_logger().error(
                     f'ORDER FAILED {order.get("order_id")}', exc_info=e)
                 if not continue_on_error:
-                    print_func(f'ORDER FAILED {order.get("order_id")}')
+                    debug_print(f'ORDER FAILED {order.get("order_id")}')
                     raise
                 else:
                     msgprint_log.append(f'ORDER FAILED:\n{err_msg}')
@@ -313,7 +315,7 @@ def sync_orders(num_days=None, sandbox=False, print_func=MSGPRINT_DEBUG):
             del log
         frappe.db.commit()
     msgprint_log.append('Finished.')
-    print_func('\n'.join(msgprint_log))
+    main_print('\n'.join(msgprint_log))
     return
 
 
