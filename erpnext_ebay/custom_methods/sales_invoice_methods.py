@@ -46,7 +46,7 @@ class CustomCalculateTaxesAndTotals(calculate_taxes_and_totals):
     def calculate_item_values(self):
         super().calculate_item_values()
         # Share out converted base_amount
-        if self.doc.party_account_currency == self.doc.currency:
+        if self.doc.conversion_rate == 1.0:
             return
         if self.doc.get('is_consolidated') or self.discount_amount_applied:
             return
@@ -79,7 +79,6 @@ class CustomCalculateTaxesAndTotals(calculate_taxes_and_totals):
 
 def custom_calculate_taxes_and_totals(self):
     """Replacement for calculate_taxes_and_totals on SINV."""
-    from erpnext.controllers.taxes_and_totals import calculate_taxes_and_totals
 
     CustomCalculateTaxesAndTotals(self)
     self.calculate_commission()
