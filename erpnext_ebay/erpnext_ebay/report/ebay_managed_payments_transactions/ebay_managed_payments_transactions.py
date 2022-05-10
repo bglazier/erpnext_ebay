@@ -313,7 +313,8 @@ def execute(filters=None):
                     filters={
                         'voucher_type': 'Sales Invoice',
                         'voucher_no': sinv.name,
-                        'account': ebay_bank
+                        'account': ebay_bank,
+                        'is_cancelled': False
                     }
                 )
                 if len(gl_entries) == 1:
@@ -425,7 +426,7 @@ def execute(filters=None):
         'GL Entry',
         fields=['posting_date', 'debit', 'credit',
                 'voucher_type', 'voucher_no'],
-        filters={'account': ebay_bank}
+        filters={'account': ebay_bank, 'is_cancelled': False}
     )
     gl_entries = [
         x for x in gl_entries
