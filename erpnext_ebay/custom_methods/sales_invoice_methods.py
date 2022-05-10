@@ -12,6 +12,9 @@ from erpnext_ebay.utils.general_utils import divide_rounded
 
 def sales_invoice_before_validate(doc, _method):
     """For eBay SINVs, use the alternative taxes and totals."""
+    # Don't use rounded total because it is broken in ERPNext...
+    doc.disable_rounded_total = True
+    # Override taxes and totals
     if doc.is_pos and doc.pos_profile and doc.pos_profile.startswith('eBay'):
         doc.calculate_taxes_and_totals = types.MethodType(
             custom_calculate_taxes_and_totals, doc)

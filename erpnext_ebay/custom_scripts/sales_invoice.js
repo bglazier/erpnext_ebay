@@ -24,6 +24,14 @@ frappe.ui.form.on("Sales Invoice", {
             frm.cscript._old_calculate_taxes_and_totals = frm.cscript.calculate_taxes_and_totals;
         }
         frm.cscript.calculate_taxes_and_totals = monkey_patch_calculate_taxes_and_totals;
+    },
+
+    before_save(frm) {
+        if (frm.doc.disable_rounded_total) {
+            frm.set_value('disable_rounded_total', false);
+        }
+        frm.doc.rounded_total = 0.0;
+        frm.doc.base_rounded_total = 0.0;
     }
 });
 
