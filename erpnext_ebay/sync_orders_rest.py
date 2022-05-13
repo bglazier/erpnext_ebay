@@ -842,13 +842,20 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
         # necessarily exactly the eBay rate). This is so when we later
         # deduct the fees based on the foreign fees and eBay exchange rate,
         # we don't lose anything due to rounding error.
+        # We need to make sure the exchange rate works in both directions
+        # for the rounded totals.
         payment_amount = payout_amount + fee_amount
-        max_conversion_rate = (
-            (payment_amount_home_currency+0.00495) / payment_amount
+        max_conversion_rate = min(
+            (payment_amount_home_currency+0.00495) / payment_amount,
+            payment_amount_home_currency / (payment_amount-0.00495)
         )
-        min_conversion_rate = (
-            (payment_amount_home_currency-0.00495) / payment_amount
+        min_conversion_rate = max(
+            (payment_amount_home_currency-0.00495) / payment_amount,
+            payment_amount_home_currency / (payment_amount+0.00495)
         )
+        if max_conversion_rate < min_conversion_rate:
+            raise ErpnextEbaySyncError(
+                f'eBay order {ebay_order_id} conversion rate logic failed!')
         if min_conversion_rate <= ebay_exchange_rate <= max_conversion_rate:
             # eBay exchange rate is fine
             conversion_rate = ebay_exchange_rate
@@ -1139,6 +1146,7 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
     if payout_subtotal > 0.0:
         sinv_payments.append({
             "mode_of_payment": ebay_payment_account,
+            "default": true,
             "amount": payout_subtotal}
         )
         submit_on_pay = True
