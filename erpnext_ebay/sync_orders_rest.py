@@ -1146,7 +1146,7 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
     if payout_subtotal > 0.0:
         sinv_payments.append({
             "mode_of_payment": ebay_payment_account,
-            "default": true,
+            "default": True,
             "amount": payout_subtotal}
         )
         submit_on_pay = True
