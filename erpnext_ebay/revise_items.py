@@ -117,13 +117,14 @@ def revise_ebay_inventory(item_data, print=print, error_log=None,
             try:
                 revise_inventory_status(chunked_items)
             except Exception as e:
-                error_log.append(f'revise_ebay_inventory exception: {e}')
+                if error_log is not None:
+                    error_log.append(f'revise_ebay_inventory exception: {e}')
             else:
                 # Success
                 break
             print('Retrying transaction...')
         else:
-            if error_log:
+            if error_log is not None:
                 # Carry on
                 error_log.append(
                     f'revise_ebay_inventory failed after {retries} retries')
