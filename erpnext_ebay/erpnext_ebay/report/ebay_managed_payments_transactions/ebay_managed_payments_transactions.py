@@ -523,22 +523,25 @@ def execute(filters=None):
         # Check for multiple links
         if len(t_list) <= 1:
             continue
+        # Check if we have fully-matched links (i.e. all good)
+        if all(x['amount'] == x['link_amount'] for x in t_list):
+            continue
         # Get link amount
-        link_amounts = {t['link_amount'] for t in t_list}
+        link_amounts = {x['link_amount'] for x in t_list}
         if len(link_amounts) != 1:
             raise ValueError('Link amounts are inconsistent!')
         link_amount = t_list[0]['link_amount']
         # Check sum of all links adds to sum of transaction amounts
-        amount = sum(t['amount'] for t in t_list)
+        amount = sum(x['amount'] for x in t_list)
         if link_amount == amount:
             # Total works so set link_amount = amount
-            for t in t_list:
-                t['link_amount'] = t['amount']
-                t['item_codes'] += '&nbsp;(partial allocation)'
+            for x in t_list:
+                x['link_amount'] = x['amount']
+                x['item_codes'] += '&nbsp;(partial allocation)'
         else:
             # Only allocate to first entry
-            for t in t_list[1:]:
-                t['link_amount'] == 0.0
+            for x in t_list[1:]:
+                x['link_amount'] == 0.0
 
     # Check if values are matched
     for t in data:
