@@ -301,6 +301,7 @@ def execute(filters=None):
                 if not return_sinv:
                     # Did not find return
                     continue
+                sale_sinv = sinv.name
                 sinv = return_sinv[0]
             if sinv.docstatus == 0:
                 # Draft SINV: don't include payment value
@@ -327,20 +328,30 @@ def execute(filters=None):
                     )
                 else:
                     # Search for linked submitted Payment Entries
+                    filters = {
+                        'docstatus': 1, 'reference_doctype': 'Sales Invoice'
+                    }
+                    if t_type == 'REFUND':
+                        filters['reference_name'] = [
+                            'in', [sinv.name, sale_sinv]]
+                        paid_field = 'paid_from'
+                    else:
+                        filters['reference_name'] = sinv.name
+                        paid_field = 'paid_to'
                     pe_list = frappe.get_all(
                         'Payment Entry Reference',
                         fields=['parent', 'allocated_amount'],
-                        filters={
-                            'docstatus': 1,
-                            'reference_doctype': 'Sales Invoice',
-                            'reference_name': sinv.name
-                        }
+                        filters=filters
                     )
                     amount = 0.0
                     for pe in pe_list:
-                        paid_to = frappe.get_value('Payment Entry', pe.parent,
-                                                   'paid_to')
-                        if paid_to == ebay_bank:
+                        posting_date = frappe.get_value(
+                            'Payment Entry', pe.parent, 'posting_date')
+                        if posting_date != t['transaction_datetime'].date():
+                            continue
+                        paid_acct = frappe.get_value('Payment Entry', pe.parent,
+                                                     paid_field)
+                        if paid_acct == ebay_bank:
                             amount -= pe.allocated_amount
                             linked_documents.add(('Payment Entry', pe.parent))
 
