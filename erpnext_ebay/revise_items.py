@@ -114,15 +114,17 @@ def revise_ebay_inventory(item_data, print=print, error_log=None,
 
         # Submit the updates for these items.
         for i in range(retries):
+            if i:
+                print('Retrying transaction...')
             try:
                 revise_inventory_status(chunked_items)
             except Exception as e:
                 if error_log is not None:
                     error_log.append(f'revise_ebay_inventory exception: {e}')
+                last_exc = e
             else:
                 # Success
                 break
-            print('Retrying transaction...')
         else:
             if error_log is not None:
                 # Carry on
@@ -130,7 +132,7 @@ def revise_ebay_inventory(item_data, print=print, error_log=None,
                     f'revise_ebay_inventory failed after {retries} retries')
             else:
                 # Give up here
-                raise
+                raise last_exc
 
     print(' - 100% complete.')
 
