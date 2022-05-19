@@ -654,18 +654,23 @@ def create_item_group_ebay(force_delete=False):
         parent_dict[cat['CategoryID']] = cat['CategoryParentID']
         names_dict[cat['CategoryID']] = cat['CategoryName']
 
+    # Filter out non-leaf categories
+    cats = [x for x in cats if x['LeafCategory']]
+    cat_ids = {x['CategoryID'] for x in cats}
+
+    # Delete any categories that exist in the DB but are not current
+    if not force_delete:
+        ige_cat_ids = set(ige_dict.keys())
+        deleted_ids = ige_cat_ids - cat_ids
+        for deleted_id in deleted_ids:
+            frappe.delete_doc('Item Group eBay', ige_dict[deleted_id].name,
+                            force=True)
+
     for i, cat in enumerate(cats):
         #print(' {:05} / {}'.format(i + 1, len(cats)))
-        if not cat['LeafCategory']:
-            # Don't add non-leaf categories
-            continue
-        # We need the following check, which prevents us adding the root node,
-        # only if we are adding leaf categories
-        #if cat['CategoryID'] == '0':
-            #continue
 
         cat_id = cat['CategoryID']
-        cat_name = '{} {}'.format(cat['CategoryName'], cat_id)
+        cat_name = f"""{cat['CategoryName']} {cat_id}"""
         cat_name_stack = [cat['CategoryName']]
         cat_search_id = parent_dict[cat_id]
         while cat_search_id != "0":
@@ -705,10 +710,5 @@ def create_item_group_ebay(force_delete=False):
                 "ebay_virtual": cat['Virtual']})
 
             item_group_ebay_doc.insert(ignore_permissions=True)
-
-    # Now we delete any categories that exist in the DB but are not current
-    for ige in ige_dict.values():
-        item_group_ebay_doc = frappe.get_doc('Item Group eBay', ige['name'])
-        item_group_ebay_doc.delete()
 
     frappe.db.commit()
