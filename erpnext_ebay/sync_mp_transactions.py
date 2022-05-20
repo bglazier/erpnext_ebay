@@ -9,13 +9,14 @@ import textwrap
 import frappe
 from erpnext import get_default_currency
 
-from ebay_rest.error import Error as eBayRestError
-
-from .ebay_get_requests import (
+from erpnext_ebay.ebay_constants import eBayRestError
+from erpnext_ebay.ebay_get_requests import (
     ebay_logger, get_item as get_item_trading, ConnectionError
 )
-from .ebay_requests_rest import get_transactions, get_order, get_payouts
-from .sync_orders_rest import ErpnextEbaySyncError, VAT_RATES
+from erpnext_ebay.ebay_requests_rest import (
+    get_transactions, get_order, get_payouts
+)
+from erpnext_ebay.sync_orders_rest import ErpnextEbaySyncError, VAT_RATES
 from erpnext_ebay.utils.general_utils import divide_rounded
 
 MAX_DAYS = 90

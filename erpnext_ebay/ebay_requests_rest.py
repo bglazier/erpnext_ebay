@@ -6,13 +6,11 @@ import json
 
 import redo
 
-from ebay_rest.error import Error as eBayRestError
-
 import frappe
 
 from erpnext_ebay.ebay_constants import (
     HOME_GLOBAL_ID, REDO_ATTEMPTS, REDO_SLEEPTIME,
-    REDO_SLEEPSCALE, REDO_EXCEPTIONS
+    REDO_SLEEPSCALE, REDO_EXCEPTIONS, eBayRestError
 )
 from erpnext_ebay.ebay_get_requests import ebay_logger
 from erpnext_ebay.ebay_tokens import get_api
