@@ -22,7 +22,8 @@ from ebay_rest import API, DateTime as ERDateTime
 from frappe.utils.password import get_decrypted_password
 
 from erpnext_ebay.ebay_constants import (
-    REDO_ATTEMPTS, REDO_SLEEPTIME, REDO_SLEEPSCALE, REDO_EXCEPTIONS
+    REDO_ATTEMPTS, REDO_SLEEPTIME, REDO_SLEEPSCALE, REDO_EXCEPTIONS,
+    HOME_GLOBAL_ID, HOME_LANGUAGE
 )
 
 
@@ -232,9 +233,9 @@ def get_api(sandbox=False, *args, **kwargs):
 
     # Header
     header = {
-        'accept_language': 'en-US',
-        'content_language': 'en-US',
-        'marketplace_id': 'EBAY_US'
+        'accept_language': kwargs.get('accept_language', HOME_LANGUAGE),
+        'content_language': kwargs.get('content_language', HOME_LANGUAGE),
+        'marketplace_id': kwargs.get('marketplace_id', HOME_GLOBAL_ID)
     }
 
     return _get_api(application, user, header, *args, **kwargs)
