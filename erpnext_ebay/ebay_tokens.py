@@ -18,7 +18,7 @@ import urllib.parse
 import redo
 import requests
 
-from ebay_rest import API
+from ebay_rest import API, DateTime as ERDateTime
 from frappe.utils.password import get_decrypted_password
 
 from erpnext_ebay.ebay_constants import (
@@ -182,41 +182,59 @@ def accept_consent_token():
         success=True
     )
 
-
 @redo.retriable(attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
                 sleepscale=REDO_SLEEPSCALE, retry_exceptions=REDO_EXCEPTIONS)
-def _get_api(sandbox, app_id, cert_id, dev_id, ru_name, scopes,
-             refresh_token, refresh_token_expiry, allow_get_user_consent,
-             *args, **kwargs):
+def _get_api(application, user, header, *args, **kwargs):
     """Get and return an API. Retriable function."""
-    API.set_credentials(
-        sandbox, app_id, cert_id, dev_id, ru_name=ru_name, scopes=scopes,
-        refresh_token=refresh_token, refresh_token_expiry=refresh_token_expiry,
-        allow_get_user_consent=False)
 
-    return API(sandbox, *args, **kwargs)
+    return API(application=application, user=user, header=header)
 
 
 def get_api(sandbox=False, *args, **kwargs):
-    """Get an ebay_rest API that we have preloaded with credentials."""
+    """Get an ebay_rest API loaded with credentials."""
+
+    MANDATORY_APP = ('app_id', 'cert_id', 'redirect_uri')
+
     prefix = 'sandbox' if sandbox else 'production'
     dt = 'eBay API Settings'
-    app_id = frappe.get_value(dt, dt, f'{prefix}_app_id')
-    cert_id = get_decrypted_password(dt, dt, f'{prefix}_cert_id')
-    dev_id = None
-    ru_name = frappe.get_value(dt, dt, f'{prefix}_ru_name')
+
+    # Application tokens
+    application = {
+        'app_id': frappe.get_value(dt, dt, f'{prefix}_app_id'),
+        'cert_id': get_decrypted_password(dt, dt, f'{prefix}_cert_id'),
+        #'dev_id': None,  # Don't need dev_id
+        'redirect_uri': frappe.get_value(dt, dt, f'{prefix}_ru_name')
+    }
+
+    if not all(application[x] for x in MANDATORY_APP):
+        frappe.throw(f'Missing API application parameters for {prefix}!')
+
+    # User tokens
     refresh_token = get_decrypted_password(dt, dt, f'{prefix}_refresh_token')
     refresh_token_expiry = frappe.get_value(dt, dt, f'{prefix}_refresh_expiry')
-    scopes = frappe.get_value(dt, dt, f'{prefix}_scopes')
-    if not (app_id and cert_id and ru_name and scopes):
-        frappe.throw(f'Missing API parameters for {prefix}!')
     if not (refresh_token and refresh_token_expiry):
         frappe.throw(f'Re-authorize eBay {prefix}; token missing')
+
     refresh_token_expiry = (
         frappe.utils.get_datetime(refresh_token_expiry)
         - datetime.timedelta(minutes=5)
     ).astimezone(datetime.timezone.utc)
-    scopes = scopes.strip().split()
-    return _get_api(
-        sandbox, app_id, cert_id, dev_id, ru_name, scopes, refresh_token,
-        refresh_token_expiry, allow_get_user_consent=False, *args, **kwargs)
+
+    user = {
+        'email_or_username': 'FAIL',  # Have to pass this
+        'password': 'FAIL',  # Have to pass this
+        'scopes': frappe.get_value(dt, dt, f'{prefix}_scopes').strip().split(),
+        'refresh_token': refresh_token,
+        'refresh_token_expiry': ERDateTime.to_string(refresh_token_expiry)
+    }
+    if not user['scopes']:
+        frappe.throw(f'Missing API user parameters (scopes) for {prefix}!')
+
+    # Header
+    header = {
+        'accept_language': 'en-US',
+        'content_language': 'en-US',
+        'marketplace_id': 'EBAY_US'
+    }
+
+    return _get_api(application, user, header, *args, **kwargs)
