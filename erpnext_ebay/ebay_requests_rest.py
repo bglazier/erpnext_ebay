@@ -108,13 +108,15 @@ def paged_api_call(api_call, record_field, sandbox=False, *args, **kwargs):
         )
     except eBayRestError as e:
         handle_ebay_error(e)
-    # Check for warnings
-    check_for_warnings(pages[0])
 
-    # Extract items
-    records = []
-    for page in pages:
-        records.extend(page[record_field] or [])
+    # Split into records and warnings
+    records = [x['record'] for x in pages if 'record' in x]
+    page_warnings = [x for x in pages if 'warnings' in x]
+
+    # Check for warnings
+    for warnings in page_warnings:
+        check_for_warnings(warnings)
+
     return records
 
 
