@@ -896,6 +896,9 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
     sum_vat = 0.0
     sum_line_items = 0.0
     shipping_cost = 0.0
+    # Shipping deadlines
+    max_delivery_dts = []
+    ship_by_dts = []
     # eBay Collect and Remit taxes
     car_references = collections.defaultdict(set)
     car_by_type = collections.defaultdict(float)
@@ -1013,6 +1016,21 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
                 )
                 car_references[tax_type].add(item_car_reference)
 
+        # Check for maximum delivery date/ship by date
+        if li_ff := line_item.get('line_item_fulfillment_instructions'):
+            max_delivery_date = frappe.utils.convert_utc_to_user_timezone(
+                datetime.datetime.fromisoformat(
+                    li_ff['max_estimated_delivery_date'].rstrip('Z')
+                )
+            ).replace(tzinfo=None)
+            max_delivery_dts.append(max_delivery_date)
+            ship_by_date = frappe.utils.convert_utc_to_user_timezone(
+                datetime.datetime.fromisoformat(
+                    li_ff['ship_by_date'].rstrip('Z')
+                )
+            ).replace(tzinfo=None)
+            ship_by_dts.append(ship_by_date)
+
         # Get price
         li_total = line_item['total']
         # Check buyer currencies match
@@ -1055,7 +1073,7 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
             "valuation_rate": 0.0,
             "income_account": income_account,
             "expense_account": f"Cost of Goods Sold - {COMPANY_ACRONYM}"
-         })
+        })
 
     # Total of all eBay Collect and Remit taxes
     total_collect_and_remit = sum(car_by_type.values())
@@ -1170,6 +1188,8 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
         "buyer_message": buyer_checkout_message,
         "ebay_collect_and_remit": total_collect_and_remit or None,
         "collect_and_remit_details": collect_and_remit_details or None,
+        "ebay_max_estimated_delivery_date": min(max_delivery_dts or [None]),
+        "ebay_ship_by_date": min(ship_by_dts or [None]),
         "contact_email": cust_email,
         "posting_date": posting_date.date(),
         "posting_time": posting_date.time(),
