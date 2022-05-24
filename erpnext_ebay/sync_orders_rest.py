@@ -1018,7 +1018,7 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
 
         # Check for maximum delivery date/ship by date
         if li_ff := line_item.get('line_item_fulfillment_instructions'):
-            if medd := li_ff.get('max_estimated_delivery_date']):
+            if medd := li_ff.get('max_estimated_delivery_date'):
                 max_delivery_date = frappe.utils.convert_utc_to_user_timezone(
                     datetime.datetime.fromisoformat(medd.rstrip('Z'))
                 ).replace(tzinfo=None)
