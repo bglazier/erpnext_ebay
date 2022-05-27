@@ -845,26 +845,11 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
         # We need to make sure the exchange rate works in both directions
         # for the rounded totals.
         payment_amount = payout_amount + fee_amount
-        max_conversion_rate = min(
-            (payment_amount_home_currency+0.00495) / payment_amount,
-            payment_amount_home_currency / (payment_amount-0.00495)
-        )
-        min_conversion_rate = max(
-            (payment_amount_home_currency-0.00495) / payment_amount,
-            payment_amount_home_currency / (payment_amount+0.00495)
-        )
-        if max_conversion_rate < min_conversion_rate:
+        conversion_rate = get_magic_exchange_rate(
+            ebay_exchange_rate, payment_amount_home_currency, payment_amount)
+        if not conversion_rate:
             raise ErpnextEbaySyncError(
-                f'eBay order {ebay_order_id} conversion rate logic failed!')
-        if min_conversion_rate <= ebay_exchange_rate <= max_conversion_rate:
-            # eBay exchange rate is fine
-            conversion_rate = ebay_exchange_rate
-        elif min_conversion_rate > ebay_exchange_rate:
-            # eBay rate is too low; use minimum conversion rate
-            conversion_rate = min_conversion_rate
-        else:
-            # eBay rate is too high; use maximum conversion rate
-            conversion_rate = max_conversion_rate
+                    f'eBay order {ebay_order_id} conversion rate logic failed!')
 
     # Collect item eBay fees (using transaction)
     item_fee_dict = collections.defaultdict(float)
@@ -1311,7 +1296,6 @@ def create_return_sales_invoice(order_dict, order, changes, print_func=None):
     ebay_payment_account = f'eBay Managed {default_currency}'
     posting_date = datetime.datetime.strptime(
         refund['refund_date'][:-1] + 'UTC', '%Y-%m-%dT%H:%M:%S.%f%Z')
-    base_refund_amount = float(refund['amount']['value'])
     if refund['amount']['currency'] != default_currency:
         raise ValueError('Unexpected base refund currency!')
 
@@ -1331,10 +1315,36 @@ def create_return_sales_invoice(order_dict, order, changes, print_func=None):
     if return_doc.payments[0].mode_of_payment != ebay_payment_account:
         raise ValueError('Wrong mode of payment!')
 
-    if order['order_payment_status'] == 'PARTIALLY_REFUNDED':
+    if order['order_payment_status'] == 'FULLY_REFUNDED':
+        # Fully refunded; just use total from refund SINV
+        base_refund_total = return_doc.base_grand_total
+    else:
+        # Partially refunded only
         # Adjust quantities and rates on return
         exc_rate = return_doc.conversion_rate
-        refund_total = round(base_refund_amount / exc_rate, 2)
+
+        # Refund amount from line items
+        refund_total = sum(
+            float(li['refunds'][0]['amount']['value'])
+            for li in order['line_items']
+        )
+        # Refund amount (after fee credits) from payments section
+        refund_payment_amount = refund['amount']
+        refund_payment = float(
+            refund_payment_amount['converted_from_value']
+            or refund_payment_amount['value'])
+        base_refund_payment = float(refund_payment_amount['value'])
+
+        # Fee credits are the difference between the refund amounts and
+        # the refund payment (which we do not consider further here)
+        fee_credit = refund_total - refund_payment
+        base_fee_credit = round(fee_credit * exc_rate, 2)
+
+        base_refund_total = round(base_refund_payment + base_fee_credit, 2)
+
+        # Calculate an exchange rate that works
+        return_doc.conversion_rate = get_magic_exchange_rate(
+            exc_rate, base_refund_total, refund_total)
 
         # Adjust payment
         return_doc.payments[0].amount = -refund_total
@@ -1432,7 +1442,19 @@ def create_return_sales_invoice(order_dict, order, changes, print_func=None):
             raise ErpnextEbaySyncError('Problem calculating refund rates!')
 
     return_doc.run_method('erpnext_ebay_before_insert')
+    old_conversion_rate = sinv_doc.conversion_rate
+    exc_changed = old_conversion_rate != return_doc.conversion_rate
+    if exc_changed:
+        # Do a bad thing
+        frappe.db.set_value(
+            'Sales Invoice', sinv_doc.name, 'conversion_rate',
+            return_doc.conversion_rate, update_modified=False)
     return_doc.insert()
+    if exc_changed:
+        # Fix the bad thing
+        frappe.db.set_value(
+            'Sales Invoice', sinv_doc.name, 'conversion_rate',
+            return_doc.conversion_rate, update_modified=False)
     return_doc.run_method('erpnext_ebay_after_insert')
     #return_doc.submit()
 
@@ -1450,7 +1472,7 @@ def create_return_sales_invoice(order_dict, order, changes, print_func=None):
         sinv_name_html = frappe.utils.escape_html(sinv_doc.name)
         ret_name_html = frappe.utils.escape_html(return_doc.name)
         refund_html = frappe.utils.escape_html(
-            frappe.utils.fmt_money(base_refund_amount,
+            frappe.utils.fmt_money(base_refund_total,
                                    currency=default_currency)
         )
         if return_doc.currency == default_currency:
@@ -1481,6 +1503,36 @@ def create_return_sales_invoice(order_dict, order, changes, print_func=None):
 
     # Commit changes to database
     frappe.db.commit()
+
+
+def get_magic_exchange_rate(rate, home_amount, foreign_amount):
+    """If we have an exchange rate, and two amounts converted by
+    that exchange rate, find the 'best' exchange rate equal to or
+    close to that exchange rate where conversion of those amounts,
+    in both directions, gives the other value even when rounding
+    to 2dp.
+
+    NOTE - Returns None if no exchange rate can be found.
+    """
+    max_conversion_rate = min(
+        (home_amount+0.00495) / foreign_amount,
+        home_amount / (foreign_amount-0.00495)
+    )
+    min_conversion_rate = max(
+        (home_amount-0.00495) / foreign_amount,
+        home_amount / (foreign_amount+0.00495)
+    )
+    if max_conversion_rate < min_conversion_rate:
+        return None
+    if min_conversion_rate <= rate <= max_conversion_rate:
+        # Supplied exchange rate is fine
+        return rate
+    elif min_conversion_rate > rate:
+        # Supplied rate is too low; use minimum conversion rate
+        return min_conversion_rate
+    else:
+        # Supplied rate is too high; use maximum conversion rate
+        return max_conversion_rate
 
 
 def determine_territory(country):
