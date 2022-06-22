@@ -22,9 +22,6 @@ from erpnext.controllers.sales_and_purchase_return import make_return_doc
 from .ebay_constants import EBAY_MARKETPLACE_IDS, EU_COUNTRIES
 from .ebay_get_requests import ebay_logger
 from .ebay_requests_rest import get_orders, get_transactions
-from erpnext_ebay.custom_methods.sales_invoice_methods import (
-    calculate_taxes_and_totals
-)
 from erpnext_ebay.utils.general_utils import divide_rounded
 
 # Option to use eBay shipping address name as customer name.

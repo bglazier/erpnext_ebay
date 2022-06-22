@@ -33,6 +33,14 @@ doctype_js = {
     "Sales Invoice": "custom_scripts/sales_invoice.js"
 }
 
+# DocType Class
+# ---------------
+# Override standard doctype classes
+
+override_doctype_class = {
+    "Sales Invoice": "erpnext_ebay.custom_classes.sales_invoice.eBaySalesInvoice"
+}
+
 # Includes in <head>
 # ------------------
 
