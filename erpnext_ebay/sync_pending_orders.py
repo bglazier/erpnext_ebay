@@ -101,6 +101,10 @@ def sync_pending_orders(site_id=None, num_days=None):
         shipping_string = get_shipping_service_descriptions(order_site_id).get(
             shipping['ShippingService'], shipping['ShippingService']
         )
+        if 'ShippingServiceCost' in shipping:
+            shipping_cost = float(shipping['ShippingServiceCost']['value'])
+        else:
+            shipping_cost = 0.0
 
         order_dict = {
             'last_modified': datetime.datetime.strptime(
@@ -115,7 +119,7 @@ def sync_pending_orders(site_id=None, num_days=None):
             'country': sanitize_country_code(ship_add.get('Country')),
             'currency': order['AmountPaid']['_currencyID'],
             'shipping_type': shipping_string,
-            'shipping_cost': float(shipping['ShippingServiceCost']['value']),
+            'shipping_cost': shipping_cost,
             'total_cost': float(order['Total']['value']),
         }
 
