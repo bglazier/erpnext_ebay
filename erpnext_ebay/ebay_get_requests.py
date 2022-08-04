@@ -87,6 +87,9 @@ def handle_ebay_error(e, input_dict=None):
     ebay_logger().error(f'handle_ebay_error {e}')
     try:
         api_dict = e.response.dict()
+        if 'Errors' not in api_dict:
+            # We can't handle this error
+            raise e
         if isinstance(api_dict['Errors'], Sequence):
             errors = api_dict['Errors']
         else:
