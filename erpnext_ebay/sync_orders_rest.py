@@ -938,19 +938,22 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
                 and original_address2 == 'VOEC NO:2024926 Code:Paid'
             )
             if norwegian_vat:
-                # Special-case Norwegian VAT - build CAR reference
                 if line_item['ebay_collect_and_remit_taxes']:
-                    raise ErpnextEbaySyncError(
-                        f'Order {ebay_order_id} has Norwegian VAT and '
-                        + 'Collect and Remit items!')
-                line_item['ebay_collect_and_remit_taxes'] = [{
-                    'tax_type': 'NOR_VAT',
-                    'amount': tax_item['amount'],
-                    'ebay_reference': {
-                        'name': 'VOEC NO',
-                        'value': '2024926 Code:Paid'
-                    }
-                }]
+                    for car_item in line_item['ebay_collect_and_remit_taxes']:
+                        ebay_ref = car_item.get('ebay_reference') or {}
+                        if ebay_ref.get('value') == 'VOEC NO:2024926':
+                            car_item['tax_type'] = 'NOR_VAT'
+                else:
+                    # Special-case Norwegian VAT without CAR - build
+                    # CAR reference
+                    line_item['ebay_collect_and_remit_taxes'] = [{
+                        'tax_type': 'NOR_VAT',
+                        'amount': tax_item['amount'],
+                        'ebay_reference': {
+                            'name': 'VOEC NO',
+                            'value': '2024926 Code:Paid'
+                        }
+                    }]
             elif (tax_type is None) and not float(tax_item['amount']['value']):
                 # Tax amount is zero
                 pass
