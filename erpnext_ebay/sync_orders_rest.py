@@ -1400,8 +1400,10 @@ def create_return_sales_invoice(order_dict, order, changes, print_func=None):
         )
         original_rates = [x.rate for x in return_items]
         for i, item in enumerate(return_items):
-            item.rate = min(item.rate, round(item.rate * refund_frac, 2))
-            item.amount = item.rate * item.qty
+            # Note that amount is _negative_, so the 'max' ensures that
+            # the refund is not more than the original price
+            item.amount = max(item.amount, round(item.amount * refund_frac, 2))
+            item.rate = item.amount / item.qty
         refund_remainder = (
             ex_tax_refund
             - sum(-x.amount for x in return_items)
@@ -1420,11 +1422,14 @@ def create_return_sales_invoice(order_dict, order, changes, print_func=None):
                 # Must remove refund (all quantities negative)
                 # max() returns value closer to zero here
                 amount_change = max(refund_remainder, item.amount)
-            item.rate = min(
-                original_rates[i],
-                round(item.rate + (amount_change / -item.qty), 2)
+            # Note that amount is _negative_, so the 'max' ensures that
+            # the refund is not more than the original price
+            item.amount = max(
+                original_rates[i] * item.qty,
+                round(item.amount + amount_change, 2)
             )
-            item.amount = item.qty * item.rate
+            item.rate = item.amount / item.qty
+
             refund_remainder = (
                 ex_tax_refund
                 - sum(-x.amount for x in return_items)
@@ -1432,7 +1437,8 @@ def create_return_sales_invoice(order_dict, order, changes, print_func=None):
 
         if refund_remainder:
             raise ErpnextEbaySyncError(
-                'Refund allocation algorithm insufficiently clever')
+                'Refund allocation algorithm insufficiently '
+                + f'clever: {ebay_order_id}')
 
         # Delete items that have zero value or qty
         return_doc.items[:] = [
@@ -1449,12 +1455,15 @@ def create_return_sales_invoice(order_dict, order, changes, print_func=None):
         frappe.db.set_value(
             'Sales Invoice', sinv_doc.name, 'conversion_rate',
             return_doc.conversion_rate, update_modified=False)
+        # Avoid rounding meaning the exchange rate check is still triggered
+        return_doc.conversion_rate = sinv_doc.db_get('conversion_rate')
     return_doc.insert()
     if exc_changed:
         # Fix the bad thing
         frappe.db.set_value(
             'Sales Invoice', sinv_doc.name, 'conversion_rate',
-            return_doc.conversion_rate, update_modified=False)
+            old_conversion_rate, update_modified=False)
+
     return_doc.run_method('erpnext_ebay_after_insert')
     #return_doc.submit()
 
