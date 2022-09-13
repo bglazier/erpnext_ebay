@@ -220,6 +220,7 @@ def sync_orders(num_days=None, sandbox=False, debug_print=MSGPRINT_DEBUG,
 
     # Create a synchronization log
     log_dict = {"doctype": "eBay sync log",
+                "name": frappe.generate_hash('eBay sync log', 20),
                 "ebay_sync_datetime": datetime.datetime.now(),
                 "ebay_sync_days": num_days,
                 "ebay_log_table": []}
