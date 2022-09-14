@@ -308,6 +308,7 @@ def sync_orders(num_days=None, sandbox=False, debug_print=MSGPRINT_DEBUG,
             log_dict['ebay_log_table'].append(change)
         log = frappe.get_doc(log_dict)
         if use_sync_log:
+            log.flags.name_set = True
             log.insert(ignore_permissions=True)
         else:
             del log
