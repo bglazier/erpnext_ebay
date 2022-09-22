@@ -22,6 +22,9 @@ def handle_ebay_error(e):
     """Throw an appropriate Frappe error message on error."""
     ebay_logger().error(f'handle_ebay_error {e}')
     try:
+        if e.detail is None:
+            # We don't have anything to work with here; raise the original error
+            raise e
         response = json.loads(e.detail)
         errors = response.get('errors', [])
         messages = []
