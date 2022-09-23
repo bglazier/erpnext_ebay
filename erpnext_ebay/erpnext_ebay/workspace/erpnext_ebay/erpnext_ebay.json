@@ -3,7 +3,7 @@
  "charts": [],
  "creation": "2021-12-27 15:09:27.129940",
  "developer_mode_only": 0,
- "disable_user_customization": 1,
+ "disable_user_customization": 0,
  "docstatus": 0,
  "doctype": "Workspace",
  "extends_another_page": 0,
@@ -33,7 +33,7 @@
    "type": "Link"
   }
  ],
- "modified": "2021-12-27 15:11:21.398171",
+ "modified": "2022-09-22 13:45:19.157154",
  "modified_by": "Administrator",
  "module": "Erpnext Ebay",
  "name": "ERPNext eBay",
