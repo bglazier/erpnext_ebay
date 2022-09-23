@@ -55,16 +55,17 @@ def sync_pending_orders(site_id=None, num_days=None):
     frappe.msgprint('Syncing eBay orders...')
 
     # Load orders from Ebay (retry up to three times)
-    for i in range(3):
+    i = 0
+    while True
         try:
             orders, num_days = get_orders(order_status='Active',
                                           num_days=num_days)
         except ConnectionError:
-            pass
+            if i > 2:
+                raise
         else:
             break
-    else:
-        raise
+        i = i + 1
 
     # Build list of existing eBay Pending Orders
     existing_order_dict = {
