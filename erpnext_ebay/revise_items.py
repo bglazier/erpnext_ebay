@@ -94,7 +94,7 @@ def revise_ebay_inventory(item_data, print=print, error_log=None,
         if price is not None:
             item_dict['StartPrice'] = price
         if qty is not None:
-            item_dict['Quantity'] = qty
+            item_dict['Quantity'] = int(qty)
         items.append(item_dict)
 
     prev_percent = -1000.0
