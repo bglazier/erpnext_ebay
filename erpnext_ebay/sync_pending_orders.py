@@ -56,7 +56,7 @@ def sync_pending_orders(site_id=None, num_days=None):
 
     # Load orders from Ebay (retry up to three times)
     i = 0
-    while True
+    while True:
         try:
             orders, num_days = get_orders(order_status='Active',
                                           num_days=num_days)
