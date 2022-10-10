@@ -3,5 +3,5 @@ ebaysdk
 ebay_rest
 ecdsa
 redo
-frappe
+# frappe # Frappe is installed during bench init
 erpnext
