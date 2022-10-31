@@ -47,7 +47,7 @@ frappe.ui.form.on("Item", {
     },
 
     after_save(frm, doctype, docname) {
-        get_online_selling_items(frm, docname);
+        frappe.ui.form.trigger('Item', 'get_online_selling');
     },
 
     get_online_selling(frm, doctype, docname) {
