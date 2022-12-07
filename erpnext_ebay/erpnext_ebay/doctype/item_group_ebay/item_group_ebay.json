@@ -1,4 +1,5 @@
 {
+ "actions": [],
  "allow_import": 1,
  "autoname": "field:ebay_category_name",
  "creation": "2018-12-12 14:54:07.853591",
@@ -54,7 +55,8 @@
    "reqd": 1
   }
  ],
- "modified": "2020-12-21 11:17:04.811168",
+ "links": [],
+ "modified": "2022-12-06 14:28:56.911295",
  "modified_by": "Administrator",
  "module": "Erpnext Ebay",
  "name": "Item Group eBay",
