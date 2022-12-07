@@ -1326,10 +1326,28 @@ def create_return_sales_invoice(order_dict, order, changes, print_func=None):
         exc_rate = return_doc.conversion_rate
 
         # Refund amount from line items
-        refund_total = sum(
-            float(li['refunds'][0]['amount']['value'])
-            for li in order['line_items']
-        )
+        refund_skus = []
+        non_refund_skus = []
+        refund_total = 0.0
+        for li in order['line_items']:
+            # Get the refund for each SKU, and the total
+            if li['refunds']:
+                refund_value = sum(
+                    float(r['amount']['value']) for r in li['refunds']
+                )
+                refund_skus.append(li['sku'])
+            else:
+                refund_value = 0.0
+                non_refund_skus.append(li['sku'])
+            refund_total += refund_value
+
+        # Check if we have multiple SKUs to distribute refunds across
+        # If so, give up for now
+        if len(refund_skus) != 1:
+            raise ErpnextEbaySyncError(
+                "Can't deal with no or multiple partial refunds!"
+            )
+
         # Refund amount (after fee credits) from payments section
         refund_payment_amount = refund['amount']
         refund_payment = float(
@@ -1380,21 +1398,31 @@ def create_return_sales_invoice(order_dict, order, changes, print_func=None):
         else:
             ex_tax_refund = refund_total
 
+        # Get return items in quantity order
+        return_items = []
+        for it in return_doc.items:
+            if it.item_code in non_refund_skus:
+                # No refund for this item
+                it.qty = 0
+                it.rate = 0.0
+            else:
+                # Add item
+                return_items.append(it)
+        return_items.sort(key=operator.attrgetter('qty'), reverse=True)
+
         # Delete shipping items if refund amount is less than total of
-        # other items
+        # other items. Only include items on the refund.
+        return_item_codes = {x.item_code for x in return_items}
         non_shipping_total = sum(
             x.amount for x in sinv_doc.items
             if x.item_code != SHIPPING_ITEM
+                and x.item_code in return_item_codes
         )
         if ex_tax_refund < non_shipping_total:
             # We can remove shipping items
             return_doc.items[:] = [
                 x for x in return_doc.items if x.item_code != SHIPPING_ITEM
             ]
-
-        # Get return items in quantity order
-        return_items = [x for x in return_doc.items]
-        return_items.sort(key=operator.attrgetter('qty'), reverse=True)
 
         # Divide refund across items proportionally
         refund_frac = (
