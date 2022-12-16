@@ -23,7 +23,7 @@ REDO_SLEEPSCALE = 1.5
 REDO_EXCEPTIONS = (ConnectionError, eBayRestError)
 
 # Maximum number of eBay images per listing
-MAX_EBAY_IMAGES = 12
+MAX_EBAY_IMAGES = 24
 
 # Assumed maximum length of eBay attributes and values
 EBAY_ATTR_LEN = 100
