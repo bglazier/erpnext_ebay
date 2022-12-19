@@ -252,6 +252,11 @@ def end_ebay_listings(listings, print=print, **kwargs):
 def client_end_ebay_listings(ebay_ids):
     """End listings from the JS front-end."""
 
+    # Whitelisted function; check permissions
+    if not frappe.has_permission('eBay Manager', 'write'):
+        frappe.throw('Need write permissions on eBay Manager!',
+                     frappe.PermissionError)
+
     if isinstance(ebay_ids, str):
         ebay_ids = json.loads(ebay_ids)
     if not isinstance(ebay_ids, list):
