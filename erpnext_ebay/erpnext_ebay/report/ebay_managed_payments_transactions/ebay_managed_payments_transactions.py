@@ -290,12 +290,15 @@ def execute(filters=None):
                 # Only found cancelled SINVs?
                 continue
             if t_type == 'REFUND':
+                # Only include eBay POS refunds - there can be multiple
+                # refunds
                 return_sinv = frappe.get_all(
                     'Sales Invoice',
                     fields=['name'],
                     filters={
                         'return_against': sinv.name,
-                        'docstatus': ['!=', 2]
+                        'docstatus': ['!=', 2],
+                        'pos_profile': ['like', 'eBay %']
                     }
                 )
                 if not return_sinv:
