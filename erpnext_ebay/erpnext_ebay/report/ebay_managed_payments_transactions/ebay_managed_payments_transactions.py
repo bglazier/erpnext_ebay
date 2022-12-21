@@ -289,10 +289,14 @@ def execute(filters=None):
             if not sinv:
                 # Only found cancelled SINVs?
                 continue
-            if t_type == 'REFUND':
-                # Only include eBay POS refunds - there can be multiple
-                # refunds
-                return_sinv = frappe.get_all(
+            if t_type == 'SALE':
+                # Wrap single sale SINV
+                sinvs = [sinv]
+            else:
+                # t_type == 'REFUND'
+                # Only include eBay POS refunds
+                # There can be multiple refunds
+                return_sinvs = frappe.get_all(
                     'Sales Invoice',
                     fields=['name'],
                     filters={
@@ -305,67 +309,70 @@ def execute(filters=None):
                     # Did not find return
                     continue
                 sale_sinv = sinv.name
-                sinv = return_sinv[0]
-            if sinv.docstatus == 0:
-                # Draft SINV: don't include payment value
-                payment_value = None
-            else:
-                # Find GL entry for payment to eBay Managed Payments account
-                gl_entries = frappe.get_all(
-                    'GL Entry',
-                    fields=['credit', 'debit'],
-                    filters={
-                        'voucher_type': 'Sales Invoice',
-                        'voucher_no': sinv.name,
-                        'account': ebay_bank,
-                        'is_cancelled': False
-                    }
-                )
-                if len(gl_entries) == 1:
-                    payment_value = gl_entries[0].credit - gl_entries[0].debit
-                elif len(gl_entries) > 1:
-                    frappe.throw(
-                        f"""Transaction {t_id}
-                        Sales invoice {sinv.name}
-                        Wrong GL entries?"""
-                    )
+                sinvs = return_sinvs
+            for sinv in sinvs:
+                if sinv.docstatus == 0:
+                    # Draft SINV: don't include payment value
+                    payment_value = None
                 else:
-                    # Search for linked submitted Payment Entries
-                    filters = {
-                        'docstatus': 1, 'reference_doctype': 'Sales Invoice'
-                    }
-                    if t_type == 'REFUND':
-                        filters['reference_name'] = [
-                            'in', [sinv.name, sale_sinv]]
-                        paid_field = 'paid_from'
-                    else:
-                        filters['reference_name'] = sinv.name
-                        paid_field = 'paid_to'
-                    pe_list = frappe.get_all(
-                        'Payment Entry Reference',
-                        fields=['parent', 'allocated_amount'],
-                        filters=filters
+                    # Find GL entry for payment to eBay Managed Payments account
+                    gl_entries = frappe.get_all(
+                        'GL Entry',
+                        fields=['credit', 'debit'],
+                        filters={
+                            'voucher_type': 'Sales Invoice',
+                            'voucher_no': sinv.name,
+                            'account': ebay_bank,
+                            'is_cancelled': False
+                        }
                     )
-                    amount = 0.0
-                    for pe in pe_list:
-                        posting_date = frappe.get_value(
-                            'Payment Entry', pe.parent, 'posting_date')
-                        if posting_date != t['transaction_datetime'].date():
-                            continue
-                        paid_acct = frappe.get_value('Payment Entry', pe.parent,
-                                                     paid_field)
-                        if paid_acct == ebay_bank:
-                            amount -= pe.allocated_amount
-                            linked_documents.add(('Payment Entry', pe.parent))
+                    if len(gl_entries) == 1:
+                        payment_value = (
+                            gl_entries[0].credit - gl_entries[0].debit
+                        )
+                    elif len(gl_entries) > 1:
+                        frappe.throw(
+                            f"""Transaction {t_id}
+                            Sales invoice {sinv.name}
+                            Wrong GL entries?"""
+                        )
+                    else:
+                        # Search for linked submitted Payment Entries
+                        filters = {
+                            'docstatus': 1, 'reference_doctype': 'Sales Invoice'
+                        }
+                        if t_type == 'REFUND':
+                            filters['reference_name'] = [
+                                'in', [sinv.name, sale_sinv]]
+                            paid_field = 'paid_from'
+                        else:
+                            filters['reference_name'] = sinv.name
+                            paid_field = 'paid_to'
+                        pe_list = frappe.get_all(
+                            'Payment Entry Reference',
+                            fields=['parent', 'allocated_amount'],
+                            filters=filters
+                        )
+                        amount = 0.0
+                        for pe in pe_list:
+                            posting_date = frappe.get_value(
+                                'Payment Entry', pe.parent, 'posting_date')
+                            if posting_date != t['transaction_datetime'].date():
+                                continue
+                            paid_acct = frappe.get_value('Payment Entry', pe.parent,
+                                                        paid_field)
+                            if paid_acct == ebay_bank:
+                                amount -= pe.allocated_amount
+                                linked_documents.add(('Payment Entry', pe.parent))
 
-                    payment_value = amount or None
+                        payment_value = amount or None
 
-            # Now add link
-            t['link_doctype'] = 'Sales Invoice'
-            t['link_docname'] = sinv.name
-            t['link_amount'] = cur_flt(payment_value)
-            if payment_value:
-                linked_documents.add(('Sales Invoice', sinv.name))
+                # Now add link
+                t['link_doctype'] = 'Sales Invoice'
+                t['link_docname'] = sinv.name
+                t['link_amount'] = cur_flt(payment_value)
+                if payment_value:
+                    linked_documents.add(('Sales Invoice', sinv.name))
         elif t_type in ('PAYOUT', 'TRANSFER'):
             # Find a Journal Entry with this payout ID
             je = frappe.get_all(
