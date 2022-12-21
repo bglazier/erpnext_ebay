@@ -305,7 +305,7 @@ def execute(filters=None):
                         'pos_profile': ['like', 'eBay %']
                     }
                 )
-                if not return_sinv:
+                if not return_sinvs:
                     # Did not find return
                     continue
                 sale_sinv = sinv.name
