@@ -25,7 +25,7 @@ fixtures = [
             "name": "eBay Administrator"
         }
     }
-    ]
+]
 
 # Add custom scripts
 doctype_js = {
@@ -99,6 +99,10 @@ app_include_js = "/assets/erpnext_ebay/js/erpnext_ebay.js"
 # Document Events
 # ---------------
 # Hook on document methods and events
+
+standard_queries = {
+    "Customer": "erpnext_ebay.custom_methods.customer.get_customer_list",
+}
 
 doc_events = {
     "Sales Invoice": {
