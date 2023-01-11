@@ -16,7 +16,7 @@ function start_consent(frm, sandbox, app_id, ru_name, scopes) {
     if (!ru_name) {
         frappe.throw(`No ${name_string} redirect URL name!`);
     }
-    if (!scopes) {
+    if (!sandbox && !scopes) {
         frappe.throw(`No ${name_string} scopes specified!`);
     }
     const auth_url = (
@@ -42,7 +42,9 @@ function start_consent(frm, sandbox, app_id, ru_name, scopes) {
         params.append('client_id', app_id);
         params.append('response_type', 'code');
         params.append('redirect_uri', ru_name);
-        params.append('scope', scopes);
+        if (scopes) {
+            params.append('scope', scopes);
+        }
         params.append('state', JSON.stringify(state));
         const url = `${auth_url}?${params.toString()}`;
         window.open(url, 'ugs_ebay_auth');
