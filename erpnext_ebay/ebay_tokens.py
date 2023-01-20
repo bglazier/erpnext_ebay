@@ -5,6 +5,9 @@
 This requires a 'live' server, which eBay is set up to direct the 'accept'
 flow to, which then redirects the code to the desired server (which could
 be a development server using 127.0.0.1, for example).
+
+We also acquire and handle eBay public/private key pairs for
+eBay Digital Signatures in this module.
 """
 
 import base64
@@ -183,12 +186,47 @@ def accept_consent_token():
         success=True
     )
 
+
+@frappe.whitelist()
+def create_new_key_pair(sandbox):
+    """Create a new key pair.
+
+    Will throw an error if there is a current valid in-date key pair.
+    """
+
+    # This is a whitelisted function; check permissions.
+    if not frappe.has_permission('eBay API Settings', 'write'):
+        frappe.throw('You do not have permission to access the eBay Manager',
+                     frappe.PermissionError)
+
+    prefix = 'sandbox' if sandbox else 'production'
+    dt = 'eBay API Settings'
+
+    sandbox = int(sandbox)
+
+    api = get_api(sandbox, ignore_key_pair=True)
+
+    if api._key_pair_token._has_valid_key(api):
+        frappe.msgprint('Current key pair is valid')
+        return
+
+    key = api.get_digital_signature_key(create_new=True)
+    api_doc = frappe.get_single('eBay API Settings')
+    expiration_time = ERDateTime.from_string(key['expiration_time'])
+    setattr(api_doc, f'{prefix}_private_key', key['private_key'])
+    setattr(api_doc, f'{prefix}_key_jwe', key['jwe'])
+    setattr(api_doc, f'{prefix}_signing_key_id', key['signing_key_id'])
+    setattr(api_doc, f'{prefix}_key_expiration', expiration_time)
+    api_doc.save()
+
 @redo.retriable(attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
                 sleepscale=REDO_SLEEPSCALE, retry_exceptions=REDO_EXCEPTIONS)
-def _get_api(application, user, header, *args, **kwargs):
+def _get_api(application, user, header, key_pair, digital_signatures,
+             *args, **kwargs):
     """Get and return an API. Retriable function."""
 
-    return API(application=application, user=user, header=header)
+    return API(application=application, user=user, header=header,
+               key_pair=key_pair, digital_signatures=digital_signatures)
 
 
 def get_api(sandbox=False, *args, **kwargs):
@@ -199,10 +237,13 @@ def get_api(sandbox=False, *args, **kwargs):
     prefix = 'sandbox' if sandbox else 'production'
     dt = 'eBay API Settings'
 
+    ignore_key_pair = kwargs.pop('ignore_key_pair', False)
+
     # Application tokens
     application = {
         'app_id': frappe.get_value(dt, dt, f'{prefix}_app_id'),
-        'cert_id': get_decrypted_password(dt, dt, f'{prefix}_cert_id'),
+        'cert_id': get_decrypted_password(dt, dt, f'{prefix}_cert_id',
+                                          raise_exception=False),
         #'dev_id': None,  # Don't need dev_id
         'redirect_uri': frappe.get_value(dt, dt, f'{prefix}_ru_name')
     }
@@ -211,7 +252,8 @@ def get_api(sandbox=False, *args, **kwargs):
         frappe.throw(f'Missing API application parameters for {prefix}!')
 
     # User tokens
-    refresh_token = get_decrypted_password(dt, dt, f'{prefix}_refresh_token')
+    refresh_token = get_decrypted_password(dt, dt, f'{prefix}_refresh_token',
+                                           raise_exception=False)
     refresh_token_expiry = frappe.get_value(dt, dt, f'{prefix}_refresh_expiry')
     if not (refresh_token and refresh_token_expiry):
         frappe.throw(f'Re-authorize eBay {prefix}; token missing')
@@ -238,4 +280,38 @@ def get_api(sandbox=False, *args, **kwargs):
         'marketplace_id': kwargs.get('marketplace_id', HOME_GLOBAL_ID)
     }
 
-    return _get_api(application, user, header, *args, **kwargs)
+    # Digital signature public/private key pair
+    private_key = get_decrypted_password(dt, dt, f'{prefix}_private_key',
+                                         raise_exception=False)
+    signing_key_id = frappe.get_value(dt, dt, f'{prefix}_signing_key_id')
+    jwe = frappe.get_value(dt, dt, f'{prefix}_key_jwe')
+    expiration_time = frappe.get_value(dt, dt, f'{prefix}_key_expiration')
+    if expiration_time:
+        expiration_time = ERDateTime.to_string(
+            frappe.utils.get_datetime(expiration_time)
+        )
+
+    if not (private_key and signing_key_id):
+        if not ignore_key_pair:
+            frappe.throw(f'Need to get new private/public key pair!')
+
+    # Key pair
+    key_pair = {
+        'private_key': private_key or '',
+        'signing_key_id': signing_key_id or '',
+        'jwe': jwe or '',
+        'expiration_time': expiration_time or ''
+    }
+
+    api = _get_api(application, user, header, key_pair,
+                   digital_signatures=True, *args, **kwargs)
+
+    # Load and save the jwe public key and expiration time, if we did not
+    # have these (unless ignoring the key pair)
+    if (not ignore_key_pair) and not (jwe or expiration_time):
+        key = api.get_digital_signature_key(create_new=False)
+        expiration_time = ERDateTime.from_string(key['expiration_time'])
+        frappe.set_value(dt, dt, f'{prefix}_key_expiration', expiration_time)
+        frappe.set_value(dt, dt, f'{prefix}_key_jwe', key['jwe'])
+
+    return api

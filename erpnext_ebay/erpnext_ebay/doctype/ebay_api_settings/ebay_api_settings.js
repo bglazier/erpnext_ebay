@@ -52,6 +52,14 @@ function start_consent(frm, sandbox, app_id, ru_name, scopes) {
 }
 
 frappe.ui.form.on('eBay API Settings', {
+    refresh(frm) {
+        $('[data-fieldname="production_key_jwe"] .control-value')
+            .css({'font-size': 'xx-small', 'word-break': 'break-all',
+                  'font-family': 'monospace'});
+        $('[data-fieldname="sandbox_key_jwe"] .control-value')
+            .css({'font-size': 'xx-small', 'word-break': 'break-all',
+                  'font-family': 'monospace'});
+    },
     authorize_sandbox_button(frm) {
         // Start consent flow for sandbox
         const app_id = frm.doc.sandbox_app_id;
@@ -65,5 +73,29 @@ frappe.ui.form.on('eBay API Settings', {
         const ru_name = frm.doc.production_ru_name;
         const scopes = frm.doc.production_scopes;
         start_consent(frm, 0, app_id, ru_name, scopes);
+    },
+    get_sandbox_key_button(frm) {
+        // Get a public/private key pair from the sandbox
+        if (frm.is_dirty()) {
+            frappe.throw('Save form first!');
+        }
+        frappe.call({
+            method: ebay_token_module + '.create_new_key_pair',
+            args: {sandbox: 1}
+        }).then(() => {
+            frm.reload_doc();
+        });
+    },
+    get_production_key_button(frm) {
+        // Get a public/private key pair from production
+        if (frm.is_dirty()) {
+            frappe.throw('Save form first!');
+        }
+        frappe.call({
+            method: ebay_token_module + '.create_new_key_pair',
+            args: {sandbox: 0}
+        }).then(() => {
+            frm.reload_doc();
+        });
     }
 });

@@ -1,4 +1,5 @@
 {
+ "actions": [],
  "creation": "2021-06-15 17:32:44.528828",
  "doctype": "DocType",
  "editable_grid": 1,
@@ -12,6 +13,11 @@
   "authorize_sandbox_button",
   "sandbox_refresh_token",
   "sandbox_refresh_expiry",
+  "get_sandbox_key_button",
+  "sandbox_private_key",
+  "sandbox_key_jwe",
+  "sandbox_signing_key_id",
+  "sandbox_key_expiration",
   "production_cbreak",
   "production",
   "production_app_id",
@@ -21,6 +27,11 @@
   "authorize_production_button",
   "production_refresh_token",
   "production_refresh_expiry",
+  "get_production_key_button",
+  "production_private_key",
+  "production_key_jwe",
+  "production_signing_key_id",
+  "production_key_expiration",
   "notifications_section",
   "adn_verification_token"
  ],
@@ -132,10 +143,69 @@
    "fieldname": "adn_verification_token",
    "fieldtype": "Password",
    "label": "Verification Token (Marketplace Account Deletion/Closure Notifications)"
+  },
+  {
+   "fieldname": "get_sandbox_key_button",
+   "fieldtype": "Button",
+   "label": "Create Sandbox key pair for eBay Digital Signatures"
+  },
+  {
+   "fieldname": "sandbox_private_key",
+   "fieldtype": "Password",
+   "label": "Digital Signatures private key",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sandbox_signing_key_id",
+   "fieldtype": "Data",
+   "label": "Digital Signatures key signing ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sandbox_key_expiration",
+   "fieldtype": "Datetime",
+   "label": "Digital Signatures key expiry (UTC)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "get_production_key_button",
+   "fieldtype": "Button",
+   "label": "Create Production key pair for eBay Digital Signatures"
+  },
+  {
+   "fieldname": "production_private_key",
+   "fieldtype": "Password",
+   "label": "Digital Signatures private key",
+   "read_only": 1
+  },
+  {
+   "fieldname": "production_signing_key_id",
+   "fieldtype": "Data",
+   "label": "Digital Signatures key signing ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "production_key_expiration",
+   "fieldtype": "Data",
+   "label": "Digital Signatures key expiry (UTC)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sandbox_key_jwe",
+   "fieldtype": "Data",
+   "label": "Sandbox public key (JWE)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "production_key_jwe",
+   "fieldtype": "Data",
+   "label": "Production public key (JWE)",
+   "read_only": 1
   }
  ],
  "issingle": 1,
- "modified": "2021-08-18 16:06:37.603241",
+ "links": [],
+ "modified": "2023-01-19 15:56:41.737688",
  "modified_by": "Administrator",
  "module": "Erpnext Ebay",
  "name": "eBay API Settings",
