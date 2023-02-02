@@ -299,7 +299,8 @@ def sync_orders(num_days=None, sandbox=False, debug_print=MSGPRINT_DEBUG,
                     debug_print(f'ORDER FAILED {order.get("order_id")}')
                     raise
                 else:
-                    msgprint_log.append(f'ORDER FAILED:\n{err_msg}')
+                    msgprint_log.append(
+                        f'ORDER FAILED {order.get("order_id")}:\n{err_msg}')
 
     finally:
         # Save the log, regardless of how far we got
@@ -1476,6 +1477,9 @@ def create_return_sales_invoice(order_dict, order, changes, print_func=None):
         ]
         if sum(round(x.amount, 2) for x in return_doc.items) != -ex_tax_refund:
             raise ErpnextEbaySyncError('Problem calculating refund rates!')
+
+    for item in return_doc.items:
+        item.margin_type = None
 
     return_doc.run_method('erpnext_ebay_before_insert')
     old_conversion_rate = sinv_doc.conversion_rate
