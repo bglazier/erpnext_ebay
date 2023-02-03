@@ -30,7 +30,7 @@ assume_shipping_name_is_ebay_name = True
 
 # Output function (or None) for debugging messages (in addition
 # to erpnext_ebay logger)
-MSGPRINT_DEBUG = None
+MSGPRINT_DEBUG = lambda *args: None
 MSGPRINT_MAIN = frappe.msgprint
 
 # Should we log changes?
@@ -287,6 +287,7 @@ def sync_orders(num_days=None, sandbox=False, debug_print=MSGPRINT_DEBUG,
                 # Continue to next order
                 frappe.db.rollback()
                 msgprint_log.append(str(e))
+                debug_print(f'ORDER FAILED {order.get("order_id")}\n{str(e)}')
                 ebay_logger().error(
                     f'Sync order {order.get("order_id")} failed', exc_info=e)
             except Exception as e:
@@ -1326,28 +1327,35 @@ def create_return_sales_invoice(order_dict, order, changes, print_func=None):
         # Adjust quantities and rates on return
         exc_rate = return_doc.conversion_rate
 
+        # Identify shipping item on return_doc
+        items_by_item_code = {x.item_code: x for x in return_doc.items}
+        ship_item = items_by_item_code.get(SHIPPING_ITEM, None)
+
         # Refund amount from line items
-        refund_skus = []
+        refund_skus = {}
+        if ship_item:
+            refund_skus[SHIPPING_ITEM] = 0.0
         non_refund_skus = []
         refund_total = 0.0
         for li in order['line_items']:
             # Get the refund for each SKU, and the total
             if li['refunds']:
-                refund_value = sum(
-                    float(r['amount']['value']) for r in li['refunds']
-                )
-                refund_skus.append(li['sku'])
+                # Consider only the _first_ refund for now
+                refund_value = float(li['refunds'][0]['amount']['value'])
+                if ship_item:
+                    li_ship = float(
+                        li['delivery_cost']['shipping_cost']['value']
+                    )
+                    li_total = float(li['total']['value'])
+                    li_ship_refund = refund_value * li_ship / li_total
+                    refund_skus[SHIPPING_ITEM] += li_ship_refund
+                else:
+                    li_ship_refund = 0.0
+                refund_skus[li['sku']] = refund_value - li_ship_refund
             else:
                 refund_value = 0.0
                 non_refund_skus.append(li['sku'])
             refund_total += refund_value
-
-        # Check if we have multiple SKUs to distribute refunds across
-        # If so, give up for now
-        if len(refund_skus) != 1:
-            raise ErpnextEbaySyncError(
-                "Can't deal with no or multiple partial refunds!"
-            )
 
         # Refund amount (after fee credits) from payments section
         refund_payment_amount = refund['amount']
@@ -1396,6 +1404,10 @@ def create_return_sales_invoice(order_dict, order, changes, print_func=None):
             ret_tax.charge_type = 'Actual'
             ret_tax.total = -refund_total
             ret_tax.tax_amount = -tax_amount
+            # Adjust refund_skus
+            tax_frac = ex_tax_refund / refund_total
+            for sku in refund_skus:
+                refund_skus[sku] *= tax_frac
         else:
             ex_tax_refund = refund_total
 
@@ -1411,29 +1423,14 @@ def create_return_sales_invoice(order_dict, order, changes, print_func=None):
                 return_items.append(it)
         return_items.sort(key=operator.attrgetter('qty'), reverse=True)
 
-        # Delete shipping items if refund amount is less than total of
-        # other items. Only include items on the refund.
-        return_item_codes = {x.item_code for x in return_items}
-        non_shipping_total = sum(
-            x.amount for x in sinv_doc.items
-            if x.item_code != SHIPPING_ITEM
-                and x.item_code in return_item_codes
-        )
-        if ex_tax_refund < non_shipping_total:
-            # We can remove shipping items
-            return_doc.items[:] = [
-                x for x in return_doc.items if x.item_code != SHIPPING_ITEM
-            ]
-
-        # Divide refund across items proportionally
-        refund_frac = (
-            ex_tax_refund / sum(-x.amount for x in return_items)
-        )
+        # Allocate refunds to items
         original_rates = [x.rate for x in return_items]
         for i, item in enumerate(return_items):
             # Note that amount is _negative_, so the 'max' ensures that
             # the refund is not more than the original price
-            item.amount = max(item.amount, round(item.amount * refund_frac, 2))
+            item.amount = max(
+                item.amount, round(-refund_skus[item.item_code], 2)
+            )
             item.rate = item.amount / item.qty
         refund_remainder = (
             ex_tax_refund
