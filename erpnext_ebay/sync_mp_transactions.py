@@ -604,6 +604,10 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account,
                 and t['fee_type'] in ('AD_FEE', 'FINAL_VALUE_SHIPPING_FEE')):
             # Some fees come, unhelpfully, with every item ID
             item_code = None
+        elif order_id and t['fee_type'] == 'FINAL_VALUE_FEE':
+            # Collection In Person order
+            # There may not be a SINV yet as the order may not be paid
+            item_code = None
         elif (order_id and t_type in ('DISPUTE', 'CREDIT')):
             # Disputes and dispute credits come with no item ID
             item_code = None
