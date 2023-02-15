@@ -163,9 +163,11 @@ def ensure_updated_cache(update_categories=False, update_features=False):
 
         # Create SQL cache
         create_ebay_categories_cache(categories_data)
-        frappe.db.set_value('eBay Manager Settings', None,
-                            'ebay_categories_cache_maximum_level',
-                            max_level)
+        frappe.db.set_single_value(
+            'eBay Manager Settings',
+            'ebay_categories_cache_maximum_level',
+            max_level
+        )
 
     if not USE_FEATURES:
         # Don't get features data
