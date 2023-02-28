@@ -5,9 +5,6 @@
   "doctype": "Online Selling Platform",
   "modified": "2019-03-28 16:16:20.025719",
   "name": "eBay",
-  "parent": null,
-  "parentfield": null,
-  "parenttype": null,
   "selling_platform": "eBay"
  }
 ]
