@@ -115,21 +115,24 @@ frappe.ui.form.on("Sales Invoice", {
         frm.cscript.calculate_item_values = monkey_patch_calculate_item_values;
     },
 
-    before_save(frm) {
-        if (frm.doc.disable_rounded_total) {
-            frm.set_value('disable_rounded_total', false);
-        }
-        frm.doc.rounded_total = 0.0;
-        frm.doc.base_rounded_total = 0.0;
-    },
-
-    before_submit(frm) {
-        if (frm.doc.disable_rounded_total) {
-            frm.set_value('disable_rounded_total', false);
-        }
-        frm.doc.rounded_total = 0.0;
-        frm.doc.base_rounded_total = 0.0;
-    }
+    // Can't remember why I did this...
+    // Disabled because ERPNext's rounding is awful and manages to round
+    // things to totally different numbers
+    // before_save(frm) {
+    //     if (frm.doc.disable_rounded_total) {
+    //         frm.set_value('disable_rounded_total', false);
+    //     }
+    //     frm.doc.rounded_total = 0.0;
+    //     frm.doc.base_rounded_total = 0.0;
+    // },
+    // 
+    // before_submit(frm) {
+    //     if (frm.doc.disable_rounded_total) {
+    //         frm.set_value('disable_rounded_total', false);
+    //     }
+    //     frm.doc.rounded_total = 0.0;
+    //     frm.doc.base_rounded_total = 0.0;
+    // }
 });
 
 }  // End whole-file block
