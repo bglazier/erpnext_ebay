@@ -117,6 +117,7 @@ EXTRA_COUNTRIES = {
     'rumänien': 'Romania',
     'russia': 'Russian Federation',
     'south korea': 'Korea, Republic of',
+    'türkiye': 'Turkey',
     'venezuela': 'Venezuela, Bolivarian Republic of',
     'swaziland': 'Eswatini',
     'macedonia': 'North Macedonia'
