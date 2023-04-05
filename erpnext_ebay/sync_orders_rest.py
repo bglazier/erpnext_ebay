@@ -68,28 +68,30 @@ ISO_EXTRA_CODES = {
 
 # Disagreements between iso3166 and Frappe's country list
 # Key = ISO code, value = Frappe docname
-ISO_COUNTRIES_TO_DB = {'Cabo Verde': 'Cape Verde',
-                       'Congo, Democratic Republic of the':
-                           'Congo, The Democratic Republic of the',
-                       'Czechia': 'Czech Republic',
-                       "Côte d'Ivoire": 'Ivory Coast',
-                       #'Eswatini': 'Swaziland',  # old country name
-                       'Holy See': 'Holy See (Vatican City State)',
-                       'Iran, Islamic Republic of': 'Iran',
-                       "Korea, Democratic People's Republic of":
-                           'Korea, Democratic Peoples Republic of',
-                       "Kosovo": None,  # No entry
-                       "Lao People's Democratic Republic":
-                           'Lao Peoples Democratic Republic',
-                       #'North Macedonia': 'Macedonia',  # old country name
-                       'Palestine, State of': 'Palestinian Territory, Occupied',
-                       'Syrian Arab Republic': 'Syria',
-                       'Taiwan, Province of China': 'Taiwan',
-                       'Tanzania, United Republic of': 'Tanzania',
-                       'United Kingdom of Great Britain and Northern Ireland':
-                           'United Kingdom',
-                       'United States of America': 'United States',
-                       'Viet Nam': 'Vietnam'}
+ISO_COUNTRIES_TO_DB = {
+    'Cabo Verde': 'Cape Verde',
+    'Congo, Democratic Republic of the':
+        'Congo, The Democratic Republic of the',
+    'Czechia': 'Czech Republic',
+    "Côte d'Ivoire": 'Ivory Coast',
+    #'Eswatini': 'Swaziland',  # old country name
+    'Holy See': 'Holy See (Vatican City State)',
+    'Iran, Islamic Republic of': 'Iran',
+    "Korea, Democratic People's Republic of":
+        'Korea, Democratic Peoples Republic of',
+    "Kosovo": None,  # No entry
+    "Lao People's Democratic Republic":
+        'Lao Peoples Democratic Republic',
+    #'North Macedonia': 'Macedonia',  # old country name
+    'Palestine, State of': 'Palestinian Territory, Occupied',
+    'Syrian Arab Republic': 'Syria',
+    'Taiwan, Province of China': 'Taiwan',
+    'Tanzania, United Republic of': 'Tanzania',
+    'Türkiye': 'Turkey',
+    'United Kingdom of Great Britain and Northern Ireland':
+        'United Kingdom',
+    'United States of America': 'United States',
+    'Viet Nam': 'Vietnam'}
 ISO_COUNTRIES_TO_DB_LOWERCASE = {key.lower(): value for key, value
                                  in ISO_COUNTRIES_TO_DB.items()}
 APOLITICAL_COUNTRIES_NAMES = {x.apolitical_name.lower(): x.name
@@ -117,7 +119,6 @@ EXTRA_COUNTRIES = {
     'rumänien': 'Romania',
     'russia': 'Russian Federation',
     'south korea': 'Korea, Republic of',
-    'türkiye': 'Turkey',
     'venezuela': 'Venezuela, Bolivarian Republic of',
     'swaziland': 'Eswatini',
     'macedonia': 'North Macedonia'
