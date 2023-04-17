@@ -346,20 +346,24 @@ def extract_customer(order):
     ebay_user_id = buyer['username']
     order_id = order['order_id']
 
-    fulfillment = order['fulfillment_start_instructions'][0]
-    ship_to = fulfillment['shipping_step']['ship_to']
-    shipping_address = ship_to['contact_address']
+    fulfillments = order['fulfillment_start_instructions']
+    if fulfillments:
+        ship_to = fulfillments[0]['shipping_step']['ship_to']
+    else:
+        ship_to = {}
+    shipping_address = ship_to.get('contact_address') or {}
 
-    shipping_name = ship_to['full_name']
-    address_line1 = shipping_address['address_line1']
-    address_line2 = shipping_address['address_line2']
-    city = shipping_address['city']
-    state = shipping_address['state_or_province']
-    postcode = shipping_address['postal_code']
-    country_code = shipping_address['country_code']
+    shipping_name = ship_to.get('full_name')
+    address_line1 = shipping_address.get('address_line1')
+    address_line2 = shipping_address.get('address_line2')
+    city = shipping_address.get('city')
+    state = shipping_address.get('state_or_province')
+    postcode = shipping_address.get('postal_code')
+    country_code = shipping_address.get('country_code')
 
-    email = ship_to['email']
-    phone_number = ship_to['primary_phone']['phone_number']
+    email = ship_to.get('email')
+    primary_phone = ship_to.get('primary_phone', {})
+    phone_number = primary_phone.get('phone_number')
 
     tax_address = buyer.get('tax_address')
     if tax_address:
@@ -371,8 +375,16 @@ def extract_customer(order):
             f'State or province: {tax_address.get("start_or_province", "None")}',
             f'Country: {tax_country}'
         ])
+        # If we don't have an address but do have a tax address,
+        # set the country
+        if not country_code:
+            country_code = tax_address.get('country_code')
     else:
         customer_details = None
+
+    # Country is mandatory for Customre, so fall back to UK
+    if not country_code:
+        country_code = 'GB'
 
     tax_identifier = buyer.get('tax_identifier')
     if tax_identifier:
@@ -410,12 +422,15 @@ def extract_customer(order):
 
     # Tidy up full name, if entirely lower/upper case and not
     # a single word
-    if ((shipping_name.islower() or shipping_name.isupper()) and
+    if not shipping_name:
+        # Skip if there is no shipping name
+        pass
+    elif ((shipping_name.islower() or shipping_name.isupper()) and
             ' ' in shipping_name):
         shipping_name = shipping_name.title()
 
     if assume_shipping_name_is_ebay_name:
-        customer_name = shipping_name
+        customer_name = shipping_name or ebay_user_id
     else:
         customer_name = ebay_user_id
 
