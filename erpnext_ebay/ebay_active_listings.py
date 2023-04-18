@@ -3,6 +3,7 @@ run from: premium report, garagsale_xml
 """
 
 import datetime
+import json
 
 import frappe
 
@@ -47,6 +48,15 @@ def generate_active_ebay_data(print=None, multiple_error_sites=None,
         frappe.throw('You do not have permission to access the eBay Manager',
                      frappe.PermissionError)
 
+    # Convert from JSON (for calls from front end)
+    if isinstance(multiple_error_sites, str):
+        multiple_error_sites = json.loads(multiple_error_sites)
+    if isinstance(extra_output_selector, str):
+        extra_output_selector = json.loads(extra_output_selector)
+    if isinstance(multiple_skip_only, str):
+        multiple_skip_only = json.loads(multiple_skip_only)
+
+    # Extra fields
     if extra_output_selector:
         output_selector = OUTPUT_SELECTOR + extra_output_selector
     else:
