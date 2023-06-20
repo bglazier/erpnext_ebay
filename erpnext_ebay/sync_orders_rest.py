@@ -581,28 +581,27 @@ def create_customer(customer_dict, address_dict, changes=None, print_func=None):
             'link_doctype': 'Customer',
             'link_name': db_cust_name}]
         address_doc = frappe.get_doc(address_dict)
-        try:
-            address_doc.insert()
-
-        except frappe.DuplicateEntryError as e:
-            # An address based on address_title autonaming already exists
-            # Get new doc, add a digit to the name and retry
-            frappe.db.rollback()
-            for suffix_id in range(1, maximum_address_duplicates+1):
-                address_doc = frappe.get_doc(address_dict)
-                address_doc.flags.name_set = True
-                address_doc.name = (frappe.utils.cstr(address_doc.address_title).strip()
-                                    + "-"
-                                    + frappe.utils.cstr(address_doc.address_type).strip()
-                                    + "-" + str(suffix_id))
-                try:
-                    address_doc.insert()
+        # Frappe automatically generates a name from the address title and
+        # address type, and adds a suffix if this already exists. Unfortunately,
+        # this breaks if there are special characters, such as apostrophes,
+        # in the address title, so let's just do it ourselves...
+        address_prefix = (
+            frappe.utils.cstr(address_doc.address_title).strip()
+            + "-"
+            + frappe.utils.cstr(address_doc.address_type).strip()
+        )
+        address_name = address_prefix
+        if frappe.db.exists('Address', address_name):
+            for suffix in range(1, maximum_address_duplicates+1):
+                address_name = f'{address_prefix}-{suffix}'
+                if not frappe.db.exists('Address', address_name):
                     break
-                except frappe.DuplicateEntryError:
-                    frappe.db.rollback()
-                    continue
             else:
                 raise ValueError('Too many duplicate entries of this address!')
+        address_doc.name = address_name
+        address_doc.flags.name_set = True
+        address_doc.insert()
+
         db_address_name = address_doc.name
         # Update the customer territory, if required
         territory = determine_territory(address_doc.country)
