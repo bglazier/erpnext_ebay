@@ -362,7 +362,7 @@ def extract_customer(order):
     country_code = shipping_address.get('country_code')
 
     email = ship_to.get('email')
-    primary_phone = ship_to.get('primary_phone', {})
+    primary_phone = ship_to.get('primary_phone') or {}
     phone_number = primary_phone.get('phone_number')
 
     tax_address = buyer.get('tax_address')
