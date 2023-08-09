@@ -168,9 +168,10 @@ def debug_msgprint(message, msgprint=None):
 
 @frappe.whitelist()
 def sync_orders(num_days=None, sandbox=False, debug_print=MSGPRINT_DEBUG,
-                main_print=MSGPRINT_MAIN):
+                main_print=MSGPRINT_MAIN, only_order=None):
     """
     Pulls the latest orders from eBay. Creates Sales Invoices for sold items.
+    If only_order is set to an eBay order ID, all other orders are skipped.
 
     We loop over each order in turn. First we extract customer
     details from eBay. If the customer does not exist, we then create
@@ -240,6 +241,8 @@ def sync_orders(num_days=None, sandbox=False, debug_print=MSGPRINT_DEBUG,
 
     try:
         for order in orders:
+            if only_order and (order['order_id'] != only_order):
+                continue
             try:
                 # Identify the eBay site on which the item was listed.
                 listing_site = 'EBAY_UNKNOWN'
