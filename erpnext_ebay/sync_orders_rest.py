@@ -1520,12 +1520,12 @@ def create_return_sales_invoice(order_dict, order, changes, print_func=None):
         # Allocate refunds to items
         original_rates = [x.rate for x in return_items]
         for i, item in enumerate(return_items):
-            # Note that amount is _negative_, so the 'max' ensures that
-            # the refund is not more than the original price
-            item.amount = max(
-                item.amount, round(-refund_skus[item.item_code], 2)
+            # Ensures the refund is not more than the original price
+            item.rate = min(
+                round(item.amount / item.qty, 2),
+                round(-refund_skus[item.item_code] / item.qty, 2)
             )
-            item.rate = item.amount / item.qty
+            item.amount = item.rate * item.qty
         refund_remainder = (
             ex_tax_refund
             - sum(-x.amount for x in return_items)
@@ -1538,19 +1538,20 @@ def create_return_sales_invoice(order_dict, order, changes, print_func=None):
                 break
             if refund_remainder > 0:
                 # Must add more refund to item
-                possible_refund = (original_rates[i] - item.rate) * -item.qty
+                possible_refund = (
+                    round(original_rates[i] - item.rate, 2) * -item.qty
+                )
                 amount_change = min(refund_remainder, possible_refund)
             else:
                 # Must remove refund (all quantities negative)
                 # max() returns value closer to zero here
                 amount_change = max(refund_remainder, item.amount)
-            # Note that amount is _negative_, so the 'max' ensures that
-            # the refund is not more than the original price
-            item.amount = max(
-                original_rates[i] * item.qty,
-                round(item.amount + amount_change, 2)
+            # Ensures the refund is not more than the original price
+            item.rate = min(
+                original_rates[i],
+                round((item.amount - amount_change) / item.qty, 2)
             )
-            item.rate = item.amount / item.qty
+            item.amount = item.rate * item.qty
 
             refund_remainder = (
                 ex_tax_refund
