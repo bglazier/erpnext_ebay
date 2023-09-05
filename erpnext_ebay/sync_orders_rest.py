@@ -21,7 +21,7 @@ from erpnext.controllers.sales_and_purchase_return import make_return_doc
 
 from .ebay_constants import EBAY_MARKETPLACE_IDS, EU_COUNTRIES
 from .ebay_get_requests import ebay_logger
-from .ebay_requests_rest import get_orders, get_transactions
+from .ebay_requests_rest import get_order, get_orders, get_transactions
 from erpnext_ebay.utils.general_utils import divide_rounded
 
 # Option to use eBay shipping address name as customer name.
@@ -276,7 +276,9 @@ def sync_orders(num_days=None, sandbox=False, debug_print=MSGPRINT_DEBUG,
                             order['line_items'], str(e)))
 
                 # Create/update Customer
-                cust_details, address_details = extract_customer(order)
+                # TODO FIXME only passing sandbox to work around missing
+                # ship_to
+                cust_details, address_details = extract_customer(order, sandbox)
                 db_cust_name, db_address_name = create_customer(
                     cust_details, address_details, changes, debug_print)
 
@@ -334,12 +336,12 @@ def sync_orders(num_days=None, sandbox=False, debug_print=MSGPRINT_DEBUG,
     return
 
 
-def extract_customer(order):
+def extract_customer(order, sandbox):
     """Process an order, and extract limited customer information.
 
     order - a single order entry from the eBay Sell Fulfillment API.
 
-    Returns a tuple of two dictionarys.
+    Returns a tuple of two dictionaries.
     The first dictionary is ready to create a Customer Doctype entry.
     The second dictionary is ready to create an Address Doctype entry.
     The second dictionary could be replaced by None if there is no address.
@@ -351,7 +353,18 @@ def extract_customer(order):
 
     fulfillments = order['fulfillment_start_instructions']
     if fulfillments:
-        ship_to = fulfillments[0]['shipping_step']['ship_to'] or {}
+        ship_to = fulfillments[0]['shipping_step']['ship_to']
+        if not ship_to:
+            # TODO FIXME This is a bodge because eBay erratically decides
+            # not to supply shipping information because weirdness
+            single_order = get_order(order_id=order['order_id'],
+                                     sandbox=sandbox)
+            ship_to = (
+                single_order
+                ['fulfillment_start_instructions'][0]['shipping_step']
+                .get('ship_to') or {}
+            )
+            fulfillments[0]['shipping_step']['ship_to'] = ship_to
     else:
         ship_to = {}
     shipping_address = ship_to.get('contact_address') or {}
