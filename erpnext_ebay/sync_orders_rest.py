@@ -351,7 +351,7 @@ def extract_customer(order):
 
     fulfillments = order['fulfillment_start_instructions']
     if fulfillments:
-        ship_to = fulfillments[0]['shipping_step']['ship_to']
+        ship_to = fulfillments[0]['shipping_step']['ship_to'] or {}
     else:
         ship_to = {}
     shipping_address = ship_to.get('contact_address') or {}
