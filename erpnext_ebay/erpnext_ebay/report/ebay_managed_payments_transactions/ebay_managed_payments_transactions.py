@@ -302,7 +302,7 @@ def execute(filters=None):
                 # t_type == 'REFUND'
                 # Only include eBay POS refunds
                 # There can be multiple refunds; consider only the first
-                return_sinvs = frappe.get_all(
+                sinvs = frappe.get_all(
                     'Sales Invoice',
                     fields=['name'],
                     filters={
@@ -313,11 +313,11 @@ def execute(filters=None):
                     order_by='creation DESC'
                 )
                 # Don't link to an already-linked return SINV
-                return_sinvs = [
-                    x for x in return_sinvs
+                sinvs = [
+                    x for x in sinvs
                     if ('Sales Invoice', x.name) not in linked_documents
                 ]
-                if not return_sinvs:
+                if not sinvs:
                     # Did not find return
                     continue
                 sale_sinv = sinv.name
