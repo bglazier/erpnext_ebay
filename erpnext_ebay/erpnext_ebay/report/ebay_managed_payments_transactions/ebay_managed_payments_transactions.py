@@ -310,6 +310,11 @@ def execute(filters=None):
                         'pos_profile': ['like', 'eBay %']
                     }
                 )
+                # Don't link to an already-linked return SINV
+                return_sinvs = [
+                    x for x in return_sinvs
+                    if ('Sales Invoice', x.name) not in linked_documents
+                ]
                 if not return_sinvs:
                     # Did not find return
                     continue
