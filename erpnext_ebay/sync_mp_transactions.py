@@ -476,7 +476,10 @@ def add_pinv_items(transaction, pinv_doc, default_currency, expense_account,
     if t_type in ('SALE', 'REFUND'):
         # Transaction for sale order or refund
         if not (t['total_fee_amount'] or t['order_line_items']):
-            # Entry with no fees; skip
+            # Entry with no fees; skip unless a reversed charge
+            if t_type == 'REFUND' and t_id.endswith('-CCM_RECOUP'):
+                # This credit card reversal must be passed to sync_mp_payouts.
+                transfer_transactions.append(t)
             return
         # Only add fees (sale/refund amount added by SINV)
         buyer = t['buyer']['username']
