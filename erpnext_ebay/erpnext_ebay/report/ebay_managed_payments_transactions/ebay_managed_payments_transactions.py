@@ -261,7 +261,12 @@ def execute(filters=None):
     for t in data:
         t_type = t['transaction_type']
         t_id = t['transaction_id']
-        if t_type in ('SALE', 'REFUND'):
+        # Check for special-cased credit card charge reversal
+        cc_refund = (
+            t_type == 'REFUND'
+            and t_id.endswith('-CCM_RECOUP')
+        )
+        if (not cc_refund) and t_type in ('SALE', 'REFUND'):
             # Find a Sales Invoice with this order ID
             order_id = t['transaction']['order_id']
             sinv = frappe.get_all(
@@ -359,8 +364,8 @@ def execute(filters=None):
                                 'Payment Entry', pe.parent, 'posting_date')
                             if posting_date != t['transaction_datetime'].date():
                                 continue
-                            paid_acct = frappe.get_value('Payment Entry', pe.parent,
-                                                        paid_field)
+                            paid_acct = frappe.get_value(
+                                'Payment Entry', pe.parent, paid_field)
                             if paid_acct == ebay_bank:
                                 amount -= pe.allocated_amount
                                 linked_documents.add(('Payment Entry', pe.parent))
@@ -373,7 +378,7 @@ def execute(filters=None):
                 t['link_amount'] = cur_flt(payment_value)
                 if payment_value:
                     linked_documents.add(('Sales Invoice', sinv.name))
-        elif t_type in ('PAYOUT', 'TRANSFER'):
+        elif cc_refund or t_type in ('PAYOUT', 'TRANSFER'):
             # Find a Journal Entry with this payout ID
             je = frappe.get_all(
                 'Journal Entry',
@@ -404,7 +409,7 @@ def execute(filters=None):
             # Note this entry in the JE is for money moving _from_ eBay
             # (another entry will be the money moving _to_ a bank account)
             payout_value = jea[0].credit - jea[0].debit
-            # True payout should be positive, but transfer is 
+            # True payout should be positive, but transfer is
             # typically negative
             if t_type == 'PAYOUT' and payout_value < 0:
                 frappe.throw('Negative payout amount!')
