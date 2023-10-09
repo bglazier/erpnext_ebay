@@ -1402,9 +1402,21 @@ def create_return_sales_invoice(order_dict, order, changes, print_func=None):
     if not order['payment_summary']['refunds']:
         frappe.throw(f'Order {ebay_order_id} missing refund info?',
                      exc=ErpnextEbaySyncError)
-    elif len(order['payment_summary']['refunds']) > 1:
-        frappe.msgprint(f'Warning: Order {ebay_order_id} has multiple refunds')
-    refund = order['payment_summary']['refunds'][0]
+    # Search for new refund states (undocumented API feature)
+    refunds = order['payment_summary']['refunds']
+    for refund in refunds:
+        if refund.get('refund_status') not in ('REFUNDED', 'FAILED'):
+            frappe.throw(
+                f'Order {ebay_order_id} has unknown refund '
+                + f'status {refund.get("refund_status")}',
+                exc=ErpnextEbaySyncError
+            )
+    # Filter out refunds with refund_state 'FAILED'
+    refunds = [x for x in refunds if x.get('refund_status') != 'FAILED']
+    if len(refunds) > 1:
+        frappe.throw(f'Order {ebay_order_id} has multiple refunds!',
+                     exc=ErpnextEbaySyncError)
+    refund = refunds[0]
 
     default_currency = get_default_currency()
     ebay_payment_account = f'eBay Managed {default_currency}'
