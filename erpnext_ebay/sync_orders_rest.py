@@ -653,6 +653,7 @@ def extract_order_info(order, db_cust_name, db_address_name, changes=None):
     order_dict = {"doctype": "eBay order",
                   "name": order['order_id'],
                   "ebay_order_id": order['order_id'],
+                  "legacy_order_id": order.get('legacy_order_id'),
                   "ebay_user_id": ebay_user_id,
                   "customer": db_cust_name,
                   "customer_name": customer_name,
@@ -749,10 +750,17 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
     db_cust_name = order_dict['customer']
     db_address_name = order_dict['address']
 
-    # Get from existing linked sales order
+    # Get from existing linked sales invoice
     sinv_fields = db_get_ebay_doc(
         "Sales Invoice", ebay_order_id, fields=["name"],
         log=changes, none_ok=True)
+
+    if sinv_fields is None:
+        # Check for legacy order ID linked sales invoice
+        if legacy_order_id := order_dict.get('legacy_order_id'):
+            sinv_fields = db_get_ebay_doc(
+                'Sales Invoice', legacy_order_id, fields=['name'],
+                log=changes, none_ok=True)
 
     if sinv_fields is not None:
         # Linked sales invoice exists
