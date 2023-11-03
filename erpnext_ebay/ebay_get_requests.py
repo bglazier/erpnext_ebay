@@ -721,7 +721,7 @@ def get_features(site_id=HOME_SITE_ID):
         category_level = int(category['CategoryLevel'])
         sub_string = 'sub' * (category_level-1)
         ebay_logger().debug(
-            f'Loading for {substring}category {category_id}...'
+            f'Loading for {sub_string}category {category_id}...'
         )
         api_options = {
             'CategoryID': category_id,
