@@ -1574,6 +1574,7 @@ def create_return_sales_invoice(order_dict, order, changes, print_func=None):
                     it.rate = 0.0
                 else:
                     # Add item
+                    it.qty = it.qty or -1  # Must have a qty for the refund
                     return_items.append(it)
             return_items.sort(key=operator.attrgetter('qty'), reverse=True)
 
