@@ -296,6 +296,9 @@ def sync_mp_transactions(num_days=None, not_today=False,
         amount_str = frappe.utils.fmt_money(
             t_amount, currency=payout_currency)
         credit = t['booking_entry'] == 'CREDIT'
+        # Reverse meaning of credit/debit for refunds
+        if t['transaction_type'] == 'REFUND':
+            credit = not credit
         details = textwrap.dedent(
             f"""\
             eBay Transfer transaction {t_id}

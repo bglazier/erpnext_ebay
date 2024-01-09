@@ -400,6 +400,11 @@ def execute(filters=None):
             if sinv.payment_value:
                 linked_documents.add(('Sales Invoice', sinv.name))
         elif cc_refund or t_type in ('PAYOUT', 'TRANSFER'):
+            # Reverse sign of amount if cc_refund
+            if cc_refund:
+                t['amount'] *= -1
+                if t['converted_from']:
+                    t['converted_from'] *= -1
             # Find a Journal Entry with this payout ID
             je = frappe.get_all(
                 'Journal Entry',
