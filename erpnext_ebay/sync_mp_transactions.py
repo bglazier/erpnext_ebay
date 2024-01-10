@@ -14,7 +14,7 @@ from erpnext_ebay.ebay_get_requests import (
     ebay_logger, get_item as get_item_trading, ConnectionError
 )
 from erpnext_ebay.ebay_requests_rest import (
-    get_transactions, get_order, get_payouts
+    get_transactions, get_order, get_payouts, get_transfer, get_payment_dispute
 )
 from erpnext_ebay.sync_orders_rest import ErpnextEbaySyncError, VAT_RATES
 from erpnext_ebay.utils.general_utils import divide_rounded
@@ -81,6 +81,33 @@ def archive_transactions(start_date, end_date):
         ).date()
         # Find item code(s) of transaction, if any
         transaction['item_codes'] = find_item_codes(transaction)
+        # If a TRANSFER, run get_transfer
+        if transaction['transaction_type'] == 'TRANSFER':
+            for i in range(2):
+                # Try this three times
+                try:
+                    details = get_transfer(transactions['transaction_id'])
+                except Exception as e:
+                    pass
+                else:
+                    transaction['get_transfer'] = details
+                    break
+        # If referencing a payment dispute, run get_payment_dispute
+        disputes = []
+        for ref in transaction.get('references') or []:
+            if ref['reference_type'] == 'PAYMENTS_DISPUTE_ID':
+                dispute_id = ref['reference_id']
+                for i in range(2):
+                    # Try this three times
+                    try:
+                        details = get_payment_dispute(dispute_id)
+                    except Exception as e:
+                        pass
+                    else:
+                        disputes.append(details)
+                        break
+        transaction['get_payment_disputes'] = disputes
+        # Store transaction by date
         transactions_by_date[transaction_date].append(transaction)
 
     # Get payouts

@@ -156,6 +156,13 @@ def get_orders(num_days=None, order_ids=None, sandbox=False, **kwargs):
                           **kwargs)
 
 
+def get_payment_dispute(payment_dispute_id, sandbox=False):
+    """Retrieve a single payment dispute."""
+    return single_api_call('sell_fulfillment_get_payment_dispute',
+                           payment_dispute_id=payment_dispute_id,
+                           sandbox=sandbox)
+
+
 def get_transactions(num_days=None, buyer_username=None, payout_id=None,
                      transaction_id=None, transaction_type=None,
                      order_id=None, start_date=None, end_date=None,
@@ -264,6 +271,12 @@ def get_payouts(num_days=None, payout_status=None,
     # Make API call
     return paged_api_call(
         'sell_finances_get_payouts', 'payouts', sandbox=sandbox, **kwargs)
+
+
+def get_transfer(transfer_id, sandbox=False):
+    """Retrieve detailed information about a single TRANSFER."""
+    return single_api_call('sell_finances_get_transfer',
+                           transfer_id=transfer_id, sandbox=sandbox)
 
 
 def get_item(item_id, *args, sandbox=False, **kwargs):
