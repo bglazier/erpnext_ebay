@@ -1,5 +1,15 @@
 import operator
 
+import frappe
+from erpnext import get_default_company
+
+
+def get_company_acronym():
+    company = get_default_company()
+    if not company:
+        frappe.throw('No company!')
+    return frappe.get_value('Company', company, 'abbr')
+
 
 def chunker(seq, size):
     """Collect data into fixed-length chunks. From answer by nosklo in

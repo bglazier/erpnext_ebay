@@ -16,15 +16,19 @@ from erpnext_ebay.ebay_get_requests import (
 from erpnext_ebay.ebay_requests_rest import (
     get_transactions, get_order, get_payouts, get_transfer, get_payment_dispute
 )
-from erpnext_ebay.sync_orders_rest import ErpnextEbaySyncError, VAT_RATES
-from erpnext_ebay.utils.general_utils import divide_rounded
+from erpnext_ebay.sync_orders_rest import ErpnextEbaySyncError, get_vat_rates
+from erpnext_ebay.utils.general_utils import (
+    divide_rounded, get_company_acronym
+)
 
 MAX_DAYS = 90
-COMPANY_ACRONYM = frappe.get_all('Company', fields=['abbr'])[0].abbr
 
 FEE_ITEM = 'ITEM-15847'
 EBAY_SUPPLIER = 'eBay'
-DOMESTIC_VAT = VAT_RATES[f'Sales - {COMPANY_ACRONYM}']
+
+
+def get_domestic_vat():
+    return get_vat_rates()[f'Sales - {get_company_acronym()}']
 
 
 def date_range(start_date, end_date):
@@ -172,8 +176,9 @@ def sync_mp_transactions(num_days=None, not_today=False,
     frappe.msgprint('Syncing eBay transactions...')
 
     default_currency = get_default_currency()
-    ebay_bank = f'eBay Managed {default_currency} - {COMPANY_ACRONYM}'
-    expense_account = f'eBay Managed Fees - {COMPANY_ACRONYM}'
+    company_acronym = get_company_acronym()
+    ebay_bank = f'eBay Managed {default_currency} - {company_acronym}'
+    expense_account = f'eBay Managed Fees - {company_acronym}'
     today = datetime.date.today()
     if payout_account is None:
         payout_account = frappe.get_value(
@@ -263,13 +268,14 @@ def sync_mp_transactions(num_days=None, not_today=False,
             del pinv_doc
             continue
         # Add domestic VAT on eBay fees
-        if DOMESTIC_VAT:
+        domestic_vat = get_domestic_vat()
+        if domestic_vat:
             tax_entry = pinv_doc.append('taxes')
             tax_entry.charge_type = 'On Net Total'
-            tax_entry.description = f'VAT ({DOMESTIC_VAT*100}%)'
-            tax_entry.account_head = f'VAT - {COMPANY_ACRONYM}'
+            tax_entry.description = f'VAT ({domestic_vat*100}%)'
+            tax_entry.account_head = f'VAT - {get_company_acronym()}'
             tax_entry.included_in_print_rate = True
-            tax_entry.rate = DOMESTIC_VAT * 100
+            tax_entry.rate = domestic_vat * 100
         # If total effect is negative, make a debit note
         # We need to set quantities negative (for debit note to validate)
         # which means we also need to set rates * -1
@@ -385,7 +391,7 @@ def sync_mp_payouts(num_days=None, payout_account=None):
     frappe.msgprint('Syncing eBay payouts...')
 
     default_currency = get_default_currency()
-    ebay_bank = f'eBay Managed {default_currency} - {COMPANY_ACRONYM}'
+    ebay_bank = f'eBay Managed {default_currency} - {get_company_acronym()}'
 
     if num_days is None:
         num_days = int(frappe.get_value(

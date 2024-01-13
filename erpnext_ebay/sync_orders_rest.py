@@ -22,7 +22,7 @@ from erpnext.controllers.sales_and_purchase_return import make_return_doc
 from .ebay_constants import EBAY_MARKETPLACE_IDS, EU_COUNTRIES
 from .ebay_get_requests import ebay_logger
 from .ebay_requests_rest import get_order, get_orders, get_transactions
-from erpnext_ebay.utils.general_utils import divide_rounded
+from erpnext_ebay.utils.general_utils import divide_rounded, get_company_acronym
 
 # Option to use eBay shipping address name as customer name.
 # eBay does not normally provide buyer name.
@@ -124,8 +124,6 @@ EXTRA_COUNTRIES = {
     'macedonia': 'North Macedonia'
     }
 
-COMPANY_ACRONYM = frappe.get_all('Company', fields=['abbr'])[0].abbr
-WAREHOUSE = f'Main - {COMPANY_ACRONYM}'
 SHIPPING_ITEM = 'ITEM-00358'
 DEDUCT_UK_VAT = True
 
@@ -138,15 +136,21 @@ TAX_DESCRIPTION = {
     'NOR_VAT': 'Norwegian VAT'
 }
 
-VAT_RATES = {
-    f'Sales - {COMPANY_ACRONYM}': 0.2,
-    f'Sales EU - {COMPANY_ACRONYM}': 0.0,
-    f'Sales Non-EU - {COMPANY_ACRONYM}': 0.0
-}
-VAT_PERCENT = {k: 100*v for k, v in VAT_RATES.items()}
-
 # Fee type for (non-refundable) fee type
 EBAY_FIXED_FEE = 'FINAL_VALUE_FEE_FIXED_PER_ORDER'
+
+
+def get_warehouse():
+    return f'Main - {get_company_acronym()}'
+
+
+def get_vat_rates():
+    company_acronym = get_company_acronym()
+    return {
+        f'Sales - {company_acronym}': 0.2,
+        f'Sales EU - {company_acronym}': 0.0,
+        f'Sales Non-EU - {company_acronym}': 0.0
+    }
 
 
 class ErpnextEbaySyncError(Exception):
@@ -812,7 +816,8 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
         income_account, ship_income_account, tax_income_account
     ) = determine_income_accounts(country)
     territory = determine_territory(country)
-    vat_rate = VAT_RATES[income_account]
+    vat_rate = get_vat_rates()[income_account]
+    vat_percent = vat_rate * 100
 
     # With eBay Managed Payments, only get paid in 'home' currency
     # Need to deal with conversions if paid in foreign currency so that fees
@@ -1153,7 +1158,7 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
         sinv_items.append({
             "item_code": sku,
             "description": description,
-            "warehouse": WAREHOUSE,
+            "warehouse": get_warehouse(),
             "qty": qty,
             "rate": exc_vat / qty,
             "ebay_final_value_fee": item_fee_dict.get(line_item_id, 0.0),
@@ -1168,7 +1173,7 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
             "ebay_item_id": line_item['legacy_item_id'],
             "valuation_rate": 0.0,
             "income_account": income_account,
-            "expense_account": f"Cost of Goods Sold - {COMPANY_ACRONYM}"
+            "expense_account": f"Cost of Goods Sold - {get_company_acronym()}"
         })
 
     # Total of all eBay Collect and Remit taxes
@@ -1189,12 +1194,12 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
         sinv_items.append({
             "item_code": SHIPPING_ITEM,
             "description": "Shipping costs (from eBay)",
-            "warehouse": WAREHOUSE,
+            "warehouse": get_warehouse(),
             "qty": 1.0,
             "rate": exc_vat,
             "valuation_rate": 0.0,
             "income_account": ship_income_account,
-            "expense_account": f"Cost of Goods Sold - {COMPANY_ACRONYM}"
+            "expense_account": f"Cost of Goods Sold - {get_company_acronym()}"
         })
 
     sum_line_items = round(sum_line_items, 2)
@@ -1239,12 +1244,12 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
         # If eBay have already deducted UK VAT then no more is payable
         sum_vat -= car_by_type['UK_VAT']
     taxes = []
-    if VAT_RATES[income_account] > 0.00001:
+    if vat_rate > 0.00001:
         taxes.append({
             "charge_type": "Actual",
-            "description": f"VAT {VAT_PERCENT[income_account]}%",
-            "account_head": f"VAT - {COMPANY_ACRONYM}",
-            "rate": VAT_PERCENT[income_account],
+            "description": f"VAT {vat_percent}%",
+            "account_head": f"VAT - {get_company_acronym()}",
+            "rate": vat_percent,
             "tax_amount": sum_vat
         })
 
@@ -1750,24 +1755,25 @@ def determine_territory(country):
 
 def determine_income_accounts(country):
     """Determine correct UK, EU or non-EU income accounts."""
+    company_acronym = get_company_acronym()
     if (not country) or country == 'United Kingdom':
         return (
-            f'Sales - {COMPANY_ACRONYM}',
-            f'Shipping (Sales) - {COMPANY_ACRONYM}',
-            f'Sales Tax UK - {COMPANY_ACRONYM}'
+            f'Sales - {company_acronym}',
+            f'Shipping (Sales) - {company_acronym}',
+            f'Sales Tax UK - {company_acronym}'
         )
 
     if country in EU_COUNTRIES:
         return (
-            f'Sales EU - {COMPANY_ACRONYM}',
-            f'Shipping EU (Sales) - {COMPANY_ACRONYM}',
-            f'Sales Tax EU - {COMPANY_ACRONYM}'
+            f'Sales EU - {company_acronym}',
+            f'Shipping EU (Sales) - {company_acronym}',
+            f'Sales Tax EU - {company_acronym}'
         )
 
     return (
-        f'Sales Non-EU - {COMPANY_ACRONYM}',
-        f'Shipping Non-EU (Sales) - {COMPANY_ACRONYM}',
-        f'Sales Tax Non-EU - {COMPANY_ACRONYM}'
+        f'Sales Non-EU - {company_acronym}',
+        f'Shipping Non-EU (Sales) - {company_acronym}',
+        f'Sales Tax Non-EU - {company_acronym}'
     )
 
 
