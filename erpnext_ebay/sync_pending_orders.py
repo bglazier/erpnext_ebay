@@ -39,6 +39,9 @@ def sync_pending_orders(site_id=None, num_days=None):
         frappe.throw('You do not have permission to access the eBay Manager',
                      frappe.PermissionError)
 
+    if not frappe.db.get_single_value('eBay Manager Settings', 'enable_ebay'):
+        frappe.throw('eBay disabled')
+
     # Prepare parameters
     if site_id is None or int(site_id) == -1:
         ebay_site_name = None

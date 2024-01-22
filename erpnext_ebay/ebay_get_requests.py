@@ -155,6 +155,9 @@ def get_trading_api(site_id=HOME_SITE_ID, warnings=True, timeout=EBAY_TIMEOUT,
     if frappe.flags.in_test:
         frappe.throw('No eBay API while in test mode!')
 
+    if not frappe.db.get_single_value('eBay Manager Settings', 'enable_ebay'):
+        frappe.throw('eBay disabled')
+
     if force_sandbox_value is None:
         sandbox = use_sandbox(api_call)
     else:

@@ -52,6 +52,10 @@ def archive_transactions(start_date, end_date):
         frappe.throw('You do not have permission to access the eBay Manager',
                      frappe.PermissionError)
 
+
+    if not frappe.db.get_single_value('eBay Manager Settings', 'enable_ebay'):
+        frappe.throw('eBay disabled')
+
     # Convert string or datetime arguments to date objects (e.g. from JS)
     if not (start_date and end_date):
         frappe.throw('Must have start and end dates!')
@@ -173,6 +177,10 @@ def sync_mp_transactions(num_days=None, not_today=False,
     if not frappe.has_permission('eBay Manager', 'write'):
         frappe.throw('You do not have permission to access the eBay Manager',
                      frappe.PermissionError)
+
+    if not frappe.db.get_single_value('eBay Manager Settings', 'enable_ebay'):
+        frappe.throw('eBay disabled')
+
     frappe.msgprint('Syncing eBay transactions...')
 
     default_currency = get_default_currency()

@@ -48,6 +48,9 @@ def generate_active_ebay_data(print=None, multiple_error_sites=None,
         frappe.throw('You do not have permission to access the eBay Manager',
                      frappe.PermissionError)
 
+    if not frappe.db.get_single_value('eBay Manager Settings', 'enable_ebay'):
+        frappe.throw('eBay disabled')
+
     # Convert from JSON (for calls from front end)
     if isinstance(multiple_error_sites, str):
         multiple_error_sites = json.loads(multiple_error_sites)
@@ -203,6 +206,9 @@ def update_ebay_data(multiple_error_sites=None, multiple_skip_only=False):
     if not frappe.has_permission('eBay Manager'):
         frappe.throw('You do not have permission to access the eBay Manager',
                      frappe.PermissionError)
+
+    if not frappe.db.get_single_value('eBay Manager Settings', 'enable_ebay'):
+        frappe.throw('eBay disabled')
 
     generate_active_ebay_data(multiple_error_sites=multiple_error_sites,
                               multiple_skip_only=multiple_skip_only)

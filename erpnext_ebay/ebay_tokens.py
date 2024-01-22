@@ -232,6 +232,9 @@ def _get_api(application, user, header, key_pair, digital_signatures,
 def get_api(sandbox=False, *args, **kwargs):
     """Get an ebay_rest API loaded with credentials."""
 
+    if not frappe.db.get_single_value('eBay Manager Settings', 'enable_ebay'):
+        frappe.throw('eBay disabled')
+
     MANDATORY_APP = ('app_id', 'cert_id', 'redirect_uri')
 
     prefix = 'sandbox' if sandbox else 'production'

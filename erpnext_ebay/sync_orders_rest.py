@@ -196,6 +196,10 @@ def sync_orders(num_days=None, sandbox=False, debug_print=MSGPRINT_DEBUG,
     if not frappe.has_permission('eBay Manager'):
         frappe.throw('You do not have permission to access the eBay Manager',
                      frappe.PermissionError)
+
+    if not frappe.db.get_single_value('eBay Manager Settings', 'enable_ebay'):
+        frappe.throw('eBay disabled')
+
     frappe.msgprint('Syncing eBay orders...')
 
     # Load orders from Ebay

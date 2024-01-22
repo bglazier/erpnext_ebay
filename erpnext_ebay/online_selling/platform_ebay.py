@@ -25,6 +25,11 @@ class eBayPlatform(OnlineSellingPlatformClass):
         item_onload will have already deleted previous entries.
         """
 
+        enable_ebay = frappe.db.get_single_value(
+            'eBay Manager Settings', 'enable_ebay')
+        if not enable_ebay:
+            return []
+
         entries = []
 
         site_ids = cls.get_site_ids(subtypes)
