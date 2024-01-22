@@ -1,4 +1,5 @@
 {
+ "actions": [],
  "creation": "2016-07-04 13:57:02.771212",
  "description": "eBay Manager settings",
  "doctype": "DocType",
@@ -6,6 +7,7 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "enable_ebay",
   "ebay_sync_days",
   "ebay_pending_sync_days",
   "ebay_price_list",
@@ -62,10 +64,17 @@
    "fieldtype": "Int",
    "label": "eBay Pending Order sync days",
    "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_ebay",
+   "fieldtype": "Check",
+   "label": "Enable eBay functionality"
   }
  ],
  "issingle": 1,
- "modified": "2021-12-27 10:15:06.202548",
+ "links": [],
+ "modified": "2024-01-22 09:37:06.445991",
  "modified_by": "Administrator",
  "module": "Erpnext Ebay",
  "name": "eBay Manager Settings",
@@ -93,5 +102,6 @@
  "quick_entry": 1,
  "sort_field": "modified",
  "sort_order": "DESC",
+ "states": [],
  "track_changes": 1
 }
