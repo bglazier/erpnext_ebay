@@ -225,15 +225,29 @@ def set_item_ebay_id(item_code, ebay_id):
     Also, does not overwrite Awaiting Garagesale if ebay_id is blank.
     """
 
-    awaiting_garagesale_filter = """AND it.ebay_id <> 'Awaiting Garagesale'"""
+    try:
+        # Try to set ebay_id properly
+        item_doc = frappe.get_doc('Item', item_code)
+        if not ebay_id and item_doc.ebay_id == 'Awaiting Garagesale':
+            return
+        item_doc.ebay_id = ebay_id
+        item_doc.save(ignore_permissions=True)
 
-    frappe.db.sql(f"""
-        UPDATE `tabItem` AS it
-            SET it.ebay_id = %s
-            WHERE it.item_code = %s
-                {'' if ebay_id else awaiting_garagesale_filter};
-        """, (ebay_id, item_code),
-        auto_commit=True)
+    except Exception as e:
+        # Set eBay ID using DB
+        ebay_logger().debug(
+            f'Could not set ebay_id "{ebay_id}" on item {item_code} properly:'
+            + f'\n{e}'
+        )
+        awaiting_garagesale_filter = "AND it.ebay_id <> 'Awaiting Garagesale'"
+
+        frappe.db.sql(f"""
+            UPDATE `tabItem` AS it
+                SET it.ebay_id = %s
+                WHERE it.item_code = %s
+                    {'' if ebay_id else awaiting_garagesale_filter};
+            """, (ebay_id, item_code),
+            auto_commit=True)
 
 
 def set_on_sale_from_date():
