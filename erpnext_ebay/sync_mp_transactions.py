@@ -387,7 +387,8 @@ def sync_mp_transactions(num_days=None, not_today=False,
 
 
 @frappe.whitelist()
-def sync_mp_payouts(num_days=None, payout_account=None):
+def sync_mp_payouts(num_days=None, start_date=None, end_date=None,
+                    payout_account=None):
     """Synchronise eBay Managed Payments payouts.
     Create Journal Entries for payouts from the eBay Managed Payment account.
     """
@@ -401,9 +402,22 @@ def sync_mp_payouts(num_days=None, payout_account=None):
     default_currency = get_default_currency()
     ebay_bank = f'eBay Managed {default_currency} - {get_company_acronym()}'
 
-    if num_days is None:
+    if num_days and (start_date or end_date):
+        frappe.throw('Must have num_days OR start_date/end_date, not both!')
+
+    if start_date or end_date:
+        # If using start_date and end_date, check we have both and then
+        # convert if necessary.
+        if not (start_date and end_date):
+            frappe.throw('Must have both start and end dates, or neither!')
+        start_date = frappe.utils.getdate(start_date)
+        end_date = frappe.utils.getdate(end_date)
+    elif num_days is None:
+        # If not using start_date/end_date and num_days not supplied,
+        # get from eBay Manager Settings.
         num_days = int(frappe.get_value(
             'eBay Manager Settings', filters=None, fieldname='ebay_sync_days'))
+
     if payout_account is None:
         payout_account = frappe.get_value(
             'eBay Manager Settings', 'eBay Manager Settings',
@@ -416,7 +430,10 @@ def sync_mp_payouts(num_days=None, payout_account=None):
     )
 
     # Load payouts from eBay
-    payouts = get_payouts(num_days=min(num_days, MAX_DAYS))
+    if num_days:
+        num_days = min(num_days, MAX_DAYS)
+    payouts = get_payouts(num_days=num_days,
+                          start_date=start_date, end_date=end_date)
     payouts.sort(key=operator.itemgetter('payout_date'))
 
     for payout in payouts:
