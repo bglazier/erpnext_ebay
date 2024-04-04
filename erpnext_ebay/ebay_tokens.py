@@ -219,6 +219,7 @@ def create_new_key_pair(sandbox):
     setattr(api_doc, f'{prefix}_key_expiration', expiration_time)
     api_doc.save()
 
+
 @redo.retriable(attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
                 sleepscale=REDO_SLEEPSCALE, retry_exceptions=REDO_EXCEPTIONS)
 def _get_api(application, user, header, key_pair, digital_signatures,

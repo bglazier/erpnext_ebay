@@ -3,6 +3,7 @@
 
 import datetime
 import json
+import inspect
 
 import redo
 
@@ -80,6 +81,10 @@ def single_api_call(api_call, sandbox=False, *args, **kwargs):
     """Make a non-paged API call. Handles warnings and errors."""
     api = get_api(sandbox=sandbox, marketplace_id=HOME_GLOBAL_ID)
     call = getattr(api, api_call)
+    # Add x_ebay_c_marketplace_id parameter if required
+    if 'x_ebay_c_marketplace_id' not in kwargs:
+        if 'x_ebay_c_marketplace_id' in inspect.signature(call).parameters:
+            kwargs['x_ebay_c_marketplace_id'] = HOME_GLOBAL_ID
     try:
         result = redo.retry(
             call, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
@@ -98,6 +103,10 @@ def paged_api_call(api_call, record_field, sandbox=False, *args, **kwargs):
     """Make a paged API call. Handles warnings and errors."""
     api = get_api(sandbox=sandbox, marketplace_id=HOME_GLOBAL_ID)
     call = getattr(api, api_call)
+    # Add x_ebay_c_marketplace_id parameter if required
+    if 'x_ebay_c_marketplace_id' not in kwargs:
+        if 'x_ebay_c_marketplace_id' in inspect.signature(call).parameters:
+            kwargs['x_ebay_c_marketplace_id'] = HOME_GLOBAL_ID
 
     def get_pages(*args, **kwargs):
         return list(call(*args, **kwargs))
