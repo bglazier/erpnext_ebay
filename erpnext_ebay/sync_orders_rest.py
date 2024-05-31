@@ -215,7 +215,7 @@ def sync_orders(num_days=None, sandbox=False, debug_print=MSGPRINT_DEBUG,
             order['creation_date'][:-1], '%Y-%m-%dT%H:%M:%S.%f').date()
         )
     trans_start_date = min(creation_dates)
-    trans_end_date = datetime.datetime.utcnow().date()
+    trans_end_date = datetime.datetime.now(datetime.timezone.utc).date()
 
     # Load transactions from eBay
     transactions = get_transactions(start_date=trans_start_date,
@@ -328,6 +328,7 @@ def sync_orders(num_days=None, sandbox=False, debug_print=MSGPRINT_DEBUG,
         # Save the log, regardless of how far we got
         frappe.db.commit()
         for change in changes:
+            change['name'] = frappe.utils.random_string(20)
             log_dict['ebay_log_table'].append(change)
         log = frappe.get_doc(log_dict)
         if use_sync_log:
@@ -337,7 +338,7 @@ def sync_orders(num_days=None, sandbox=False, debug_print=MSGPRINT_DEBUG,
             del log
         frappe.db.commit()
     msgprint_log.append('Finished.')
-    main_print('\n'.join(msgprint_log))
+    main_print('\n<br>'.join(msgprint_log))
     return
 
 
@@ -1026,7 +1027,7 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
         if not frappe.db.exists('Item', sku):
             debug_msgprint('Item not found?', print_func)
             raise ErpnextEbaySyncError(
-                f'Item {sku} not found for user {ebay_user_id}', print_func)
+                f'Item {sku} not found for user {ebay_user_id}')
         sku_list.append(sku)
 
         # Get qty and description
