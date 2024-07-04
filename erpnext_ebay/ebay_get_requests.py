@@ -517,9 +517,14 @@ def get_seller_list(item_codes=None, site_id=HOME_SITE_ID,
             test_for_message(listings_api)
 
             n_listings = int(listings_api['ReturnedItemCountActual'])
+            if not listings_api['ItemArray']:
+                # Sometimes we get ReturnedItemCountActual = 1 when there are
+                # actually no results
+                n_listings = 0
+
             if n_listings == 1:
                 listings.append(listings_api['ItemArray']['Item'])
-            elif int(listings_api['ReturnedItemCountActual']) > 0:
+            elif n_listings > 0:
                 listings.extend(listings_api['ItemArray']['Item'])
 
             print(f'page {future.page_number} / {n_pages} ({n_listings} items)')
