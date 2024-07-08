@@ -399,11 +399,12 @@ def get_seller_list(item_codes=None, site_id=HOME_SITE_ID,
         frappe.throw('days_before or days_after less than zero!')
     if (days_before + days_after) >= 120:
         frappe.throw('Can only search a total date range of less than 120 days')
+    utcnow = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
     end_from = (
-        datetime.datetime.utcnow() - datetime.timedelta(days=days_before)
+        utcnow - datetime.timedelta(days=days_before)
     ).isoformat(timespec='milliseconds') + 'Z'
     end_to = (
-        datetime.datetime.utcnow() + datetime.timedelta(days=days_after)
+        utcnow + datetime.timedelta(days=days_after)
     ).isoformat(timespec='milliseconds') + 'Z'
 
     listings = []
@@ -466,16 +467,19 @@ def get_seller_list(item_codes=None, site_id=HOME_SITE_ID,
 
         listings_api = response.dict()
 
-        n_listings = int(listings_api['ReturnedItemCountActual'])
+        # Wrap a zero-item, or single-item, ItemArray in a list
         if not listings_api['ItemArray']:
-            # Sometimes we get ReturnedItemCountActual = 1 when there are
-            # actually no results
-            n_listings = 0
+            listings_api['ItemArray']['Item'] = []
+        elif isinstance(listings_api['ItemArray']['Item'], dict):
+            listings_api['ItemArray']['Item'] = [
+                listings_api['ItemArray']['Item']
+            ]
 
-        if n_listings == 1:
-            listings.append(listings_api['ItemArray']['Item'])
-        elif n_listings > 0:
-            listings.extend(listings_api['ItemArray']['Item'])
+        # ReturnedItemCountActual has become unreliable
+        # n_listings = int(listings_api['ReturnedItemCountActual'])
+        n_listings = len(listings_api['ItemArray']['Item'])
+
+        listings.extend(listings_api['ItemArray']['Item'])
 
         n_pages = int(
             listings_api['PaginationResult']['TotalNumberOfPages'])
@@ -483,7 +487,7 @@ def get_seller_list(item_codes=None, site_id=HOME_SITE_ID,
             'PaginationResult']['TotalNumberOfEntries']
         print(f'n_pages = {n_pages}')
         print(f'total number of items: {total_entries}')
-        print(f'n_items per page = {n_listings}')
+        print(f'first page = {n_listings}')
 
         # Generate list of futures, rate-limiting in blocks of time
         start_time = time.monotonic()
@@ -516,16 +520,19 @@ def get_seller_list(item_codes=None, site_id=HOME_SITE_ID,
             listings_api = response.dict()
             test_for_message(listings_api)
 
-            n_listings = int(listings_api['ReturnedItemCountActual'])
+            # Wrap a zero-item, or single-item, ItemArray in a list
             if not listings_api['ItemArray']:
-                # Sometimes we get ReturnedItemCountActual = 1 when there are
-                # actually no results
-                n_listings = 0
+                listings_api['ItemArray']['Item'] = []
+            elif isinstance(listings_api['ItemArray']['Item'], dict):
+                listings_api['ItemArray']['Item'] = [
+                    listings_api['ItemArray']['Item']
+                ]
 
-            if n_listings == 1:
-                listings.append(listings_api['ItemArray']['Item'])
-            elif n_listings > 0:
-                listings.extend(listings_api['ItemArray']['Item'])
+            # ReturnedItemCountActual has become unreliable
+            # n_listings = int(listings_api['ReturnedItemCountActual'])
+            n_listings = len(listings_api['ItemArray']['Item'])
+
+            listings.extend(listings_api['ItemArray']['Item'])
 
             print(f'page {future.page_number} / {n_pages} ({n_listings} items)')
 

@@ -234,7 +234,6 @@ def end_ebay_listings(listings, print=print, item_codes=None, **kwargs):
         for ebay_id, reason in listings
     ]
 
-
     # Filter out empty item_codes
     item_codes = [x for x in (item_codes or []) if x]
     if item_codes:
