@@ -469,7 +469,7 @@ def get_seller_list(item_codes=None, site_id=HOME_SITE_ID,
 
         # Wrap a zero-item, or single-item, ItemArray in a list
         if not listings_api['ItemArray']:
-            listings_api['ItemArray']['Item'] = []
+            listings_api['ItemArray'] = {'Item': []}
         elif isinstance(listings_api['ItemArray']['Item'], dict):
             listings_api['ItemArray']['Item'] = [
                 listings_api['ItemArray']['Item']
@@ -522,7 +522,7 @@ def get_seller_list(item_codes=None, site_id=HOME_SITE_ID,
 
             # Wrap a zero-item, or single-item, ItemArray in a list
             if not listings_api['ItemArray']:
-                listings_api['ItemArray']['Item'] = []
+                listings_api['ItemArray'] = {'Item': []}
             elif isinstance(listings_api['ItemArray']['Item'], dict):
                 listings_api['ItemArray']['Item'] = [
                     listings_api['ItemArray']['Item']
