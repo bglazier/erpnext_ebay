@@ -5,7 +5,7 @@ import json
 import math
 import sys
 import os.path
-from collections.abc import Sequence
+from collections.abc import Sequence, Iterable
 
 import frappe
 
@@ -217,7 +217,7 @@ def end_ebay_listings(listings, print=print, item_codes=None, **kwargs):
     """Ends a number of eBay listings.
 
     Arguments:
-      - listings: a sequence of (ItemID, EndingReason) tuples.
+      - listings: an iterable of (ItemID, EndingReason) tuples.
 
     EndingReasons can be:
       - Incorrect (start price or reserve price is incorrect)
@@ -298,13 +298,13 @@ def client_end_ebay_listings(ebay_ids, item_codes=None):
 
     if isinstance(ebay_ids, str):
         ebay_ids = json.loads(ebay_ids)
-    if not isinstance(ebay_ids, Sequence):
+    if not isinstance(ebay_ids, Iterable):
         frappe.throw('Invalid ebay_ids format!')
 
     if item_codes:
         if isinstance(item_codes, str):
             item_codes = json.loads(item_codes)
-        if not isinstance(item_codes, Sequence):
+        if not isinstance(item_codes, Iterable):
             frappe.throw('Invalid item_codes format!')
 
     listings = [(x, 'NotAvailable') for x in ebay_ids]
