@@ -298,13 +298,13 @@ def client_end_ebay_listings(ebay_ids, item_codes=None):
 
     if isinstance(ebay_ids, str):
         ebay_ids = json.loads(ebay_ids)
-    if not isinstance(ebay_ids, list):
+    if not isinstance(ebay_ids, Sequence):
         frappe.throw('Invalid ebay_ids format!')
 
     if item_codes:
         if isinstance(item_codes, str):
             item_codes = json.loads(item_codes)
-        if not isinstance(item_codes, list):
+        if not isinstance(item_codes, Sequence):
             frappe.throw('Invalid item_codes format!')
 
     listings = [(x, 'NotAvailable') for x in ebay_ids]
