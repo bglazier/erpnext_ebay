@@ -2,6 +2,7 @@
 
 """Scheduled tasks to be run by erpnext_ebay"""
 
+import frappe
 from frappe.utils.background_jobs import enqueue
 
 
@@ -14,6 +15,8 @@ def hourly():
 
 
 def daily():
+    if not frappe.db.get_single_value('eBay Manager Settings', 'enable_ebay'):
+        return
     enqueue('erpnext_ebay.ebay_categories.category_sync',
             queue='long', job_name='eBay Category Sync')
     enqueue('erpnext_ebay.erpnext_ebay.doctype.ebay_shipping_carrier.'
