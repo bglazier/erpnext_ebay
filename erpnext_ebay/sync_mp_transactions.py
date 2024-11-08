@@ -236,6 +236,10 @@ def sync_mp_transactions(num_days=None, not_today=False,
         # Check transaction is not held (will be deleted and re-added later
         if transaction['transaction_status'] == 'FUNDS_ON_HOLD':
             continue
+        # Withdrawal transactions will be accompanied by a payout, so the
+        # withdrawal can be ignored
+        if transaction['transaction_type'] == 'WITHDRAWAL':
+            continue
         # Get date of transaction
         transaction_datetime = datetime.datetime.strptime(
             transaction['transaction_date'], '%Y-%m-%dT%H:%M:%S.%fZ'
