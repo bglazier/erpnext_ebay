@@ -1418,7 +1418,37 @@ def create_return_sales_invoice(order_dict, order, changes, print_func=None):
         debug_msgprint(f'Order {ebay_order_id} has multiple refunds!',
                        print_func)
 
-    # Check for unique refund_ids (None is permitted)
+    # Construct refund IDs for linking payment_summary refunds with line
+    # item refunds, if required
+    for refund in refunds:
+        if refund['refund_id']:
+            continue
+        # No refund ID for this entry; construct one
+        refund['refund_id'] = f'RANDOM-{frappe.utils.random_string(16)}'
+        # Find matching line item
+        break_from_refund = False
+        for li in order['line_items']:
+            if break_from_refund:
+                break
+            for li_r in li.get('refunds', []):
+                if li_r['refund_id']:
+                    continue
+                if li_r['refund_reference_id'] == refund['refund_reference_id']:
+                    li_r['refund_id'] = refund['refund_id']
+                    break_from_refund = True
+                    break
+                match = (
+                    li_r['amount'] == refund['amount']
+                    and li_r['refund_date'] == refund['refund_date']
+                )
+                if match:
+                    # Close enough (might not be exactly correct, but
+                    # sufficient for our purposes)
+                    li_r['refund_id'] = refund['refund_id']
+                    break_from_refund = True
+                    break
+
+    # Check for unique refund_ids
     refund_ids = {x['refund_id'] for x in refunds}
     if len(refund_ids) != n_refunds:
         frappe.throw(f'Order {ebay_order_id} has refunds with same refund_id',
