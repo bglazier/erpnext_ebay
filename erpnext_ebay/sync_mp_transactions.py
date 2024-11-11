@@ -797,9 +797,14 @@ def get_item_code_for_item_id(item_id):
     try:
         item_data = get_item_trading(item_id, output_selector=['SKU'])
     except ConnectionError as e:
-        if e.response.dict()['Errors']['ErrorCode'] == 17:
+        err = e.response.dict()['Errors']
+        err_code = str(err['ErrorCode'])
+        if err_code == '17':
             # Could not find/not allowed error
-            raise ErpnextEbaySyncError(f'Could not find {item_id}!')
+            frappe.msgprint(
+                f"{err_code}: {err['ShortMessage']}\n{err['LongMessage']}"
+            )
+            return None
         else:
             raise
     return item_data['SKU']
