@@ -1360,13 +1360,26 @@ def create_return_sales_invoice(order_dict, order, changes, print_func=None):
         # If no refund, return now.
         return
 
-    # Find the existing Sales Invoice, and its latest amendment.
     ebay_user_id = order_dict['ebay_user_id']
     ebay_order_id = order_dict['ebay_order_id']
     customer = order_dict['customer']
     customer_name = order_dict['customer_name']
     cancelled_names = []
 
+    # If eBay refunds eBay-collected tax (e.g. VAT) you can end up
+    # PARTIALLY_REFUNDED but with no refund information
+    if not order['payment_summary']['refunds']:
+        if order['order_payment_status'] == 'FULLY_REFUNDED':
+            frappe.throw(f'Order {ebay_order_id} missing refund info?',
+                         exc=ErpnextEbaySyncError)
+        debug_msgprint(
+            f'Order {ebay_order_id} is partially refunded, but has '
+            + 'no refund information - is this an eBay-paid tax refund?',
+            print_func
+        )
+        return
+
+    # Find the existing Sales Invoice, and its latest amendment.
     sinv_fields = db_get_ebay_doc(
         'Sales Invoice', ebay_order_id, fields=['name', 'docstatus'],
         log=changes, none_ok=True)
@@ -1405,9 +1418,6 @@ def create_return_sales_invoice(order_dict, order, changes, print_func=None):
                 f'Cancelled {cancelled_name} has return(s) {return_names}!')
 
     # Need to create return SINV - gather info and run checks
-    if not order['payment_summary']['refunds']:
-        frappe.throw(f'Order {ebay_order_id} missing refund info?',
-                     exc=ErpnextEbaySyncError)
     # Filter out refunds with refund_state not 'REFUNDED'
     refunds = [
         x for x in order['payment_summary']['refunds']
