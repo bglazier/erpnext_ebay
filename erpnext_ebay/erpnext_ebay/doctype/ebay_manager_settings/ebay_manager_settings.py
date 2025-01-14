@@ -8,7 +8,9 @@ from frappe.model.document import Document
 
 SAFE_API_CALLS = ('GetMyeBaySelling', 'GetItem', 'GetSellerList', 'GetOrders',
                   'GetCategories', 'GetCategoryFeatures', 'GeteBayDetails',
-                  'sell_fulfillment_get_shipping_fulfillments')
+                  'sell_fulfillment_get_shipping_fulfillments',
+                  'developer_analytics_get_rate_limits',
+                  'developer_analytics_get_user_rate_limits')
 
 
 class eBayHostnameError(frappe.ValidationError):

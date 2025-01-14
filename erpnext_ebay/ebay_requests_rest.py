@@ -364,3 +364,29 @@ def create_shipping_fulfillment(order_id, shipping_fulfillment):
         API_CALL, use_sandbox(API_CALL),
         body=shipping_fulfillment, order_id=order_id
     )
+
+
+def get_api_usage(user_data=False, api_context=None, api_name=None):
+    """Get API usage data from eBay via the Developer Analytics API.
+
+    Arguments:
+        user_data: If True, returns user-level data; otherwise returns
+            application-level data
+        api_context: A single API context to return (e.g. 'buy', 'sell')
+        api_name: A single API name to include (e.g. 'browse', 'tradingapi')
+    """
+
+    API_CALL = (
+        'developer_analytics_get_user_rate_limits' if user_data
+        else 'developer_analytics_get_rate_limits'
+    )
+
+    kwargs = {}
+    if api_context:
+        kwargs['api_context'] = api_context
+    if api_name:
+        kwargs['api_name'] = api_name
+
+    return single_api_call(
+        API_CALL, use_sandbox(API_CALL), **kwargs
+    )

@@ -74,7 +74,7 @@
  ],
  "issingle": 1,
  "links": [],
- "modified": "2024-01-22 09:37:06.445991",
+ "modified": "2025-01-14 16:23:16.843879",
  "modified_by": "Administrator",
  "module": "Erpnext Ebay",
  "name": "eBay Manager Settings",
@@ -87,7 +87,6 @@
    "print": 1,
    "read": 1,
    "role": "System Manager",
-   "share": 1,
    "write": 1
   },
   {
@@ -95,7 +94,6 @@
    "print": 1,
    "read": 1,
    "role": "eBay Administrator",
-   "share": 1,
    "write": 1
   }
  ],
