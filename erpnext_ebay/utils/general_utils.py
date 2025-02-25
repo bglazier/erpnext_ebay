@@ -4,6 +4,16 @@ import frappe
 from erpnext import get_default_company
 
 
+@frappe.whitelist()
+def is_ebay_enabled():
+    """Returns a boolean indicating if eBay is disabled.
+    Available to all users.
+    """
+    return bool(
+        frappe.db.get_single_value('eBay Manager Settings', 'enable_ebay')
+    )
+
+
 def get_company_acronym():
     company = get_default_company()
     if not company:
