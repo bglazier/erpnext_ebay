@@ -1430,11 +1430,14 @@ def create_return_sales_invoice(order_dict, order, changes, print_func=None):
 
     # Construct refund IDs for linking payment_summary refunds with line
     # item refunds, if required
+    unmatched_payment_refunds = []
+    unmatched_li_refunds = []
     for refund in refunds:
         if refund['refund_id']:
             continue
         # No refund ID for this entry; construct one
         refund['refund_id'] = f'RANDOM-{frappe.utils.random_string(16)}'
+        unmatched_payment_refunds.append(refund)
         # Find matching line item
         break_from_refund = False
         for li in order['line_items']:
@@ -1457,6 +1460,21 @@ def create_return_sales_invoice(order_dict, order, changes, print_func=None):
                     li_r['refund_id'] = refund['refund_id']
                     break_from_refund = True
                     break
+                unmatched_li_refunds.append(li_r)
+
+    # Check for unmatched refund IDs; match if one each
+    if len(unmatched_payment_refunds) == 1 and len(unmatched_li_refunds) == 1:
+        # If we have one unmatched payment and line item refund, assume they
+        # should match
+        li_r = unmatched_li_refunds[0]
+        p_r = unmatched_payment_refunds[0]
+        li_r['refund_id'] = p_r['refund_id']
+    elif n_refunds == 1 and order['order_payment_status'] == 'FULLY_REFUNDED':
+        # Not an issue for a full refund
+        pass
+    elif unmatched_payment_refunds or unmatched_li_refunds:
+        frappe.throw(f'Order {ebay_order_id} has unmatchable refunds',
+                     exc=ErpnextEbaySyncError)
 
     # Check for unique refund_ids
     refund_ids = {x['refund_id'] for x in refunds}
