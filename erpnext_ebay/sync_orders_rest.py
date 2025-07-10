@@ -1437,7 +1437,6 @@ def create_return_sales_invoice(order_dict, order, changes, print_func=None):
             continue
         # No refund ID for this entry; construct one
         refund['refund_id'] = f'RANDOM-{frappe.utils.random_string(16)}'
-        unmatched_payment_refunds.append(refund)
         # Find matching line item
         break_from_refund = False
         for li in order['line_items']:
@@ -1461,6 +1460,8 @@ def create_return_sales_invoice(order_dict, order, changes, print_func=None):
                     break_from_refund = True
                     break
                 unmatched_li_refunds.append(li_r)
+        if not break_from_refund:
+            unmatched_payment_refunds.append(refund)
 
     # Check for unmatched refund IDs; match if one each
     if len(unmatched_payment_refunds) == 1 and len(unmatched_li_refunds) == 1:
