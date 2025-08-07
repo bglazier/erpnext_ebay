@@ -40,7 +40,7 @@ use_sync_log = True
 continue_on_error = True
 
 # Maximum number of attempts to add duplicate address (by adding -1, -2 etc)
-maximum_address_duplicates = 4
+maximum_address_duplicates = 10
 
 # Maximum number of days that can be polled
 MAX_DAYS = 90
