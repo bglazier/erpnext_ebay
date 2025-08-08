@@ -40,7 +40,7 @@ COLUMNS = [
         'fieldname': 'transaction_type',
         'label': 'Type',
         'fieldtype': 'Data',
-        'width': 150
+        'width': 120
     },
     {
         'fieldname': 'amount',
@@ -82,6 +82,11 @@ COLUMNS = [
         'options': 'link_doctype'
     },
     {
+        'fieldname': 'link_idx',
+        'label': 'Link row',
+        'fieldtype': 'Data'
+    },
+    {
         'fieldname': 'link_amount',
         'label': 'Linked Value',
         'fieldtype': 'Currency'
@@ -90,7 +95,7 @@ COLUMNS = [
         'fieldname': 'order_id',
         'label': 'eBay order ID',
         'fieldtype': 'Data',
-        'width': 120
+        'width': 150
     },
     {
         'fieldname': 'item_codes',
@@ -99,6 +104,81 @@ COLUMNS = [
         'width': 250
     }
 ]
+
+
+# Ignore the following GL Entries:
+SKIP_GL_ENTRIES = [
+    'GL0211148', 'GL0210628'  # Pair for opening balance
+]
+
+
+def get_sinv_ebay_order_ids(uncancelled=True):
+    """Get the eBay order IDs of all sale and return SINVs.
+    Also returns a dictionary, by eBay order ID, of tuples of the current sale
+    SINV (i.e. most recent if it has been amended) and any return SINVs.
+    """
+    sinvs = {x.name: x for x in frappe.get_all(
+            'Sales Invoice',
+            fields=[
+                'name', 'docstatus', 'amended_from', 'return_against',
+                'ebay_order_id', 'pos_profile'
+            ]
+        )
+    }
+
+    # Build links
+    for sinv in sinvs.values():
+        if parent_name := sinv.amended_from:
+            try:
+                parent = sinvs[parent_name]
+            except KeyError:
+                # Missing parent SINV - broken 'amended_from' link
+                continue
+            else:
+                parent.setdefault('children', []).append(sinv)
+
+    # Propagate ebay_order_id
+    def set_ebay_order_id(sinv_doc, ebay_order_id):
+        sinv_doc.ebay_order_id = ebay_order_id
+        for child in sinv_doc.get('children', []):
+            set_ebay_order_id(child, ebay_order_id)
+
+    for sinv in sinvs.values():
+        if sinv.return_against:
+            continue
+        if not sinv.ebay_order_id:
+            continue
+        if sinv.amended_from:
+            continue
+        for child in sinv.get('children', []):
+            set_ebay_order_id(sinv, sinv.ebay_order_id)
+
+    # Get eBay order IDs for return SINVs
+    for sinv in sinvs.values():
+        if not sinv.return_against:
+            continue
+        if return_doc := sinvs.get(sinv.return_against):
+            sinv.ebay_order_id = return_doc.ebay_order_id
+
+    # Clear child lists
+    for sinv in sinvs.values():
+        if 'children' in sinv:
+            del sinv.children
+
+    # Collect list of sales and returns
+    by_ebay_order_id = {}
+    for sinv in sinvs.values():
+        if not sinv.ebay_order_id:
+            continue
+        if uncancelled and sinv.docstatus == 2:
+            continue
+        r = by_ebay_order_id.setdefault(sinv.ebay_order_id, ([], []))
+        if sinv.return_against:
+            r[1].append(sinv)
+        else:
+            r[0].append(sinv)
+
+    return sinvs, by_ebay_order_id
 
 
 def execute(filters=None):
@@ -137,6 +217,11 @@ def execute(filters=None):
     # Set of all linked documents
     linked_documents = set()
 
+    # Get SINV ebay_order_id list
+    sinv_list, sinvs_by_ebay_order_id = get_sinv_ebay_order_ids(
+        uncancelled=True
+    )
+
     # Loop over transactions and add entries
     for t in transactions:
         if t['transaction_status'] in ('FAILED', 'FUNDS_ON_HOLD'):
@@ -168,6 +253,7 @@ def execute(filters=None):
                 'exchange_rate': exchange_rate,
                 'link_doctype': None,
                 'link_docname': None,
+                'link_idx': None,
                 'link_amount': None,
                 'order_id': t['order_id'],
                 'item_codes': t['item_codes'],
@@ -202,6 +288,7 @@ def execute(filters=None):
                 'exchange_rate': exchange_rate,
                 'link_doctype': None,
                 'link_docname': None,
+                'link_idx': None,
                 'link_amount': None,
                 'order_id': t['order_id'],
                 'item_codes': t['item_codes'],
@@ -220,6 +307,7 @@ def execute(filters=None):
                     'exchange_rate': exchange_rate,
                     'link_doctype': None,
                     'link_docname': None,
+                    'link_idx': None,
                     'link_amount': None,
                     'order_id': t['order_id'],
                     'item_codes': t['item_codes'],
@@ -251,6 +339,7 @@ def execute(filters=None):
             'exchange_rate': None,
             'link_doctype': None,
             'link_docname': None,
+            'link_idx': None,
             'link_amount': None,
             'order_id': None,
             'item_codes': None,
@@ -269,58 +358,23 @@ def execute(filters=None):
         if (not cc_refund) and t_type in ('SALE', 'REFUND'):
             # Find a Sales Invoice with this order ID
             order_id = t['transaction']['order_id']
-            sinv = frappe.get_all(
-                'Sales Invoice',
-                fields=['name', 'docstatus'],
-                filters={'ebay_order_id': order_id}
-            )
-            if not sinv:
-                # No identified SINV
-                continue
-            sinv = sinv[0]  # ebay_order_id is a unique field
-            while sinv['docstatus'] == 2:
-                amended = frappe.get_all(
-                    'Sales Invoice',
-                    fields=['name', 'docstatus'],
-                    filters={'amended_from': sinv.name}
-                )
-                if not amended:
-                    # Could not find amended document from cancelled SINV?
-                    sinv = None
-                    break
-                if len(amended) > 1:
-                    frappe.throw('Multiple amended_from?')
-                sinv = amended[0]
-            if not sinv:
-                # Only found cancelled SINVs?
+            by_ebay_order_id = sinvs_by_ebay_order_id.get(order_id, ([], []))
+
+            idx = 0 if (t_type == 'SALE') else 1
+            sinvs = by_ebay_order_id[idx]
+            if not sinvs:
+                # No uncancelled SINVs to find
                 continue
 
-            if t_type == 'SALE':
-                # Wrap single sale SINV
-                sinvs = [sinv]
-            else:
-                # t_type == 'REFUND'
+            if t_type == 'REFUND':
                 # Only include eBay POS refunds
-                # There can be multiple refunds; consider only the first
-                sinvs = frappe.get_all(
-                    'Sales Invoice',
-                    fields=['name'],
-                    filters={
-                        'return_against': sinv.name,
-                        'docstatus': ['!=', 2],
-                        'pos_profile': ['like', 'eBay %']
-                    },
-                    order_by='creation DESC'
-                )
-                # Don't link to an already-linked return SINV
                 sinvs = [
                     x for x in sinvs
                     if ('Sales Invoice', x.name) not in linked_documents
+                    and x.pos_profile.startswith('eBay ')
                 ]
-                if not sinvs:
-                    # Did not find return
-                    continue
-                sale_sinv = sinv.name
+                sale_sinvs = by_ebay_order_id[0]
+                sale_sinv = sale_sinvs[0] if sale_sinvs else None
 
             # Get payment value for each SINV
             # Go in reverse so we end up with the oldest return SINV
@@ -396,6 +450,7 @@ def execute(filters=None):
             # Now add link
             t['link_doctype'] = 'Sales Invoice'
             t['link_docname'] = sinv.name
+            t['link_idx'] = None
             t['link_amount'] = cur_flt(sinv.payment_value)
             if sinv.payment_value:
                 linked_documents.add(('Sales Invoice', sinv.name))
@@ -442,13 +497,14 @@ def execute(filters=None):
             # Now add link
             t['link_doctype'] = 'Journal Entry'
             t['link_docname'] = je[0].name
+            t['link_idx'] = None
             t['link_amount'] = cur_flt(payout_value)
             linked_documents.add(('Journal Entry', je[0].name))
         else:
             # Find submitted PINV items with this transaction ID
             pinv_items = frappe.get_all(
                 'Purchase Invoice Item',
-                fields=['name', 'amount', 'parent', 'docstatus'],
+                fields=['name', 'amount', 'parent', 'docstatus', 'idx'],
                 filters={
                     'ebay_transaction_id': t_id,
                     'docstatus': ['!=', 2]
@@ -462,8 +518,10 @@ def execute(filters=None):
             t['link_doctype'] = 'Purchase Invoice'
             if len(parents) > 1:
                 t['link_docname'] = 'Various'
+                t['link_idx'] = None
             else:
                 t['link_docname'] = pinv_items[0].parent
+                t['link_idx'] = str(pinv_items[0].idx)
             submitted_sum = round(sum(
                 x.amount for x in pinv_items if x.docstatus == 1
             ), 2)
@@ -476,15 +534,18 @@ def execute(filters=None):
     # Get any GL Entries that aren't accounted for
     gl_entries = frappe.get_all(
         'GL Entry',
-        fields=['posting_date', 'debit', 'credit',
+        fields=['name', 'posting_date', 'debit', 'credit',
                 'voucher_type', 'voucher_no'],
         filters={'account': ebay_bank, 'is_cancelled': False}
     )
     gl_entries = [
         x for x in gl_entries
         if (start_date <= x.posting_date <= end_date)
+        and x.name not in SKIP_GL_ENTRIES
     ]
     for gl_entry in gl_entries:
+        order_id = None
+        item_codes = None
         amount = gl_entry.credit - gl_entry.debit
         meta = frappe.get_meta(gl_entry.voucher_type)
         if hasattr(meta, 'posting_date'):
@@ -517,6 +578,10 @@ def execute(filters=None):
                 continue  # if all PINVs allocated
             amount -= sum(x.amount for x in linked_pinv_items)
         else:
+            if gl_entry.voucher_type == 'Sales Invoice':
+                order_id = sinv_list.get(
+                    gl_entry.voucher_no, {}
+                ).get('ebay_order_id')
             key = (gl_entry.voucher_type, gl_entry.voucher_no)
             if key in linked_documents:
                 # This document already considered
@@ -531,9 +596,10 @@ def execute(filters=None):
             'exchange_rate': None,
             'link_doctype': gl_entry.voucher_type,
             'link_docname': gl_entry.voucher_no,
+            'link_idx': None,
             'link_amount': amount,
-            'order_id': None,
-            'item_codes': None
+            'order_id': order_id,
+            'item_codes': item_codes
         })
 
     # Sort data into datetime order
