@@ -111,6 +111,9 @@ SKIP_GL_ENTRIES = [
     'GL0211148', 'GL0210628'  # Pair for opening balance
 ]
 
+# Force new fee/sale method for these ebay order IDs
+NEW_METHOD = ['20-09503-02764']
+
 
 def get_sinv_ebay_order_ids(uncancelled=True):
     """Get the eBay order IDs of all sale and return SINVs.
@@ -264,18 +267,32 @@ def execute(filters=None):
             fee_value = 0.0
             if fees and fees['value']:
                 fee_value = cur_flt(fees['value'])
-            if currency:
-                fee_converted_from_value = fee_value
-                fee_value *= exchange_rate
+            if t['order_id'] in NEW_METHOD:
+                # Do the calculation in the foreign currency, then adjust
+                if currency:
+                    converted_from_value = float(amount['converted_from_value'])
+                    sale_converted_from_value = converted_from_value + fee_value
+                    sale_value = sale_converted_from_value * exchange_rate
+                    fee_value = sale_value - float(amount['value'])
+                else:
+                    fee_converted_from_value = None
+                    sale_converted_from_value = None
+                    sale_value = float(amount['value']) + fee_value
             else:
-                fee_converted_from_value = None
-            sale_value = float(amount['value']) + fee_value
-            if currency:
-                sale_converted_from_value = (
-                    float(amount['converted_from_value']) + fee_converted_from_value
-                )
-            else:
-                sale_converted_from_value = None
+                # Match to old distribution method
+                if currency:
+                    fee_converted_from_value = fee_value
+                    fee_value *= exchange_rate
+                else:
+                    fee_converted_from_value = None
+                sale_value = float(amount['value']) + fee_value
+                if currency:
+                    sale_converted_from_value = (
+                        float(amount['converted_from_value']) + fee_converted_from_value
+                    )
+                else:
+                    sale_converted_from_value = None
+
             # Add sale/refund entry
             data.append({
                 'transaction_datetime': t_datetime,
@@ -361,17 +378,22 @@ def execute(filters=None):
             by_ebay_order_id = sinvs_by_ebay_order_id.get(order_id, ([], []))
 
             idx = 0 if (t_type == 'SALE') else 1
-            sinvs = by_ebay_order_id[idx]
+            sinvs = [
+                x for x in by_ebay_order_id[idx]
+                if ('Sales Invoice', x.name) not in linked_documents
+            ]
             if not sinvs:
-                # No uncancelled SINVs to find
+                # No uncancelled (unlinked) SINVs to find
                 continue
 
             if t_type == 'REFUND':
                 # Only include eBay POS refunds
                 sinvs = [
                     x for x in sinvs
-                    if ('Sales Invoice', x.name) not in linked_documents
-                    and x.pos_profile.startswith('eBay ')
+                    if (
+                        x.pos_profile.startswith('eBay ')
+                        or x.pos_profile == 'Split Refund (eBay/Refunds)'
+                    )
                 ]
                 sale_sinvs = by_ebay_order_id[0]
                 sale_sinv = sale_sinvs[0] if sale_sinvs else None
