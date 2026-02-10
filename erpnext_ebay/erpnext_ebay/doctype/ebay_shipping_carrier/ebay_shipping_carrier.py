@@ -19,6 +19,7 @@ ENTRY_MAPPING = {
     'site_codes': 'site_codes'
 }
 
+
 @frappe.whitelist()
 def client_sync_shipping_carriers(site_ids=EBAY_SITE_IDS.keys(),
                                   force_update=False):

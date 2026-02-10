@@ -889,7 +889,7 @@ def get_cached_ebay_details(details_key, site_id=HOME_SITE_ID,
         'RecoupmentPolicyDetails', 'ShippingCategoryDetails', 'ProductDetails'
     )
     if details_key not in ALLOWED_DETAILS_KEYS:
-        frappe.throw(f'Details key {key} not permitted!')
+        frappe.throw(f'Details key {details_key} not permitted!')
 
     cache_key = f'eBay{details_key}_{site_id}'
     if force_update:
