@@ -1,0 +1,24 @@
+[project]
+name = "erpnext_ebay"
+authors = [
+    { name = "Universal Resource Trading Ltd", email = "andrew.mcleod@unigreenscheme.co.uk"}
+]
+description = "ERPNext eBay integration"
+requires-python = ">=3.13"
+readme = "README.md"
+dynamic = ["version"]
+dependencies = [
+    "iso3166",
+    "ebaysdk",
+    "ebay_rest",
+    "ecdsa",
+    "redo"
+]
+
+[tool.bench.frappe-dependencies]
+frappe = ">=15.0.0,<16.0.0"
+erpnext = ">=15.0.0,<16.0.0"
+
+[project.urls]
+Repository = "https://github.com/bglazier/erpnext_ebay.git"
+"Bug Reports" = "https://github.com/bglazier/erpnext_ebay/issues"
