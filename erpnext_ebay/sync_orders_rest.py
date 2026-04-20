@@ -1267,6 +1267,7 @@ def create_sales_invoice(order_dict, order, listing_site, purchase_site,
         raise ErpnextEbaySyncError(
             f'Mode of Payment "{ebay_payment_account}" does not exist!')
     sinv_payments = []
+    submit_on_pay = False
     if cash_on_pickup:
         # Don't create payments, or submit, for Cash On Pickup
         pass
@@ -1850,7 +1851,7 @@ def sanitize_postcode(in_postcode):
     """Take a UK postcode and tidy it up (spacing and capitals)."""
 
     postcode = in_postcode.strip().replace(' ', '').upper()
-    if (6 > len(postcode) > 8):
+    if not (6 <= len(postcode) <= 8):
         raise ValueError('Unknown postcode type!')
 
     # A single space always precedes the last three characters of a UK postcode

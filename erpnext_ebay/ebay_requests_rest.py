@@ -146,7 +146,6 @@ def get_orders(num_days=None, order_ids=None, sandbox=False, **kwargs):
     If order_ids is supplied, only orders in the list supplied
     are returned.
     """
-    kwargs = {}
 
     # Get number of dates and calculated lastmodifieddate filter
     if num_days:
@@ -307,7 +306,7 @@ def get_items(item_ids, sandbox=False, **kwargs):
         item_ids: List of Item IDs to look up
     """
 
-    kwargs = {'item_ids': ','.join(item_ids)}
+    kwargs.update({'item_ids': ','.join(item_ids)})
 
     # Make API call
     return paged_api_call(

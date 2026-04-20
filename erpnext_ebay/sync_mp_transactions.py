@@ -91,10 +91,10 @@ def archive_transactions(start_date, end_date):
         transaction['item_codes'] = find_item_codes(transaction)
         # If a TRANSFER, run get_transfer
         if transaction['transaction_type'] == 'TRANSFER':
-            for i in range(2):
+            for i in range(3):
                 # Try this three times
                 try:
-                    details = get_transfer(transactions['transaction_id'])
+                    details = get_transfer(transaction['transaction_id'])
                 except Exception as e:
                     pass
                 else:
@@ -105,7 +105,7 @@ def archive_transactions(start_date, end_date):
         for ref in transaction.get('references') or []:
             if ref['reference_type'] == 'PAYMENTS_DISPUTE_ID':
                 dispute_id = ref['reference_id']
-                for i in range(2):
+                for i in range(3):
                     # Try this three times
                     try:
                         details = get_payment_dispute(dispute_id)
