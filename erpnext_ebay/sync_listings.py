@@ -342,7 +342,7 @@ def create_ebay_online_selling_item(listing, item_code,
     selling_url = '<a href="{link}">{link}</a>'.format(
         link=listing['ListingDetails']['ViewItemURL'])
     selling_url = bleach.clean(
-        selling_url, tags=['a'], attributes={'a': ['href']}, styles=[],
+        selling_url, tags=['a'], attributes={'a': ['href']},
         strip=True, strip_comments=True)
     site_domain = EBAY_SITE_DOMAINS[site_id]
     selling_url = selling_url.replace('ebay.com', f'ebay.{site_domain}')
