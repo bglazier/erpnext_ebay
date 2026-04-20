@@ -362,7 +362,9 @@ def create_shipping_fulfillment(order_id, shipping_fulfillment):
 
     return single_api_call(
         API_CALL, use_sandbox(API_CALL),
-        body=shipping_fulfillment, order_id=order_id
+        body=shipping_fulfillment,
+        content_type='application/json',
+        order_id=order_id
     )
 
 
