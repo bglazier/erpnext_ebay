@@ -3,9 +3,13 @@
 import requests
 
 import ebaysdk.exception
-import ebay_rest
+from ebay_rest.error import Error as eBayRestError
+
 
 import frappe
+
+# Exceptions
+eBayRestError = ebay_rest.error.Error
 
 # EU countries
 EU_COUNTRIES = ['Austria', 'Belgium', 'Bulgaria', 'Croatia', 'Cyprus',
@@ -26,7 +30,7 @@ REDO_SLEEPSCALE = 1.5
 REDO_EXCEPTIONS = (
     ebaysdk.exception.ConnectionError,
     ebaysdk.exception.ConnectionResponseError,
-    ebay_rest.error.Error,
+    eBayRestError,
     requests.exceptions.HTTPError, requests.exceptions.ConnectionError,
     requests.exceptions.ProxyError, requests.exceptions.SSLError,
     requests.exceptions.Timeout
