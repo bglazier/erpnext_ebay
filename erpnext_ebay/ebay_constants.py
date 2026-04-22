@@ -13,7 +13,7 @@ EU_COUNTRIES = ['Austria', 'Belgium', 'Bulgaria', 'Croatia', 'Cyprus',
                 'Sweden']
 
 # Default eBay timeout and maximum workers
-EBAY_TIMEOUT = 30
+EBAY_TIMEOUT = 120
 EBAY_WORKERS = 50
 
 # Redo parameters for retrying transactions
