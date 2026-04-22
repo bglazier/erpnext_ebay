@@ -8,9 +8,6 @@ from ebay_rest.error import Error as eBayRestError
 
 import frappe
 
-# Exceptions
-eBayRestError = ebay_rest.error.Error
-
 # EU countries
 EU_COUNTRIES = ['Austria', 'Belgium', 'Bulgaria', 'Croatia', 'Cyprus',
                 'Czech Republic', 'Denmark', 'Estonia', 'Finland', 'France',
