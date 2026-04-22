@@ -1,8 +1,11 @@
 """A module of eBay constants"""
 
+import requests
+
+import ebaysdk.exception
+import ebay_rest
+
 import frappe
-from ebaysdk.exception import ConnectionError
-from ebay_rest.error import Error as eBayRestError
 
 # EU countries
 EU_COUNTRIES = ['Austria', 'Belgium', 'Bulgaria', 'Croatia', 'Cyprus',
@@ -20,7 +23,14 @@ EBAY_WORKERS = 50
 REDO_ATTEMPTS = 5
 REDO_SLEEPTIME = 3.0
 REDO_SLEEPSCALE = 1.5
-REDO_EXCEPTIONS = (ConnectionError, eBayRestError)
+REDO_EXCEPTIONS = (
+    ebaysdk.exception.ConnectionError,
+    ebaysdk.exception.ConnectionResponseError,
+    ebay_rest.error.Error,
+    requests.exceptions.HTTPError, requests.exceptions.ConnectionError,
+    requests.exceptions.ProxyError, requests.exceptions.SSLError,
+    requests.exceptions.Timeout
+)
 
 # Maximum number of eBay images per listing
 MAX_EBAY_IMAGES = 24
