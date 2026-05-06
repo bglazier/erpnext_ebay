@@ -455,7 +455,8 @@ def sync_mp_payouts(num_days=None, start_date=None, end_date=None,
                 filters={
                     'cheque_no': p_id,
                     'cheque_date': payout_date,
-                    'title': ['like', 'eBay Managed Payments Payout%']
+                    'title': ['like', 'eBay Managed Payments Payout%'],
+                    'docstatus': ['!=', 2]
                 }):
             continue
 
@@ -505,6 +506,7 @@ def sync_mp_payouts(num_days=None, start_date=None, end_date=None,
                 }
             ]
         })
+        je_doc.get_title = lambda *args: je_doc.title  # Use our title
         je_doc.insert()
         je_doc.submit()
 
