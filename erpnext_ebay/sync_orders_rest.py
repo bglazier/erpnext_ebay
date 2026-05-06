@@ -1851,7 +1851,7 @@ def sanitize_postcode(in_postcode):
     """Take a UK postcode and tidy it up (spacing and capitals)."""
 
     postcode = in_postcode.strip().replace(' ', '').upper()
-    if not (6 <= len(postcode) <= 8):
+    if not (5 <= len(postcode) <= 7):
         raise ValueError('Unknown postcode type!')
 
     # A single space always precedes the last three characters of a UK postcode
