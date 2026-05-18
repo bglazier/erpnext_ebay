@@ -37,6 +37,7 @@ REDO_EXCEPTIONS = (
 MAX_EBAY_IMAGES = 24
 
 # Assumed maximum length of eBay attributes and values
+EBAY_TITLE_LEN = 80
 EBAY_ATTR_LEN = 100
 EBAY_ATTR_LEN_STR = str(EBAY_ATTR_LEN)
 EBAY_VALUE_LEN = 1000
