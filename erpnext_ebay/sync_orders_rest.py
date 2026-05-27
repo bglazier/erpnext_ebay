@@ -587,7 +587,13 @@ def create_customer(customer_dict, address_dict, changes=None, print_func=None):
                 link_doc = address_doc.append('links')
                 link_doc.link_doctype = 'Customer'
                 link_doc.link_name = db_cust_name
-            address_doc.save()
+            try:
+                address_doc.save()
+            except Exception as e:
+                raise ErpnextEbaySyncError(
+                    f'Failed to update existing address:\n'
+                    + f'{address_doc.as_dict()}'
+                ) from e
             updated_db = True
             # Update the customer territory, if required
             if cust_fields:
