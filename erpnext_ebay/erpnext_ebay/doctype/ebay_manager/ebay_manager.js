@@ -56,8 +56,7 @@ frappe.ui.form.on('eBay Manager', {
             method: "erpnext_ebay.ebay_categories.category_sync",
             args: {
                 site_id: 3,
-                force_override_categories: true,
-                force_override_features: true
+                force_override_categories: true
             },
             freeze: true,
             freeze_message: "Loading eBay UK categories; this may take some time..."

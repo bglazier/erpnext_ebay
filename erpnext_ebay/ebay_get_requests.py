@@ -593,9 +593,8 @@ def get_item(item_id=None, item_code=None, site_id=HOME_SITE_ID,
     return listing['Item']
 
 
-def get_categories_versions(site_id=HOME_SITE_ID):
-    """Load the version number of the current eBay categories
-    and category features.
+def get_categories_version(site_id=HOME_SITE_ID):
+    """Load the version number of the current eBay categories.
     """
 
     try:
@@ -610,24 +609,15 @@ def get_categories_versions(site_id=HOME_SITE_ID):
             sleepscale=REDO_SLEEPSCALE, retry_exceptions=REDO_EXCEPTIONS,
             args=('GetCategories', api_options)
         )
-        response1 = api.response
-        test_for_message(response1.dict())
-
-        redo.retry(
-            api.execute, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
-            sleepscale=REDO_SLEEPSCALE, retry_exceptions=REDO_EXCEPTIONS,
-            args=('GetCategoryFeatures', {})
-        )
-        response2 = api.response
-        test_for_message(response2.dict())
+        response = api.response
+        test_for_message(response.dict())
 
     except ConnectionError as e:
         handle_ebay_error(e)
 
-    categories_version = response1.reply.CategoryVersion
-    features_version = response2.reply.CategoryVersion
+    categories_version = response.reply.CategoryVersion
 
-    return (categories_version, features_version)
+    return categories_version
 
 
 def get_categories(site_id=HOME_SITE_ID):
@@ -689,143 +679,6 @@ def get_categories(site_id=HOME_SITE_ID):
 
     # Return the new categories
     return categories_data, max_level
-
-
-def get_features(site_id=HOME_SITE_ID):
-    """Load the eBay category features for the features cache.
-    Always uses the live eBay API.
-    """
-
-    try:
-        # Initialize TradingAPI; default timeout is twice default.
-        api = get_trading_api(site_id=site_id, warnings=True,
-                              timeout=EBAY_TIMEOUT * 2,
-                              api_call='GetCategoryFeatures')
-
-    except ConnectionError as e:
-        handle_ebay_error(e)
-
-    features_data = None
-    feature_definitions = set()
-    listing_durations = {}
-
-    # Loop over each top-level category, pulling in all of the data
-    search_categories = frappe.db.sql("""
-        SELECT CategoryID, CategoryName, CategoryLevel
-            FROM eBay_categories_hierarchy WHERE CategoryParentID=0
-        """, as_dict=True)
-
-    # BEGIN DUBIOUS WORKAROUND
-    # Even some top-level categories have a habit of timing out
-    # Run over their subcategories instead
-    problematic_categories = ['1']  # Categories that timeout
-    problem_parents = []
-    problem_children = []
-    for category in search_categories:
-        category_id = category['CategoryID']
-        if category_id in problematic_categories:
-            problem_parents.append(category)
-            children = frappe.db.sql("""
-                SELECT CategoryID, CategoryName, CategoryLevel
-                FROM eBay_categories_hierarchy WHERE CategoryParentID=%s
-                """, (category_id,), as_dict=True)
-            problem_children.extend(children)
-    for parent in problem_parents:
-        search_categories.remove(parent)
-    search_categories.extend(problem_children)
-    search_categories.extend(problem_parents)  # Now at end of list
-    # END DUBIOUS WORKAROUND
-
-    for category in search_categories:
-        category_id = category['CategoryID']
-        category_level = int(category['CategoryLevel'])
-        sub_string = 'sub' * (category_level-1)
-        ebay_logger().debug(
-            f'Loading for {sub_string}category {category_id}...'
-        )
-        api_options = {
-            'CategoryID': category_id,
-            'DetailLevel': 'ReturnAll',
-            'ViewAllNodes': 'true'
-        }
-        # BEGIN DUBIOUS WORKAROUND
-        # Only look at the top level for this category
-        if category_id in problematic_categories:
-            api_options['LevelLimit'] = 1
-        # END DUBIOUS WORKAROUND
-
-        try:
-            redo.retry(
-                api.execute, attempts=REDO_ATTEMPTS, sleeptime=REDO_SLEEPTIME,
-                sleepscale=REDO_SLEEPSCALE, retry_exceptions=REDO_EXCEPTIONS,
-                args=('GetCategoryFeatures', api_options)
-            )
-        except ConnectionError as e:
-            handle_ebay_error(e)
-        response_dict = api.response.dict()
-        test_for_message(response_dict)
-
-        if features_data is None:
-            # First batch of new categories
-            features_data = response_dict   # Initialize with the whole dataset
-            # Extract all the FeatureDefinition keys
-            feature_definitions.update(
-                features_data['FeatureDefinitions'].keys())
-            # Special-case the ListingDurations
-            lds = response_dict['FeatureDefinitions']['ListingDurations']
-            features_data['ListingDurationsVersion'] = lds['_Version']
-            if 'ListingDuration' in lds:
-                for ld in lds['ListingDuration']:
-                    listing_durations[ld['_durationSetID']] = ld['Duration']
-            del (features_data['FeatureDefinitions'])
-        else:
-            # Add new categories to existing dictionary
-            if 'Category' not in response_dict:
-                # No over-ridden categories returned
-                continue
-            cat_list = response_dict['Category']
-            if not isinstance(cat_list, Sequence):
-                cat_list = [cat_list]  # in case there is only one category
-            # Add the new categories, FeatureDefinitions, ListingDurations
-            features_data['Category'].extend(cat_list)
-            feature_definitions.update(
-                response_dict['FeatureDefinitions'].keys())
-            lds = response_dict['FeatureDefinitions']['ListingDurations']
-            if 'ListingDuration' in lds:
-                for ld in lds['ListingDuration']:
-                    if ld['_durationSetID'] in listing_durations:
-                        continue
-                    listing_durations[ld['_durationSetID']] = ld['Duration']
-
-    # Store the FeatureDefinitions and ListingDurations in a sensible place
-    feature_definitions.remove('ListingDurations')
-    features_data['FeatureDefinitions'] = feature_definitions
-    features_data['ListingDurations'] = listing_durations
-
-    # Move the ConditionHelpURL out of each category and reorganize
-    # the Conditions
-    for cat in features_data['Category']:
-        if 'ConditionValues' in cat:
-            cv = cat['ConditionValues']
-            if 'ConditionHelpURL' in cv:
-                cat['ConditionHelpURL'] = (
-                    cv['ConditionHelpURL'])
-                del cv['ConditionHelpURL']
-            cat['ConditionValues'] = cv['Condition']
-
-    if 'ConditionValues' in features_data['SiteDefaults']:
-        cv = features_data['SiteDefaults']['ConditionValues']
-        if 'ConditionHelpURL' in cv:
-            features_data['SiteDefaults']['ConditionHelpURL'] = (
-                cv['ConditionHelpURL'])
-            del cv['ConditionHelpURL']
-        features_data['SiteDefaults']['ConditionValues'] = cv['Condition']
-
-    # Extract the new version number
-    features_version = features_data['CategoryVersion']
-
-    # Return the new features
-    return features_version, features_data
 
 
 def get_ebay_details(site_id=HOME_SITE_ID, detail_name=None):

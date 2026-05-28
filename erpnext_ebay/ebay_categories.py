@@ -10,12 +10,9 @@ import frappe
 from frappe import msgprint
 
 from .ebay_get_requests import (
-    ebay_logger, get_categories_versions, get_categories, get_features
+    ebay_logger, get_categories_version, get_categories
 )
 from .ebay_constants import *
-
-
-USE_FEATURES = False
 
 
 def _infinite_strings(key=None):
@@ -70,8 +67,7 @@ def _write_ebay_cache_to_file(fn, cache_data):
 
 
 @frappe.whitelist()
-def category_sync(force_override_categories=False,
-                  force_override_features=False):
+def category_sync(force_override_categories=False):
     """Load a new set of eBay categories.
 
     By default, this checks the current versions of the eBay categories cache
@@ -79,22 +75,16 @@ def category_sync(force_override_categories=False,
     eBay categories have not changed).
     If force_override_categories is set, then the eBay categories will be
     redownloaded and new Item Group eBay entries set.
-    If force_override_features is set, then the eBay features will be
-    redownloaded.
-    Setting force_override_features to True implies force_override_categories.
     """
     # Check permissions, as this is a whitelisted function
     if 'System Manager' not in frappe.get_roles(frappe.session.user):
         return frappe.PermissionError(
             'Only System Managers can update the eBay categories.')
-    if force_override_features:
-        force_override_categories = True
-    categories_ok, features_ok = check_cache_versions()
+    categories_ok = check_cache_version()
     # Do we need to update the cache?
     update_categories = force_override_categories or not categories_ok
-    update_features = force_override_features or not features_ok
     # Update the cache if required
-    ensure_updated_cache(update_categories, update_features)
+    ensure_updated_cache(update_categories)
     # Update the Item Group eBay categories if required.
     if update_categories:
         # We only wipe the tables if we are forcing an override
@@ -102,9 +92,9 @@ def category_sync(force_override_categories=False,
         create_item_group_ebay(force_override_categories)
 
 
-def check_cache_versions():
-    """Check existence and non-emptyness of tables, and check version numbers.
-    Return True/False for categories and features caches.
+def check_cache_version():
+    """Check existence and non-emptyness of tables, and check version number.
+    Return True/False for categories cache.
     """
     tables_list = frappe.db.get_tables()
 
@@ -121,28 +111,14 @@ def check_cache_versions():
     else:
         categories_cache_version = None
 
-    # Check Features cache
-    if 'eBay_features_info' in tables_list:
-        # Table exists
-        features_cache_version = frappe.db.sql(
-            """SELECT CategoryVersion FROM eBay_features_info""")
-        if features_cache_version:
-            # Table is not empty
-            features_cache_version = features_cache_version[0][0]
-        else:
-            features_cache_version = None
-    else:
-        features_cache_version = None
-
     # Check eBay API for current categories version
-    categories_version, features_version = get_categories_versions()
+    categories_version = get_categories_version()
 
-    return (categories_version == categories_cache_version,
-            features_version == features_cache_version)
+    return categories_version == categories_cache_version
 
 
-def ensure_updated_cache(update_categories=False, update_features=False):
-    """Check if the SQL database cache of the eBay Categories and Features
+def ensure_updated_cache(update_categories=False):
+    """Check if the SQL database cache of the eBay Categories
     is up to date.
     If not, request new caches as needed and call create_sql_cache.
     """
@@ -168,26 +144,6 @@ def ensure_updated_cache(update_categories=False, update_features=False):
             'ebay_categories_cache_maximum_level',
             max_level
         )
-
-    if not USE_FEATURES:
-        # Don't get features data
-        return
-
-    if update_features:
-        # Load new category features
-
-        # Load using the eBay API
-        new_features_version, features_data = get_features()
-
-        # Alternatives for debugging only
-        # categories_data = _load_ebay_cache_from_file(
-        #    'erpnext_ebay.features.pkl')
-
-        # _write_ebay_cache_to_file(
-        #     'erpnext_ebay.features.pkl', features_data)
-
-        # Create SQL cache
-        create_ebay_features_cache(features_data)
 
 
 def create_ebay_categories_cache(categories_data):
@@ -305,268 +261,6 @@ def create_ebay_categories_cache(categories_data):
                 # are passed by parameterisation.
                 next_level.extend(cat_child['Children'])
             cat_children = next_level
-
-    frappe.db.commit()
-
-
-def create_ebay_features_cache(features_data):
-    """Create SQL caches for the features dictionaries"""
-
-    tables_list = frappe.db.get_tables()  # Note that db.table_exists is broken
-
-    # Check the categories tables exist
-    if not ('eBay_categories_info' in tables_list
-            or 'eBay_categories_hierarchy' in tables_list):
-        raise ValueError('Categories cache does not exist!')
-
-    # Drop the tables if they exist
-    if 'eBay_features_info' in tables_list:
-        frappe.db.sql("""DROP TABLE eBay_features_info""")
-    if 'eBay_features_PaymentMethodConnections' in tables_list:
-        frappe.db.sql("""DROP TABLE eBay_features_PaymentMethodConnections""")
-    if 'eBay_features_extra' in tables_list:
-        frappe.db.sql("""DROP TABLE eBay_features_extra""")
-    if 'eBay_features' in tables_list:
-        frappe.db.sql("""DROP TABLE eBay_features""")
-    if 'eBay_features_ListingDurations' in tables_list:
-        frappe.db.sql("""DROP TABLE eBay_features_ListingDurations""")
-    if 'eBay_features_FeatureDefinitions' in tables_list:
-        frappe.db.sql("""DROP TABLE eBay_features_FeatureDefinitions""")
-    if 'eBay_features_ConditionValues' in tables_list:
-        frappe.db.sql("""DROP TABLE eBay_features_ConditionValues""")
-    if 'eBay_features_PaymentMethods' in tables_list:
-        frappe.db.sql("""DROP TABLE eBay_features_PaymentMethods""")
-    if 'eBay_features_ListingDurationTokens' in tables_list:
-        frappe.db.sql("""DROP TABLE eBay_features_ListingDurationTokens""")
-
-# Create the tables
-
-    # Lookup tables for hard-coded eBay tokens
-    frappe.db.sql("""
-        CREATE TABLE eBay_features_ListingDurationTokens (
-            ListingDurationToken NVARCHAR(20),
-            Days INT,
-            Description NVARCHAR(1000),
-            PRIMARY KEY (ListingDurationToken)
-        )""")
-
-    frappe.db.sql("""
-        CREATE TABLE eBay_features_PaymentMethods (
-            PaymentMethod NVARCHAR(100),
-            Description NVARCHAR(1000),
-            PRIMARY KEY (PaymentMethod)
-        )""")
-
-    # Tables for the features data
-    frappe.db.sql("""
-        CREATE TABLE eBay_features_info (
-            Build NVARCHAR(1000),
-            CategoryVersion NVARCHAR(1000),
-            ListingDurationVersion INT,
-            Timestamp NVARCHAR(100),
-            UpdateTime NVARCHAR(100),
-            Version NVARCHAR(100)
-        )""")
-
-    frappe.db.sql("""
-        CREATE TABLE eBay_features_ConditionValues (
-            CategoryID NVARCHAR(10) NOT NULL,
-            ConditionID INT NOT NULL,
-            DisplayName NVARCHAR(1000),
-            FOREIGN KEY (CategoryID)
-                REFERENCES eBay_categories_hierarchy (CategoryID)
-        )""")
-
-    frappe.db.sql("""
-        CREATE TABLE eBay_features_FeatureDefinitions (
-            FeatureDefinition NVARCHAR(""" + EBAY_ATTR_LEN_STR + """),
-            Extra BOOLEAN NOT NULL,
-            PRIMARY KEY (FeatureDefinition)
-        )""")
-
-    frappe.db.sql("""
-        CREATE TABLE eBay_features_ListingDurations (
-            durationSetID INT NOT NULL,
-            ListingDurationToken NVARCHAR(20),
-            FOREIGN KEY (ListingDurationToken)
-                REFERENCES eBay_features_ListingDurationTokens (
-                    ListingDurationToken)
-        )""")
-
-    frappe.db.sql("""
-        CREATE TABLE eBay_features_PaymentMethodConnections (
-            CategoryID NVARCHAR(10) NOT NULL,
-            PaymentMethod NVARCHAR(100) NOT NULL,
-            FOREIGN KEY (CategoryID)
-                REFERENCES eBay_categories_hierarchy (CategoryID),
-            FOREIGN KEY (PaymentMethod)
-                REFERENCES eBay_features_PaymentMethods (PaymentMethod)
-        )""")
-
-    # NOTE - changes here should be matched by changes to the
-    # FEATURES_BASE_COLUMNS constant
-    frappe.db.sql("""
-        CREATE TABLE eBay_features (
-            CategoryID NVARCHAR(10) NOT NULL,
-            ListingDurationAdType INT,
-            ListingDurationAuction INT,
-            ListingDurationChinese INT,
-            ListingDurationDutch INT,
-            ListingDurationLive INT,
-            ListingDurationFixedPriceItem INT,
-            ListingDurationLeadGeneration INT,
-            ListingDurationPersonalOffer INT,
-            ListingDurationStoresFixedPrice INT,
-            CompatibleVehicleType NVARCHAR(100),
-            ExpressEnabled BOOLEAN,
-            GlobalShippingEnabled BOOLEAN,
-            MaxFlatShippingCost DOUBLE PRECISION,
-            MaxFlatShippingCostCurrency NVARCHAR(10),
-            ConditionEnabled NVARCHAR(100),
-            ConditionHelpURL NVARCHAR(1000),
-            FOREIGN KEY (CategoryID)
-                REFERENCES eBay_categories_hierarchy (CategoryID)
-        )""")
-
-    frappe.db.sql("""
-        CREATE TABLE eBay_features_extra (
-            CategoryID NVARCHAR(10) NOT NULL,
-            Attribute NVARCHAR(""" + EBAY_ATTR_LEN_STR + """) NOT NULL,
-            Value NVARCHAR(""" + EBAY_VALUE_LEN_STR + """),
-            FOREIGN KEY (CategoryID)
-                REFERENCES eBay_categories_hierarchy (CategoryID),
-            UNIQUE cat_attr (CategoryID, Attribute)
-        )""")
-
-    # Set up the tables with hard-coded eBay constants
-
-    # Set up the eBay_features_ListingDurationTokens table
-    for values in LISTING_DURATION_TOKENS:
-        frappe.db.sql("""
-            INSERT INTO eBay_features_ListingDurationTokens
-                (ListingDurationToken, Days, Description)
-                VALUES (%s, %s, %s)
-            """, values)
-
-    for key, value in PAYMENT_METHODS.items():
-        frappe.db.sql("""
-            INSERT INTO eBay_features_PaymentMethods
-                (PaymentMethod, Description)
-                VALUES (%s, %s)
-            """, (key, value))
-
-    frappe.db.commit()
-
-    # Set up the tables for the features data
-
-    # Load the basic info into the info table
-    info_od = collections.OrderedDict()
-    keys = ('Build', 'CategoryVersion', 'ListingDurationVersion',
-            'Timestamp', 'UpdateTime', 'Version')
-    for key in keys:
-        if key in features_data:
-            info_od[key] = features_data[key]
-        else:
-            info_od[key] = False
-    frappe.db.sql("""
-        INSERT INTO eBay_features_info (""" + ", ".join(info_od.keys()) + """)
-            VALUES (""" + _s_for(info_od.values()) + """)
-        """, list(info_od.values()))
-
-    # Set up the eBay_features_FeatureDefinitions table
-    for fd in features_data['FeatureDefinitions']:
-        if fd in FEATURES_NOT_SUPPORTED:
-            continue
-        extra = fd not in FEATURES_NOT_EXTRA
-        frappe.db.sql("""
-            INSERT INTO eBay_features_FeatureDefinitions
-                (FeatureDefinition, Extra)
-                VALUES (%s, %s)
-            """, (fd, extra))
-
-    # Set up the eBay_features_ListingDurations table
-    for ld_key, tokens in features_data['ListingDurations'].items():
-        if isinstance(tokens, str):
-            tokens = (tokens,)
-        for token in tokens:
-            frappe.db.sql("""
-                INSERT INTO eBay_features_ListingDurations
-                    (durationSetID, ListingDurationToken)
-                    VALUES (%s, %s)
-                """, (ld_key, token))
-
-    # Loop over categories, setting up the remaining tables
-    cat_keys = FEATURES_BASE_COLUMNS
-
-    # First set up the ROOT (CategoryID = 0) element with the SiteDefaults
-    root_cat = features_data['SiteDefaults'].copy()
-    root_cat['CategoryID'] = 0
-    features_data['Category'].insert(0, root_cat)
-
-    local_unsupported = []
-    for cat in features_data['Category']:
-        # OrderedDict to store values for main table
-        cat_od = collections.OrderedDict()
-        for key in cat_keys:
-            cat_od[key] = None
-        cat_id = cat['CategoryID']
-        # Loop over attributes and values
-        for key, value in cat.items():
-            if key == 'ListingDuration':
-                if not isinstance(value, collections.Sequence):
-                    value = (value,)
-                for ld_dict in value:
-                    ld_key_str = 'ListingDuration' + ld_dict['_type']
-                    cat_od[ld_key_str] = ld_dict['value']
-            elif key == 'PaymentMethod':
-                if isinstance(value, str):
-                    value = (value,)
-                for payment_method in value:
-                    frappe.db.sql("""
-                        INSERT INTO eBay_features_PaymentMethodConnections (
-                            CategoryID, PaymentMethod )
-                            VALUES (%s, %s)
-                        """, (cat_id, payment_method))
-            elif key == 'ConditionValues':
-                if not isinstance(value, collections.Sequence):
-                    value = (value,)
-                for cv_dict in value:
-                    frappe.db.sql("""
-                        INSERT INTO eBay_features_ConditionValues (
-                            CategoryID, ConditionID, DisplayName )
-                            VALUES (%s, %s, %s)
-                        """, (cat_id, cv_dict['ID'], cv_dict['DisplayName']))
-            elif key == 'MaxFlatShippingCost':
-                cat_od['MaxFlatShippingCostCurrency'] = value['_currencyID']
-                cat_od['MaxFlatShippingCost'] = value['value']
-            elif key in cat_keys:
-                # This is one of the expected keys
-                cat_od[key] = value
-            else:
-                # This is an 'extra' key
-                if key in FEATURES_NOT_SUPPORTED:
-                    continue
-                if key in local_unsupported:
-                    continue
-                if (
-                        not isinstance(value, str)
-                        or len(key) > EBAY_ATTR_LEN
-                        or len(value) > EBAY_VALUE_LEN):
-                    ebay_logger().debug(
-                        f'Unsupported eBay attribute/value: {key} : {value}')
-                    local_unsupported.append(key)
-                    raise ValueError('Fancy unsupported data type!')
-                frappe.db.sql("""
-                    INSERT INTO eBay_features_extra (
-                        CategoryID, Attribute, Value )
-                        VALUES (%s, %s, %s)
-                """, (cat_id, key, value))
-
-        # Insert the completed row for this category
-        frappe.db.sql("""
-            INSERT INTO eBay_features (""" + ", ".join(list(cat_od.keys())) + """)
-                VALUES (""" + _s_for(cat_od.values()) + """)
-            """, list(cat_od.values()))
 
     frappe.db.commit()
 

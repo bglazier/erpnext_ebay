@@ -290,37 +290,6 @@ LISTING_TYPES = {'AdType': 'Advertisement',
 # no checking by category for listing types
 LISTING_TYPES_SUPPORTED = ('Chinese', 'FixedPriceItem', 'StoresFixedPrice')
 
-# Feature columns
-
-# Not supported (usually because they are array types)
-FEATURES_NOT_SUPPORTED = ('GalleryFeaturedDurations',
-                          'StoreOwnerExtendedListingDurations')
-# The extra columns produced for ListingDuration
-LISTING_DURATION_COLUMNS = tuple(
-    'ListingDuration' + x for x in LISTING_TYPES)
-# The columns chosen to be stored in the base, rather than extra, table
-_BASE_COLUMNS = (
-    'CompatibleVehicleType', 'ExpressEnabled', 'GlobalShippingEnabled',
-    'MaxFlatShippingCost', 'MaxFlatShippingCostCurrency', 'ConditionEnabled')
-# Features removed to separate tables
-FEATURES_REMOVED = (
-    'ConditionValues', 'ListingDurations', 'PaymentMethods')
-# Extra columns to the base table
-FEATURES_BASE_ADDED = ('ConditionHelpURL',)
-
-# Columns of the basic features table
-# NOTE - changes here should be matched by changes to the SQL query creating
-# the table
-FEATURES_BASE_COLUMNS = (('CategoryID',)
-                         + LISTING_DURATION_COLUMNS
-                         + _BASE_COLUMNS
-                         + FEATURES_BASE_ADDED)
-
-# These FeatureDefinitions are not stored in the 'extra' table
-# For now this includes 'complicated' features like ListingDurations
-FEATURES_NOT_EXTRA = (('CategoryID',)
-                      + FEATURES_REMOVED
-                      + _BASE_COLUMNS)
 
 # Listing code tokens
 days = (1, 3, 5, 7, 10, 14, 21, 28, 30, 60, 90, 120)
