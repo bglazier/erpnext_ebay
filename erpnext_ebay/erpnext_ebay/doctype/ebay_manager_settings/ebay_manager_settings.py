@@ -11,7 +11,10 @@ SAFE_API_CALLS = (
     'GetCategories', 'GeteBayDetails',
     'sell_fulfillment_get_shipping_fulfillments',
     'developer_analytics_get_rate_limits',
-    'developer_analytics_get_user_rate_limits'
+    'developer_analytics_get_user_rate_limits',
+    'commerce_taxonomy_get_default_category_tree_id',
+    'commerce_taxonomy_get_category_tree',
+    'sell_metadata_get_category_policies'
 )
 
 

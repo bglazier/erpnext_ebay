@@ -367,6 +367,42 @@ def create_shipping_fulfillment(order_id, shipping_fulfillment):
     )
 
 
+def get_default_category_tree_id(marketplace_id=HOME_GLOBAL_ID):
+    """Get the default category tree ID for a marketplace."""
+
+    API_CALL = 'commerce_taxonomy_get_default_category_tree_id'
+
+    return single_api_call(
+        API_CALL, use_sandbox(API_CALL),
+        marketplace_id=marketplace_id
+    )
+
+
+def get_category_tree(tree_id):
+    """Load the eBay categories for the categories cache
+    using the Taxonomy API.
+    """
+
+    API_CALL = 'commerce_taxonomy_get_category_tree'
+
+    return single_api_call(
+        API_CALL, use_sandbox(API_CALL),
+        category_tree_id=tree_id,
+        accept_encoding='gzip'
+    )
+
+
+def get_category_policies(marketplace_id=HOME_GLOBAL_ID):
+    """Get category policy metadata for all leaf categories."""
+
+    API_CALL = 'sell_metadata_get_category_policies'
+
+    return single_api_call(
+        API_CALL, use_sandbox(API_CALL),
+        marketplace_id=marketplace_id
+    )
+
+
 def get_api_usage(user_data=False, api_context=None, api_name=None):
     """Get API usage data from eBay via the Developer Analytics API.
 
