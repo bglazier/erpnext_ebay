@@ -17,9 +17,10 @@ import requests
 import frappe
 from frappe import _, msgprint
 
+from ebaysdk import log
 from ebaysdk.response import Response
 from ebaysdk.exception import ConnectionError
-from ebaysdk.trading import Connection as Trading
+from ebaysdk.trading import smart_encode, Connection as TradingConnection
 
 from erpnext_ebay.ebay_constants import (
     EBAY_TIMEOUT, EBAY_WORKERS, EBAY_SITE_NAMES, HOME_SITE_ID,
@@ -42,7 +43,102 @@ def ebay_logger():
     return frappe.logger('erpnext_ebay.ebay')
 
 
-class ParallelTrading(Trading):
+class UGSTrading(TradingConnection):
+    """UGS version of Trading to fix issues"""
+
+    def _get_resp_body_errors(self):
+        """Parses the response content to pull errors.
+
+        Child classes should override this method based on what the errors in the
+        XML response body look like. They can choose to look at the 'ack',
+        'Errors', 'errorMessage' or whatever other fields the service returns.
+        the implementation below is the original code that was part of error()
+        """
+
+        if self._resp_body_errors and len(self._resp_body_errors) > 0:
+            return self._resp_body_errors
+
+        errors = []
+        warnings = []
+        resp_codes = []
+
+        if self.verb is None:
+            return errors
+
+        dom = self.response.dom()
+        if dom is None:
+            return errors
+
+        for e in dom.findall('Errors'):
+            eSeverity = None
+            eClass = None
+            eShortMsg = None
+            eLongMsg = None
+            eCode = None
+
+            try:
+                eSeverity = e.findall('SeverityCode')[0].text
+            except IndexError:
+                pass
+
+            try:
+                eClass = e.findall('ErrorClassification')[0].text
+            except IndexError:
+                pass
+
+            try:
+                eCode = e.findall('ErrorCode')[0].text
+            except IndexError:
+                pass
+
+            try:
+                eShortMsg = smart_encode(e.findall('ShortMessage')[0].text)
+            except IndexError:
+                pass
+
+            try:
+                eLongMsg = smart_encode(e.findall('LongMessage')[0].text)
+            except IndexError:
+                pass
+
+            try:
+                eCode = e.findall('ErrorCode')[0].text
+                if int(eCode) not in resp_codes:
+                    resp_codes.append(int(eCode))
+            except IndexError:
+                pass
+
+            msg = str("Class: {eClass}, Severity: {severity}, Code: {code}, {shortMsg} {longMsg}") \
+                .format(eClass=eClass, severity=eSeverity, code=eCode, shortMsg=eShortMsg,
+                        longMsg=eLongMsg)
+
+            # from IPython import embed; embed()
+
+            if eSeverity == 'Warning':
+                warnings.append(msg)
+            else:
+                errors.append(msg)
+
+        self._resp_body_warnings = warnings
+        self._resp_body_errors = errors
+        self._resp_codes = resp_codes
+
+        if self.config.get('warnings') and len(warnings) > 0:
+            log.warn("{verb}: {message}\n\n".format(
+                verb=self.verb, message="\n".join(warnings)))
+
+        if hasattr(self.response.reply, 'Ack'):
+            if self.response.reply.Ack == 'Failure':
+                if self.config.get('errors'):
+                    log.error("{verb}: {message}\n\n".format(
+                        verb=self.verb, message="\n".join(errors)))
+
+            return errors
+
+        return []
+
+
+class ParallelTrading(UGSTrading):
     def __init__(self, executor=None, **kwargs):
         self.executor = executor or ThreadPoolExecutor()
         self.error_check_lock = threading.Lock()
@@ -177,7 +273,7 @@ def get_trading_api(site_id=HOME_SITE_ID, warnings=True, timeout=EBAY_TIMEOUT,
     if executor:
         return ParallelTrading(**trading_kwargs, executor=executor)
     else:
-        return Trading(**trading_kwargs)
+        return UGSTrading(**trading_kwargs)
 
 
 def get_orders(order_status='All', include_final_value_fees=True,
