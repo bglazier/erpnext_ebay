@@ -52,7 +52,6 @@ def archive_transactions(start_date, end_date):
         frappe.throw('You do not have permission to access the eBay Manager',
                      frappe.PermissionError)
 
-
     if not frappe.db.get_single_value('eBay Manager Settings', 'enable_ebay'):
         frappe.throw('eBay disabled')
 
