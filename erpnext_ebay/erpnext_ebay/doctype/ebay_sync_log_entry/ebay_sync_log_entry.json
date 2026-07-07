@@ -1,4 +1,5 @@
 {
+ "actions": [],
  "creation": "2016-06-01 12:37:51.099792",
  "doctype": "DocType",
  "document_type": "Document",
@@ -42,7 +43,6 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Customer",
-   "options": "Customer",
    "read_only": 1
   },
   {
@@ -50,27 +50,30 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Address",
-   "options": "Address",
    "read_only": 1
   },
   {
    "fieldname": "ebay_order",
-   "fieldtype": "Link",
+   "fieldtype": "Data",
    "in_list_view": 1,
    "label": "eBay order",
-   "options": "eBay order",
    "read_only": 1
   }
  ],
+ "grid_page_length": 50,
  "istable": 1,
- "modified": "2021-10-25 09:17:11.123325",
+ "links": [],
+ "modified": "2026-07-07 09:10:47.115585",
  "modified_by": "Administrator",
  "module": "Erpnext Ebay",
  "name": "eBay sync log entry",
  "owner": "andrewclimbing@gmail.com",
  "permissions": [],
  "quick_entry": 1,
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
  "sort_field": "modified",
  "sort_order": "DESC",
+ "states": [],
  "track_changes": 1
 }
