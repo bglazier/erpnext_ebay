@@ -14,8 +14,30 @@ class eBaysynclog(Document):
         from frappe.query_builder import Interval
         from frappe.query_builder.functions import Now
 
-        table = frappe.qb.DocType("eBay sync log")
+        parent = frappe.qb.DocType("eBay sync log")
+        child = frappe.qb.DocType("eBay sync log entry")
+
+        cut_off = Now() - Interval(days=days)
+
+        # Names of the parent logs due to be removed.
+        old_logs = (
+            frappe.qb.from_(parent)
+            .select(parent.name)
+            .where(parent.ebay_sync_datetime < cut_off)
+        )
+
+        # Delete the child rows first so they are not orphaned; the parent
+        # rows still exist at this point, so the subquery can identify them.
         frappe.db.delete(
-            table,
-            filters=(table.ebay_sync_datetime < (Now() - Interval(days=days)))
+            child,
+            filters=(
+                (child.parenttype == "eBay sync log")
+                & (child.parent.isin(old_logs))
+            )
+        )
+
+        # Then delete the parent logs themselves.
+        frappe.db.delete(
+            parent,
+            filters=(parent.ebay_sync_datetime < cut_off)
         )
