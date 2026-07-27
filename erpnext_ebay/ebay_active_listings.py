@@ -20,6 +20,8 @@ OUTPUT_SELECTOR = [
     'ItemArray.Item.SKU',
     'ItemArray.Item.Quantity',
     'ItemArray.Item.ListingType',
+    'ItemArray.Item.Location',
+    'ItemArray.Item.PostalCode',
     'ItemArray.Item.SellingStatus.CurrentPrice',
     'ItemArray.Item.SellingStatus.QuantitySold',
     'ItemArray.Item.ListingDetails.EndTime'
@@ -74,6 +76,8 @@ def generate_active_ebay_data(print=None, multiple_error_sites=None,
             sku VARCHAR(20) NOT NULL,
             ebay_id VARCHAR(38),
             listing_type VARCHAR(20),
+            location VARCHAR(200),
+            postal_code VARCHAR(80),
             end_time DATETIME,
             qty INTEGER,
             price DECIMAL(18,6),
@@ -135,6 +139,8 @@ def generate_active_ebay_data(print=None, multiple_error_sites=None,
             # Loop over each eBay item on each site
             ebay_id = item['ItemID']
             listing_type = item['ListingType']
+            location = item.get('Location', '')
+            postal_code = item.get('PostalCode', '')
             end_time = datetime.datetime.strptime(
                 item['ListingDetails']['EndTime'],
                 '%Y-%m-%dT%H:%M:%S.%fZ')
@@ -157,9 +163,10 @@ def generate_active_ebay_data(print=None, multiple_error_sites=None,
                 multiple_check.add(mult_tuple)
 
             qty = original_qty - qty_sold
-            records.append(
-                (sku, ebay_id, listing_type, end_time, qty, price, site)
-            )
+            records.append((
+                sku, ebay_id, listing_type, location, postal_code,
+                end_time, qty, price, site
+            ))
 
         msgs = []
         if multiple_error:
@@ -182,7 +189,7 @@ def generate_active_ebay_data(print=None, multiple_error_sites=None,
             # Insert eBay listings into the zeBayListings temporary table"""
             frappe.db.sql("""
                 INSERT INTO `zeBayListings`
-                    VALUES (%s, %s, %s, %s, %s, %s, %s);
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);
                 """, record, auto_commit=True)
 
         frappe.cache().set_value('erpnext_ebay.last_update',
