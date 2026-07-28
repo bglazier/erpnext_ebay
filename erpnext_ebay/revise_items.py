@@ -11,7 +11,7 @@ import frappe
 
 from erpnext_ebay.utils.general_utils import chunker
 from erpnext_ebay.ebay_revise_requests import (
-    revise_inventory_status, relist_item, end_items)
+    revise_inventory_status, relist_item, revise_item, end_items)
 
 from ebaysdk.exception import ConnectionError
 from ebaysdk.trading import Connection as Trading
@@ -167,7 +167,7 @@ def revise_ebay_inventory(item_data, print=print, item_codes=None,
 
 @frappe.whitelist()
 def client_revise_ebay_item(item_data, item_code=None):
-    """Revise an item's price and/or qty from the JS front-end.
+    """Revise an item's price, qty and/or postcode from the JS front-end.
     Will end a listing if the qty is set to zero.
     """
 
@@ -182,11 +182,23 @@ def client_revise_ebay_item(item_data, item_code=None):
         frappe.throw('Invalid format for item_data!')
 
     qty = item_data.get('qty')
+    price = item_data.get('price')
+    postcode = item_data.get('postcode')
     if qty == 0:
         item = (item_data['ebay_id'], 'NotAvailable')
         end_ebay_listings([item], item_codes=[item_code])
+    elif postcode:
+        # Postcode is an item-level field and cannot be set via
+        # ReviseInventoryStatus, so revise it together with any price and
+        # quantity updates in a single ReviseItem call.
+        item_dict = {'PostalCode': postcode}
+        if price is not None:
+            item_dict['StartPrice'] = price
+        if qty is not None:
+            item_dict['Quantity'] = int(qty)
+        revise_item(item_data['ebay_id'], item_dict=item_dict)
     else:
-        item = item_data['ebay_id'], item_data.get('price'), qty
+        item = item_data['ebay_id'], price, qty
         revise_ebay_inventory([item], item_codes=[item_code])
 
 
