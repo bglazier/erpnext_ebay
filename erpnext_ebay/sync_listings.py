@@ -22,6 +22,8 @@ OUTPUT_SELECTOR = [
     'ItemArray.Item.ListingDetails.ViewItemURL',
     'ItemArray.Item.ListingDuration',
     'ItemArray.Item.ListingType',
+    'ItemArray.Item.Location',
+    'ItemArray.Item.PostalCode',
     'ItemArray.Item.Quantity',
     'ItemArray.Item.QuestionCount',  # not GetSellerList
     'ItemArray.Item.SellingStatus.CurrentPrice',
@@ -371,12 +373,14 @@ def create_ebay_online_selling_item(listing, item_code,
         'price_rate': price,
         'price_currency': price_currency,
         'tax_rate': subtype_tax_dict[subtype],
+        'postcode': listing.get('PostalCode', ''),
         'start_datetime': start_datetime,
         'end_datetime': end_datetime,
         'title': listing['Title'],
         'ebay_listing_duration': duration_description,
         'ebay_watch_count': int(listing.get('WatchCount', 0)),
         'ebay_question_count': int(listing.get('QuestionCount', 0)),
+        'location': listing.get('Location', ''),
         'selling_url': selling_url,
         'shipping_options': shipping_string})
 
