@@ -145,7 +145,7 @@
   {
    "columns": 1,
    "fieldname": "selling_url",
-   "fieldtype": "HTML Editor",
+   "fieldtype": "Small Text",
    "in_list_view": 1,
    "label": "Online URL",
    "read_only": 1
@@ -185,7 +185,7 @@
  "in_create": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-07-28 13:19:25.717713",
+ "modified": "2026-07-29 17:06:56.209899",
  "modified_by": "Administrator",
  "module": "Erpnext Ebay",
  "name": "Online Selling Item",
