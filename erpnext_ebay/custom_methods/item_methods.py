@@ -23,7 +23,9 @@ def item_before_save_ebay(doc):
     """Remove any online selling items before selling for platforms
     where this is specified.
     """
-    from erpnext_ebay.online_selling import platform_dict
+    from erpnext_ebay.online_selling import get_platform_dict
+
+    platform_dict = get_platform_dict()
 
     online_selling_platforms = frappe.get_all(
         'Online Selling Platform', fields=['name', 'selling_platform'])
@@ -46,7 +48,9 @@ def item_before_save_ebay(doc):
 
 def item_onload_ebay(doc):
     """Get the latest active listings for this item."""
-    from erpnext_ebay.online_selling import platform_dict
+    from erpnext_ebay.online_selling import get_platform_dict
+
+    platform_dict = get_platform_dict()
 
     # Check if we have a role that should not run the platform onload event
     excluded_roles = frappe.get_hooks('no_online_selling_roles') or []
@@ -100,7 +104,9 @@ def item_platform_async(item_code):
     """Return any Online Selling Items for this item code acquired
     asynchronously via JS.
     """
-    from erpnext_ebay.online_selling import platform_dict
+    from erpnext_ebay.online_selling import get_platform_dict
+
+    platform_dict = get_platform_dict()
 
     # Whitelisted function; check permissions
     if not frappe.has_permission('Item', 'read'):

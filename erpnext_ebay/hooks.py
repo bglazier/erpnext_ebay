@@ -144,6 +144,14 @@ scheduler_events = {
 
 no_online_selling_roles = []
 
+# Online Selling Platform handler classes, by selling platform name.
+# Other apps can register additional platforms by declaring this hook;
+# for duplicate platform names, the last-installed app wins.
+
+online_selling_platforms = {
+    "eBay": "erpnext_ebay.online_selling.platform_ebay.eBayPlatform"
+}
+
 # Testing
 # -------
 
